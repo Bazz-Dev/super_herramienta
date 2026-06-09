@@ -1,11 +1,11 @@
 import { computeTotals, type QuoteData } from './types'
 import { esc, formatDate, formatMoney } from './format'
 
-// Parameterized HTML template — the single source of truth shared by both the
-// in-app QuotePreview (iframe) and the Playwright PDF, so they are identical.
+// Parameterized HTML template — single source of truth shared by the in-app
+// QuotePreview (iframe) and the Playwright PDF, so they are identical.
 //
-// Every color/size below comes from DESIGN-SYSTEM.MD tokens. Do NOT introduce
-// values that are not in that file.
+// A4 paginated, 3 visual templates (minimal | clasico | imagen-hd).
+// Colors come from DESIGN-SYSTEM.MD tokens.
 
 const TOKENS = `
   --color-primary: #f5b100;
@@ -17,262 +17,302 @@ const TOKENS = `
   --color-table-alt: #f9f9f9;
 `
 
-function styles(): string {
+function baseStyles(): string {
   return `
   :root {${TOKENS}}
-  @page { size: 390px auto; margin: 0; }
+  @page { size: A4; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 390px; }
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     color: var(--color-text);
     background: #ffffff;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.5;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  .section { padding: 24px; }
-  .muted { color: var(--color-muted); }
 
-  /* ---- Logo ---- */
+  /* ---- Pagination safety: nothing important splits across pages ---- */
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  .block { margin-bottom: 22px; }
+  .avoid, .scope-item, .totals, .signatures, .doc-footer, table.prices tr { break-inside: avoid; }
+  .section-header, h2 { break-after: avoid; }
+  .cover { break-after: page; }
+
+  .muted { color: var(--color-muted); }
   .logo { font-weight: 700; color: var(--color-black); letter-spacing: -0.02em; }
   .logo .dot { color: var(--color-primary); }
 
-  /* ---- Portada ---- */
-  .cover { padding: 24px; }
-  .cover .logo { font-size: 32px; }
-  .cover .tagline { font-weight: 400; color: var(--color-muted); margin-top: 4px; font-size: 14px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-  .chip {
-    background: var(--color-black);
-    color: var(--color-primary);
-    border-radius: 4px;
-    padding: 6px 10px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .chip .chip-label { color: #ffffff; font-weight: 400; opacity: 0.7; display: block; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; }
-  .stripe { height: 6px; background: var(--color-primary); margin-top: 20px; }
+  /* ---- Cover: shared ---- */
+  .cover { position: relative; }
+  .cover .tagline { font-weight: 400; color: var(--color-muted); margin-top: 4px; }
+  .info-grid { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 22px; }
+  .info-grid .field .k { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-muted); }
+  .info-grid .field .v { font-weight: 600; color: var(--color-black); font-size: 13px; }
+  .stripe { height: 6px; background: var(--color-primary); margin-top: 24px; }
 
-  /* ---- Section header (banda negra, acento amarillo izquierdo) ---- */
+  /* ---- Section header (clasico/hd: black band) ---- */
   .section-header {
     background: var(--color-black);
     color: #ffffff;
     border-left: 4px solid var(--color-primary);
-    padding: 10px 16px;
+    padding: 9px 14px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+    margin-bottom: 12px;
   }
 
-  /* ---- Resumen / texto ---- */
-  .lead { font-size: 13px; color: var(--color-text); }
-
-  /* ---- Alcance ---- */
-  .scope-item { padding: 12px 0; border-bottom: 1px solid var(--color-border); }
+  .lead { font-size: 12.5px; }
+  .scope-item { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
   .scope-item:last-child { border-bottom: none; }
   .scope-title { font-weight: 600; color: var(--color-black); }
   .scope-detail { margin-top: 2px; }
 
-  /* ---- Tabla de precios ---- */
-  table.prices { width: 100%; border-collapse: collapse; page-break-inside: avoid; }
+  /* ---- Price table ---- */
+  table.prices { width: 100%; border-collapse: collapse; }
   table.prices thead th {
-    background: var(--color-black);
-    color: #ffffff;
-    text-align: left;
-    padding: 8px 10px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    background: var(--color-black); color: #ffffff; text-align: left;
+    padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em;
   }
   table.prices thead th.num { text-align: right; }
-  table.prices tbody td { padding: 8px 10px; font-size: 12px; vertical-align: top; }
+  table.prices tbody td { padding: 8px 10px; font-size: 12px; vertical-align: top; border-bottom: 1px solid var(--color-border); }
   table.prices tbody td.num { text-align: right; white-space: nowrap; }
-  table.prices tbody tr:nth-child(odd) { background: #ffffff; }
   table.prices tbody tr:nth-child(even) { background: var(--color-table-alt); }
   table.prices .item-detail { color: var(--color-muted); font-size: 11px; margin-top: 2px; }
-  .totals { width: 100%; border-collapse: collapse; margin-top: 0; page-break-inside: avoid; }
+
+  .totals { width: 280px; margin-left: auto; margin-top: 10px; border-collapse: collapse; }
   .totals td { padding: 6px 10px; font-size: 12px; }
   .totals td.num { text-align: right; white-space: nowrap; }
-  .totals tr.total td {
-    background: var(--color-black);
-    color: var(--color-primary);
-    font-weight: 700;
-    font-size: 14px;
-  }
+  .totals tr.total td { background: var(--color-black); color: var(--color-primary); font-weight: 700; font-size: 14px; }
 
-  /* ---- Exclusiones ---- */
-  ol.exclusions { list-style: decimal; padding-left: 20px; }
+  ol.exclusions { padding-left: 20px; }
   ol.exclusions li { padding: 4px 0; }
 
-  /* ---- Condiciones ---- */
   ul.conditions { list-style: none; }
-  ul.conditions li { padding: 6px 0; padding-left: 16px; position: relative; border-bottom: 1px solid var(--color-border); }
+  ul.conditions li { padding: 6px 0 6px 16px; position: relative; border-bottom: 1px solid var(--color-border); }
   ul.conditions li:last-child { border-bottom: none; }
-  ul.conditions li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: var(--color-primary); border-radius: 1px; }
-  .validity { margin-top: 12px; padding: 10px 12px; background: var(--color-table-alt); border-left: 4px solid var(--color-primary); font-size: 12px; }
+  ul.conditions li::before { content: ''; position: absolute; left: 0; top: 12px; width: 6px; height: 6px; background: var(--color-primary); }
+  .validity { margin-top: 12px; padding: 10px 12px; background: var(--color-table-alt); border-left: 4px solid var(--color-primary); }
 
-  /* ---- Firma doble ---- */
-  .signatures { display: flex; gap: 16px; margin-top: 32px; }
+  .signatures { display: flex; gap: 40px; margin-top: 40px; }
   .sign { flex: 1; text-align: center; }
   .sign .line { border-top: 1px solid var(--color-black); margin-bottom: 6px; }
-  .sign .who { font-weight: 600; color: var(--color-black); font-size: 12px; }
+  .sign .who { font-weight: 600; color: var(--color-black); }
   .sign .role { color: var(--color-muted); font-size: 11px; }
 
-  /* ---- Footer ---- */
-  .footer { background: var(--color-black); color: #ffffff; padding: 24px; page-break-inside: avoid; }
-  .footer .logo { color: #ffffff; font-size: 20px; }
-  .footer .contact { margin-top: 10px; font-size: 11px; line-height: 1.7; opacity: 0.85; }
+  .doc-footer { background: var(--color-black); color: #ffffff; padding: 18px 20px; margin-top: 28px; }
+  .doc-footer .logo { color: #ffffff; font-size: 18px; }
+  .doc-footer .contact { margin-top: 8px; font-size: 11px; line-height: 1.7; opacity: 0.85; }
+
+  .body-pad { padding: 0; }
+
+  /* ===== Template: Clásico ===== */
+  .tpl-clasico .cover { padding: 4px 0 0; }
+  .tpl-clasico .cover .logo { font-size: 34px; }
+
+  /* ===== Template: Minimal ===== */
+  .tpl-minimal .section-header {
+    background: transparent; color: var(--color-black); border-left: none;
+    border-bottom: 2px solid var(--color-primary); padding: 0 0 6px;
+    border-radius: 0;
+  }
+  .tpl-minimal .cover .logo { font-size: 22px; }
+  .tpl-minimal .cover-title { font-size: 40px; font-weight: 300; color: var(--color-black); margin-top: 40px; letter-spacing: -0.02em; }
+  .tpl-minimal .stripe { width: 64px; height: 4px; }
+  .tpl-minimal table.prices thead th { background: #ffffff; color: var(--color-black); border-bottom: 2px solid var(--color-black); }
+  .tpl-minimal .doc-footer { background: #ffffff; color: var(--color-text); border-top: 2px solid var(--color-black); }
+  .tpl-minimal .doc-footer .logo { color: var(--color-black); }
+  .tpl-minimal .doc-footer .contact { opacity: 1; color: var(--color-muted); }
+
+  /* ===== Template: Imagen HD (portada full-bleed) ===== */
+  .tpl-hd .cover.hd {
+    position: relative; height: 281mm; margin: -14mm -14mm 0; color: #ffffff; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    background-size: cover; background-position: center;
+  }
+  .tpl-hd .cover.hd .overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.82) 100%);
+  }
+  .tpl-hd .cover.hd .hd-content { position: relative; padding: 0 8mm 14mm; }
+  .tpl-hd .cover.hd .logo { color: #ffffff; font-size: 30px; }
+  .tpl-hd .cover.hd .tagline { color: rgba(255,255,255,0.85); }
+  .tpl-hd .cover.hd .hd-title { font-size: 30px; font-weight: 700; margin-top: 12px; }
+  .tpl-hd .cover.hd .hd-client { font-size: 16px; margin-top: 6px; opacity: 0.9; }
+  .tpl-hd .cover.hd .stripe { width: 80px; margin-top: 14px; }
+  .tpl-hd .cover.hd.no-image { background: var(--color-black); }
   `
 }
 
-function renderChips(data: QuoteData): string {
-  const chips =
-    data.chips.length > 0
-      ? data.chips
-      : [
-          { label: 'Cotización', value: data.quoteId },
-          { label: 'Fecha', value: formatDate(data.date) },
-          { label: 'Cliente', value: data.client.name },
-          { label: 'Validez', value: `${data.validityDays} días` },
-        ]
-  return chips
-    .slice(0, 4)
-    .map(
-      (c) =>
-        `<div class="chip"><span class="chip-label">${esc(c.label)}</span>${esc(c.value)}</div>`,
-    )
-    .join('')
+function field(k: string, v: string): string {
+  return `<div class="field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`
 }
 
-function renderItemsRows(data: QuoteData): string {
-  return data.items
+function renderCover(data: QuoteData): string {
+  const info = `<div class="info-grid">
+    ${field('Cotización', data.quoteId)}
+    ${field('Fecha', formatDate(data.date))}
+    ${field('Cliente', data.client.name)}
+    ${data.client.rut ? field('RUT', data.client.rut) : ''}
+    ${field('Validez', `${data.validityDays} días`)}
+  </div>`
+
+  if (data.template === 'imagen-hd') {
+    const hasImg = !!data.coverImageUrl
+    const bg = hasImg ? `style="background-image:url('${data.coverImageUrl}')"` : ''
+    return `<header class="cover hd ${hasImg ? '' : 'no-image'}" ${bg}>
+      <div class="overlay"></div>
+      <div class="hd-content">
+        <div class="logo">INGEGAR<span class="dot">.</span></div>
+        <div class="tagline">${esc(data.tagline)}</div>
+        <div class="hd-title">Propuesta comercial</div>
+        <div class="hd-client">${esc(data.client.name)}</div>
+        <div class="stripe"></div>
+      </div>
+    </header>`
+  }
+
+  if (data.template === 'minimal') {
+    return `<header class="cover">
+      <div class="logo">INGEGAR<span class="dot">.</span></div>
+      <div class="tagline">${esc(data.tagline)}</div>
+      <div class="cover-title">Cotización</div>
+      <div class="stripe"></div>
+      ${info}
+    </header>`
+  }
+
+  // clásico
+  return `<header class="cover">
+    <div class="logo">INGEGAR<span class="dot">.</span></div>
+    <div class="tagline">${esc(data.tagline)}</div>
+    ${info}
+    <div class="stripe"></div>
+  </header>`
+}
+
+function renderItemsTable(data: QuoteData): string {
+  const cols = data.customColumns
+  const head = `<tr>
+    <th>Ítem</th>
+    ${cols.map((c) => `<th>${esc(c.label)}</th>`).join('')}
+    <th class="num">Cant.</th>
+    <th class="num">Unitario</th>
+    <th class="num">Total</th>
+  </tr>`
+
+  const rows = data.items
     .map((item) => {
       const lineTotal = item.quantity * item.unitPrice
-      const detail = item.detail
-        ? `<div class="item-detail">${esc(item.detail)}</div>`
-        : ''
+      const detail = item.detail ? `<div class="item-detail">${esc(item.detail)}</div>` : ''
+      const customCells = cols
+        .map((c) => `<td>${esc(item.custom?.[c.id] ?? '')}</td>`)
+        .join('')
       return `<tr>
         <td>${esc(item.description)}${detail}</td>
+        ${customCells}
         <td class="num">${esc(item.quantity)}</td>
         <td class="num">${formatMoney(item.unitPrice, data.currency)}</td>
         <td class="num">${formatMoney(lineTotal, data.currency)}</td>
       </tr>`
     })
     .join('')
+
+  return `<table class="prices"><thead>${head}</thead><tbody>${rows}</tbody></table>`
+}
+
+function sectionHeader(title: string): string {
+  return `<div class="section-header">${esc(title)}</div>`
 }
 
 export function renderQuoteHTML(data: QuoteData): string {
   const totals = computeTotals(data)
   const taxPct = Math.round(data.taxRate * 100)
 
-  const scope = data.scope
-    .map(
-      (s) =>
-        `<div class="scope-item"><div class="scope-title">${esc(s.title)}</div><div class="scope-detail">${esc(s.detail)}</div></div>`,
-    )
-    .join('')
+  const scope = data.scope.length
+    ? data.scope
+        .map(
+          (s) =>
+            `<div class="scope-item"><div class="scope-title">${esc(s.title)}</div>${s.detail ? `<div class="scope-detail">${esc(s.detail)}</div>` : ''}</div>`,
+        )
+        .join('')
+    : '<p class="muted">—</p>'
 
-  const exclusions =
-    data.exclusions.length > 0
-      ? `<ol class="exclusions">${data.exclusions.map((e) => `<li>${esc(e)}</li>`).join('')}</ol>`
-      : '<p class="muted">Sin exclusiones.</p>'
+  const exclusions = data.exclusions.length
+    ? `<ol class="exclusions">${data.exclusions.map((e) => `<li>${esc(e)}</li>`).join('')}</ol>`
+    : '<p class="muted">Sin exclusiones.</p>'
 
-  const conditions =
-    data.commercialConditions.length > 0
-      ? `<ul class="conditions">${data.commercialConditions.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>`
-      : ''
+  const conditions = data.commercialConditions.length
+    ? `<ul class="conditions">${data.commercialConditions.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>`
+    : ''
 
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=390" />
 <title>${esc(data.quoteId)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-<style>${styles()}</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet" />
+<style>${baseStyles()}</style>
 </head>
-<body>
+<body class="tpl-${data.template}">
 
-  <!-- 1. Portada -->
-  <header class="cover">
-    <div class="logo">INGEGAR<span class="dot">.</span></div>
-    <div class="tagline">${esc(data.tagline)}</div>
-    <div class="chips">${renderChips(data)}</div>
-    <div class="stripe"></div>
-  </header>
+  ${renderCover(data)}
 
-  <!-- 2. Resumen ejecutivo -->
-  <div class="section-header">Resumen ejecutivo</div>
-  <section class="section"><p class="lead">${esc(data.executiveSummary)}</p></section>
+  <div class="body-pad">
+    <section class="block">
+      ${sectionHeader('Resumen ejecutivo')}
+      <p class="lead">${esc(data.executiveSummary || '—')}</p>
+    </section>
 
-  <!-- 3. Alcance de trabajo -->
-  <div class="section-header">Alcance de trabajo</div>
-  <section class="section">${scope}</section>
+    <section class="block">
+      ${sectionHeader('Alcance de trabajo')}
+      ${scope}
+    </section>
 
-  <!-- 4. Tabla de precios -->
-  <div class="section-header">Detalle de precios</div>
-  <section class="section">
-    <table class="prices">
-      <thead>
-        <tr>
-          <th>Ítem</th>
-          <th class="num">Cant.</th>
-          <th class="num">Unitario</th>
-          <th class="num">Total</th>
-        </tr>
-      </thead>
-      <tbody>${renderItemsRows(data)}</tbody>
-    </table>
-    <table class="totals">
-      <tbody>
-        <tr><td>Neto</td><td class="num">${formatMoney(totals.net, data.currency)}</td></tr>
-        <tr><td>IVA (${taxPct}%)</td><td class="num">${formatMoney(totals.tax, data.currency)}</td></tr>
-        <tr class="total"><td>TOTAL</td><td class="num">${formatMoney(totals.total, data.currency)}</td></tr>
-      </tbody>
-    </table>
-  </section>
+    <section class="block">
+      ${sectionHeader('Detalle de precios')}
+      ${renderItemsTable(data)}
+      <table class="totals avoid">
+        <tbody>
+          <tr><td>Neto</td><td class="num">${formatMoney(totals.net, data.currency)}</td></tr>
+          <tr><td>IVA (${taxPct}%)</td><td class="num">${formatMoney(totals.tax, data.currency)}</td></tr>
+          <tr class="total"><td>TOTAL</td><td class="num">${formatMoney(totals.total, data.currency)}</td></tr>
+        </tbody>
+      </table>
+    </section>
 
-  <!-- 5. Exclusiones -->
-  <div class="section-header">Exclusiones</div>
-  <section class="section">${exclusions}</section>
+    <section class="block">
+      ${sectionHeader('Exclusiones')}
+      ${exclusions}
+    </section>
 
-  <!-- 6. Condiciones comerciales -->
-  <div class="section-header">Condiciones comerciales</div>
-  <section class="section">
-    ${conditions}
-    <div class="validity">Validez de esta cotización: <strong>${esc(data.validityDays)} días</strong> a contar del ${esc(formatDate(data.date))}.</div>
-  </section>
+    <section class="block">
+      ${sectionHeader('Condiciones comerciales')}
+      ${conditions}
+      <div class="validity">Validez de esta cotización: <strong>${esc(data.validityDays)} días</strong> a contar del ${esc(formatDate(data.date))}.</div>
+    </section>
 
-  <!-- 7. Firma doble -->
-  <section class="section">
-    <div class="signatures">
-      <div class="sign">
-        <div class="line"></div>
-        <div class="who">${esc(data.contact.company)}</div>
-        <div class="role">Oferente</div>
+    <section class="block">
+      <div class="signatures">
+        <div class="sign"><div class="line"></div><div class="who">${esc(data.contact.company)}</div><div class="role">Oferente</div></div>
+        <div class="sign"><div class="line"></div><div class="who">${esc(data.client.name)}</div><div class="role">Aceptación cliente</div></div>
       </div>
-      <div class="sign">
-        <div class="line"></div>
-        <div class="who">${esc(data.client.name)}</div>
-        <div class="role">Aceptación cliente</div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="logo">INGEGAR<span class="dot">.</span></div>
-    <div class="contact">
-      ${esc(data.contact.company)}<br />
-      ${esc(data.contact.email)}${data.contact.phone ? ` · ${esc(data.contact.phone)}` : ''}<br />
-      ${esc(data.contact.web)}
-    </div>
-  </footer>
+    <footer class="doc-footer avoid">
+      <div class="logo">INGEGAR<span class="dot">.</span></div>
+      <div class="contact">
+        ${esc(data.contact.company)}<br />
+        ${esc(data.contact.email)}${data.contact.phone ? ` · ${esc(data.contact.phone)}` : ''}<br />
+        ${esc(data.contact.web)}
+      </div>
+    </footer>
+  </div>
 
 </body>
 </html>`

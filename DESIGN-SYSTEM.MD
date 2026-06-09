@@ -21,7 +21,8 @@ Logo: "INGEGAR." (con punto, bold, #111111)
 Tagline: 400 weight, #666666
 
 ### Layout cotización
-- Viewport render: 390px width (mobile-first, Playwright)
+- ⚠️ ACTUALIZADO (jun-2026): el cotizador usa **A4 paginado** (no 390px). El valor 390px de abajo queda obsoleto por decisión del usuario (PDF de ancho normal, bien distribuido, con pie de página repetido).
+- Viewport render histórico: 390px width (mobile-first, Playwright) — OBSOLETO
 - Sin márgenes externos
 - Padding interno secciones: 24px
 - Tablas: nunca se cortan entre páginas (page-break-inside: avoid)

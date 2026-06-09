@@ -20,7 +20,7 @@ cotizador con plantillas propias y pipeline comercial. Multi-tenant ligero
 | ORM | Prisma 7 + driver adapter `better-sqlite3` | 7.8.x |
 | DB | SQLite (archivo `prisma/dev.db`) | — |
 | Auth | Auth.js v5 (`next-auth@5`, credentials + JWT) | 5.0.0-beta.x |
-| PDF | **Playwright/Chromium** (`page.pdf` @ 390px) — render HTML real | 1.60.x |
+| PDF | **Playwright/Chromium** (`page.pdf` A4 paginado, pie repetido) | 1.60.x |
 | Validación | Zod | 4.x |
 | Hash | bcryptjs (JS puro, sin binarios nativos) | 3.x |
 | E2E | Playwright | 1.60.x |
@@ -83,14 +83,16 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - La URL de conexión vive en **`prisma.config.ts`** (no en `schema.prisma` — Prisma 7 lo movió ahí). `.env` carga vía `dotenv`.
 
 ### Módulo Cotizador (`src/lib/quotes/`, `src/components/quotes/`)
-- **`DESIGN-SYSTEM.MD` es la fuente de verdad visual.** No introducir colores/medidas fuera de sus tokens. La referencia HTML original (`design-reference/cotizacion-referencia.html`) **no fue entregada**; el template se reconstruyó desde los tokens del design system + los 2 PDF de propuesta. Pendiente de validación visual del usuario contra esos PDFs.
-- **Una sola fuente de verdad de render**: `renderQuoteHTML(data)` (`src/lib/quotes/template.ts`) genera el HTML. Lo usan **tanto** el `QuotePreview` (iframe en la app) **como** el PDF (Playwright) → preview y PDF son idénticos por construcción.
-- `src/lib/quotes/types.ts` — `QuoteData` + schema Zod + `computeTotals` (IVA 19%).
-- `src/lib/quotes/template.ts` — template HTML parametrizado (390px, secciones en orden fijo del design system). Valores escapados con `esc()` (anti-inyección).
-- `src/lib/quotes/pdf.ts` — `generateQuotePdf()` vía Chromium (`page.pdf` 390px, `printBackground`, margin 0). **Node runtime only.**
-- `src/app/api/quotes/generate/route.ts` — `POST` autenticado, valida con Zod, devuelve `application/pdf`. `runtime = 'nodejs'`.
-- `src/app/(app)/cotizador/page.tsx` — preview + botón de descarga (usa `sampleQuote`).
-- Reglas del design system que el código respeta: tablas con `page-break-inside: avoid`, sin `backdrop-filter`, sin opacity-stacking, fila total negro/amarillo, header de sección banda negra + borde amarillo 4px, chips negro/amarillo, footer negro.
+- **Editor online funcional** (`/cotizador`): campos editables, alcance, exclusiones y condiciones como listas, tabla de ítems con **columnas dinámicas**, cálculo automático de neto/IVA/total, **preview en vivo** (debounce 250ms) y descarga PDF.
+- **3 plantillas A4** seleccionables: `minimal`, `clasico`, `imagen-hd` (portada full-bleed con imagen subida por el usuario). El valor histórico de 390px del `DESIGN-SYSTEM.MD` quedó **obsoleto** (override del usuario → A4).
+- **Una sola fuente de verdad de render**: `renderQuoteHTML(data)` (`template.ts`) genera el HTML que usan **tanto** el `QuotePreview` (iframe, escalado a A4) **como** el PDF (Playwright) → preview ≈ PDF.
+- `types.ts` — `QuoteData` (template, customColumns, items con `custom`, coverImageUrl) + Zod + `computeTotals` (IVA 19%).
+- `template.ts` — 3 plantillas, A4, paginación segura (`break-inside: avoid` en filas/secciones, `thead` repetido, `break-after: page` en portada). Valores escapados con `esc()`.
+- `pdf.ts` — `generateQuotePdf()`: Chromium `page.pdf` A4, `displayHeaderFooter` (n.º de página + contacto), margins 14/16mm. Inyecta la imagen de portada local como data-URI. **Node runtime only.**
+- `quote-id.ts` — genera `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`.
+- API: `POST /api/quotes/generate` (→ PDF) y `POST /api/uploads` (imagen de portada → `public/uploads`, gitignored). Ambas autenticadas, `runtime='nodejs'`.
+- Componentes (`src/components/quotes/`): `quote-editor` (orquestador), `items-editor` (columnas dinámicas), `scope-editor`, `string-list-editor`, `cover-image-upload`, `quote-preview`, `download-pdf-button`, `ui` (primitivos).
+- **Pendiente**: persistencia en DB (modelo `Quote`, guardar/listar/editar) — se hará junto al Pipeline. Validación visual fina vs. los PDFs de `design-reference/`.
 
 ---
 
@@ -113,7 +115,7 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 ## Roadmap de módulos (orden de build)
 
 1. ✅ **Auth + multi-tenant** (Fase 0 — hecho).
-2. 🟡 **Cotizador** (en progreso): template HTML parametrizado + `QuotePreview` + endpoint PDF (Playwright). **Falta**: formulario de captura, persistencia en DB, numeración automática de `quoteId`.
+2. 🟡 **Cotizador** (editor funcional listo): editor online + 3 plantillas A4 + columnas dinámicas + cálculo automático + preview en vivo + PDF + subida de imagen. **Falta**: persistencia en DB (guardar/listar/editar cotizaciones).
 3. ⬜ **Recursos**: técnicos, proyectos, asignaciones, calendario.
 4. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
 

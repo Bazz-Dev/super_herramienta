@@ -1,14 +1,28 @@
 import { z } from 'zod'
 
-// Data model for a quote ("cotización"). Mirrors the fixed page structure
-// defined in DESIGN-SYSTEM.MD (portada → resumen → alcance → precios →
-// exclusiones → condiciones → firma → footer).
+// Data model for a quote ("cotización"). A4 paginated, multi-template.
+
+export const TEMPLATES = ['minimal', 'clasico', 'imagen-hd'] as const
+export type TemplateId = (typeof TEMPLATES)[number]
+
+export const TEMPLATE_LABELS: Record<TemplateId, string> = {
+  minimal: 'Minimal',
+  clasico: 'Clásico',
+  'imagen-hd': 'Imagen HD',
+}
+
+export const customColumnSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+})
 
 export const quoteItemSchema = z.object({
   description: z.string().min(1),
   detail: z.string().optional(),
-  quantity: z.number().positive(),
+  quantity: z.number().nonnegative(),
   unitPrice: z.number().nonnegative(),
+  // Values for user-defined columns, keyed by custom column id.
+  custom: z.record(z.string(), z.string()).default({}),
 })
 
 export const quoteChipSchema = z.object({
@@ -18,12 +32,15 @@ export const quoteChipSchema = z.object({
 
 export const quoteScopeSchema = z.object({
   title: z.string().min(1),
-  detail: z.string().min(1),
+  detail: z.string().default(''),
 })
 
 export const quoteDataSchema = z.object({
+  template: z.enum(TEMPLATES).default('clasico'),
+  coverImageUrl: z.string().optional(), // for the "imagen-hd" template
+
   quoteId: z.string().min(1), // ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]
-  date: z.string().min(1), // ISO or display date
+  date: z.string().min(1),
   validityDays: z.number().int().positive().default(30),
 
   client: z.object({
@@ -33,11 +50,12 @@ export const quoteDataSchema = z.object({
   }),
 
   tagline: z.string().default('Ingeniería y Gestión de Activos'),
-  chips: z.array(quoteChipSchema).max(4).default([]),
 
-  executiveSummary: z.string().min(1),
-  scope: z.array(quoteScopeSchema).min(1),
-  items: z.array(quoteItemSchema).min(1),
+  executiveSummary: z.string().default(''),
+  scope: z.array(quoteScopeSchema).default([]),
+
+  customColumns: z.array(customColumnSchema).default([]),
+  items: z.array(quoteItemSchema).default([]),
 
   currency: z.enum(['CLP', 'UF', 'USD']).default('CLP'),
   taxRate: z.number().min(0).max(1).default(0.19), // IVA Chile 19%
@@ -55,6 +73,7 @@ export const quoteDataSchema = z.object({
     .default({ company: 'INGEGAR SpA', email: 'contacto@ingegarchile.cl', web: 'ingegarchile.cl' }),
 })
 
+export type CustomColumn = z.infer<typeof customColumnSchema>
 export type QuoteItem = z.infer<typeof quoteItemSchema>
 export type QuoteChip = z.infer<typeof quoteChipSchema>
 export type QuoteScope = z.infer<typeof quoteScopeSchema>

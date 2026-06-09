@@ -27,7 +27,8 @@ next-env.d.ts
 
 # misc
 *.tsbuildinfo
-/tmp-quote.pdf
+/tmp-quote*.pdf
+/public/uploads
 .DS_Store
 *.pem
 npm-debug.log*

@@ -1,8 +1,8 @@
 import type { QuoteData } from './types'
 
-// Example data for previewing the template. Content is illustrative — replace
-// with real form input. Avoids generic AI/commercial filler per DESIGN-SYSTEM.MD.
+// Default starting data for the editor. Illustrative content.
 export const sampleQuote: QuoteData = {
+  template: 'clasico',
   quoteId: 'ING-MANT-260609-ALCON-001',
   date: '2026-06-09',
   validityDays: 30,
@@ -12,7 +12,6 @@ export const sampleQuote: QuoteData = {
     rut: '96.789.000-1',
   },
   tagline: 'Ingeniería y Gestión de Activos',
-  chips: [],
   executiveSummary:
     'Servicio de mantención preventiva semestral para los equipos de climatización de las salas limpias, incluyendo cambio de filtros HEPA, medición de caudales y certificación de partículas según protocolo interno.',
   scope: [
@@ -29,10 +28,17 @@ export const sampleQuote: QuoteData = {
       detail: 'Conteo de partículas en reposo y operación; emisión de informe ISO 14644-1.',
     },
   ],
+  customColumns: [],
   items: [
-    { description: 'Mantención UMA (por unidad)', quantity: 4, unitPrice: 320000 },
-    { description: 'Filtro HEPA H14 + instalación', detail: 'Incluye test DOP', quantity: 18, unitPrice: 145000 },
-    { description: 'Certificación de partículas ISO 14644-1', quantity: 1, unitPrice: 680000 },
+    { description: 'Mantención UMA (por unidad)', quantity: 4, unitPrice: 320000, custom: {} },
+    {
+      description: 'Filtro HEPA H14 + instalación',
+      detail: 'Incluye test DOP',
+      quantity: 18,
+      unitPrice: 145000,
+      custom: {},
+    },
+    { description: 'Certificación de partículas ISO 14644-1', quantity: 1, unitPrice: 680000, custom: {} },
   ],
   currency: 'CLP',
   taxRate: 0.19,
