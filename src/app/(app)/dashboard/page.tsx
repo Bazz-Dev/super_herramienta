@@ -1,9 +1,10 @@
+import Link from 'next/link'
 import { auth } from '@/auth'
 
 const MODULES = [
-  { name: 'Cotizador', desc: 'Plantillas, formularios y exportación PDF', status: 'Próximamente' },
-  { name: 'Recursos', desc: 'Técnicos, proyectos, asignaciones y calendario', status: 'Próximamente' },
-  { name: 'Pipeline', desc: 'Cotizaciones enviadas, estados y seguimiento', status: 'Próximamente' },
+  { name: 'Cotizador', desc: 'Plantillas, formularios y exportación PDF', status: 'Disponible', href: '/cotizador' },
+  { name: 'Recursos', desc: 'Técnicos, proyectos, asignaciones y calendario', status: 'Próximamente', href: null },
+  { name: 'Pipeline', desc: 'Cotizaciones enviadas, estados y seguimiento', status: 'Próximamente', href: null },
 ]
 
 export default async function DashboardPage() {
@@ -21,20 +22,39 @@ export default async function DashboardPage() {
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {MODULES.map((m) => (
-          <div
-            key={m.name}
-            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">{m.name}</h2>
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                {m.status}
-              </span>
+        {MODULES.map((m) => {
+          const card = (
+            <>
+              <div className="flex items-center justify-between">
+                <h2 className="font-semibold">{m.name}</h2>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    m.href ? 'bg-brand/15 text-brand-600' : 'bg-gray-100 text-gray-500'
+                  }`}
+                >
+                  {m.status}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-gray-500">{m.desc}</p>
+            </>
+          )
+          return m.href ? (
+            <Link
+              key={m.name}
+              href={m.href}
+              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:border-brand hover:shadow-md"
+            >
+              {card}
+            </Link>
+          ) : (
+            <div
+              key={m.name}
+              className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            >
+              {card}
             </div>
-            <p className="mt-2 text-sm text-gray-500">{m.desc}</p>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

@@ -20,7 +20,7 @@ cotizador con plantillas propias y pipeline comercial. Multi-tenant ligero
 | ORM | Prisma 7 + driver adapter `better-sqlite3` | 7.8.x |
 | DB | SQLite (archivo `prisma/dev.db`) | — |
 | Auth | Auth.js v5 (`next-auth@5`, credentials + JWT) | 5.0.0-beta.x |
-| PDF | `@react-pdf/renderer` (sin navegador) | 4.5.x |
+| PDF | **Playwright/Chromium** (`page.pdf` @ 390px) — render HTML real | 1.60.x |
 | Validación | Zod | 4.x |
 | Hash | bcryptjs (JS puro, sin binarios nativos) | 3.x |
 | E2E | Playwright | 1.60.x |
@@ -28,8 +28,8 @@ cotizador con plantillas propias y pipeline comercial. Multi-tenant ligero
 ### Decisiones de stack (por qué difiere del brief original)
 - **Next 16, no 14**: el brief pedía Next 14, pero React 19 (ya instalado) exige Next 15+. Se usó la LTS actual (16).
 - **Auth.js v5, no NextAuth 4**: v4 es legacy/Pages Router; v5 es nativo de App Router (`auth()` universal).
-- **PDF con `@react-pdf/renderer`, NO Playwright/Chromium**: el deploy es **Benzahosting cPanel compartido**, que no puede ejecutar Chromium. Playwright queda **solo para tests E2E**.
-- **SQLite + better-sqlite3**: archivo único, corre en cPanel sin servidor de DB. Suficiente para uso interno; migrar a Postgres si crece la concurrencia.
+- **PDF con Playwright/Chromium** (revisado): el cotizador exige fidelidad pixel-perfect a una plantilla HTML. `@react-pdf/renderer` NO renderiza HTML/CSS arbitrario, así que se descartó. Playwright renderiza el HTML real y exporta vía `page.pdf()` a 390px. **Implica que el deploy NO puede ser cPanel compartido** (no corre Chromium) → ver sección Deploy.
+- **SQLite + better-sqlite3**: archivo único, sin servidor de DB. Suficiente para uso interno; migrar a Postgres si crece la concurrencia.
 
 ---
 
@@ -82,6 +82,16 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - Importar el cliente **solo** desde `src/lib/prisma.ts` (singleton con el adapter).
 - La URL de conexión vive en **`prisma.config.ts`** (no en `schema.prisma` — Prisma 7 lo movió ahí). `.env` carga vía `dotenv`.
 
+### Módulo Cotizador (`src/lib/quotes/`, `src/components/quotes/`)
+- **`DESIGN-SYSTEM.MD` es la fuente de verdad visual.** No introducir colores/medidas fuera de sus tokens. La referencia HTML original (`design-reference/cotizacion-referencia.html`) **no fue entregada**; el template se reconstruyó desde los tokens del design system + los 2 PDF de propuesta. Pendiente de validación visual del usuario contra esos PDFs.
+- **Una sola fuente de verdad de render**: `renderQuoteHTML(data)` (`src/lib/quotes/template.ts`) genera el HTML. Lo usan **tanto** el `QuotePreview` (iframe en la app) **como** el PDF (Playwright) → preview y PDF son idénticos por construcción.
+- `src/lib/quotes/types.ts` — `QuoteData` + schema Zod + `computeTotals` (IVA 19%).
+- `src/lib/quotes/template.ts` — template HTML parametrizado (390px, secciones en orden fijo del design system). Valores escapados con `esc()` (anti-inyección).
+- `src/lib/quotes/pdf.ts` — `generateQuotePdf()` vía Chromium (`page.pdf` 390px, `printBackground`, margin 0). **Node runtime only.**
+- `src/app/api/quotes/generate/route.ts` — `POST` autenticado, valida con Zod, devuelve `application/pdf`. `runtime = 'nodejs'`.
+- `src/app/(app)/cotizador/page.tsx` — preview + botón de descarga (usa `sampleQuote`).
+- Reglas del design system que el código respeta: tablas con `page-break-inside: avoid`, sin `backdrop-filter`, sin opacity-stacking, fila total negro/amarillo, header de sección banda negra + borde amarillo 4px, chips negro/amarillo, footer negro.
+
 ---
 
 ## Convenciones del proyecto
@@ -103,7 +113,7 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 ## Roadmap de módulos (orden de build)
 
 1. ✅ **Auth + multi-tenant** (Fase 0 — hecho).
-2. ⬜ **Cotizador**: plantillas HTML + formulario dinámico + export PDF (`@react-pdf/renderer`).
+2. 🟡 **Cotizador** (en progreso): template HTML parametrizado + `QuotePreview` + endpoint PDF (Playwright). **Falta**: formulario de captura, persistencia en DB, numeración automática de `quoteId`.
 3. ⬜ **Recursos**: técnicos, proyectos, asignaciones, calendario.
 4. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
 
@@ -111,16 +121,17 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 
 ---
 
-## Deploy — Benzahosting (cPanel compartido)
+## Deploy — VPS (requerido por Playwright)
 
-⚠️ **A confirmar con el proveedor antes de desplegar:**
-- Requiere la función **"Setup Node.js App" (Passenger)** en el plan para correr el servidor Next.js.
-- **No** ejecutar Chromium/Playwright en producción (no soportado en compartido) — por eso el PDF es por código.
-- SQLite: el archivo `dev.db`/prod debe quedar fuera del webroot público y con permisos de escritura.
-- `AUTH_SECRET` de producción se genera con `npx auth secret` (nunca reutilizar el de `.env` de dev).
-- Build se hace localmente/CI y se sube; `npm start` sirve el output.
+El cotizador genera PDFs con Chromium, que **no corre en cPanel compartido**. Por eso el target de producción es un **VPS** (Benzahosting u otro) con Node + Chromium.
 
-Si el plan no soporta Node persistente, alternativas: VPS de Benzahosting, o deploy del frontend en un host con Node y la DB junto a él.
+- En el VPS: `npx playwright install --with-deps chromium` (instala Chromium + libs del sistema).
+- `chromium.launch({ args: ['--no-sandbox'] })` ya está configurado en `src/lib/quotes/pdf.ts`.
+- SQLite: el archivo de DB fuera del webroot público, con permisos de escritura.
+- `AUTH_SECRET` de producción: `npx auth secret` (nunca reutilizar el de `.env` de dev).
+- Build (`npm run build`) en CI/local o en el VPS; `npm start` sirve el output.
+
+**Alternativa** si se quisiera mantener la app en cPanel: extraer la generación de PDF a un microservicio aparte (VPS pequeño o navegador headless gestionado tipo Browserless) y que el endpoint lo invoque. No implementado.
 
 ---
 
@@ -140,13 +151,18 @@ src/
   lib/
     prisma.ts           # singleton del cliente + adapter
     tenant.ts           # scoping multi-tenant
+    quotes/             # types, format, template (HTML), pdf (Playwright), sample
   types/next-auth.d.ts  # augmentación de tipos de sesión
-  components/ui/        # componentes base
+  components/
+    ui/                 # componentes base
+    quotes/             # QuotePreview (iframe) + DownloadPdfButton
   app/
     layout.tsx          # branding global (Inter, tokens)
     page.tsx            # redirige a /login o /dashboard
     (auth)/login/       # page + login-form (client) + actions (server)
-    (app)/              # layout protegido + dashboard
+    (app)/              # layout protegido + dashboard + cotizador
     api/auth/[...nextauth]/route.ts
+    api/quotes/generate/route.ts   # POST → PDF
 tests/e2e/              # Playwright
+scripts/test-pdf.ts     # genera un PDF de ejemplo a disco (dev)
 ```
