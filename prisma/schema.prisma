@@ -1,0 +1,48 @@
+// INGEGAR Platform — Prisma schema (Prisma 7, driver adapters)
+// Multi-tenant ligero: cada recurso lleva tenantId. El rol "super" (INGEGAR) ve todo.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "nodejs"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  super
+  supervisor
+  client
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  slug      String   @unique // ingegar | justburger | loficoffee
+  name      String
+  brandHex  String   @default("#f5b100")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(client)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("users")
+}
