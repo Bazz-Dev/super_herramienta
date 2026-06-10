@@ -2,9 +2,9 @@ import Link from 'next/link'
 
 const SECTIONS = [
   { name: 'Técnicos', desc: 'Personas, especialidades y contacto', href: '/recursos/tecnicos', ready: true },
-  { name: 'Cuadrillas', desc: 'Grupos de técnicos para asignar como unidad', href: '/recursos/cuadrillas', ready: false },
-  { name: 'Maquinaria / activos', desc: 'Equipos y herramientas con estado', href: '/recursos/activos', ready: false },
-  { name: 'Cronograma', desc: 'Asignaciones y calendario de trabajos', href: '/recursos/cronograma', ready: false },
+  { name: 'Cuadrillas', desc: 'Grupos de técnicos para asignar como unidad', href: '/recursos/cuadrillas', ready: true },
+  { name: 'Maquinaria / activos', desc: 'Equipos y herramientas con estado', href: '/recursos/activos', ready: true },
+  { name: 'Cronograma', desc: 'Asignaciones y calendario de trabajos', href: '/recursos/cronograma', ready: true },
 ]
 
 export default function RecursosPage() {

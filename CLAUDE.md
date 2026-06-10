@@ -96,6 +96,14 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - Componentes (`src/components/quotes/`): `quote-editor` (orquestador), `items-editor` (columnas dinámicas), `scope-editor`, `string-list-editor`, `cover-image-upload`, `quote-preview`, `download-pdf-button`, `ui` (primitivos).
 - **Pendiente**: persistencia en DB (modelo `Quote`, guardar/listar/editar) — se hará junto al Pipeline. Validación visual fina vs. los PDFs de `design-reference/`.
 
+### Módulo Recursos (`src/lib/resources/`, `src/components/resources/`, `/recursos`)
+- 4 entidades CRUD, todas scoped por tenant (`tenantScope` / `canAccessTenant`): **Técnicos**, **Cuadrillas** (M:N con técnicos), **Activos** (enum `AssetStatus`), **Asignaciones** (cronograma, enum `AssignmentStatus`, links opcionales a técnico/cuadrilla/activo).
+- Patrón por entidad: `lib/resources/<entidad>.ts` (queries) + `app/(app)/recursos/<entidad>/actions.ts` (`'use server'` create/update/delete con Zod + `revalidatePath`) + páginas `page.tsx` (lista), `new/`, `[id]/` + componente form en `components/resources/`.
+- `lib/resources/schemas.ts` — Zod inputs. `labels.ts` — etiquetas/colores de estados. `dates.ts` — helpers `datetime-local`.
+- **Cronograma**: `components/resources/schedule-calendar.tsx` (calendario mensual cliente, Lunes-primero, eventos coloreados por estado) + tabla de asignaciones.
+- Creación: el `tenantId` se toma del actor (super crea bajo `ingegar` pero ve todos).
+- ⚠️ **Tras cambiar el schema Prisma, reiniciar el dev server**: el cliente se cachea en `globalThis` y el hot-reload no lo recarga.
+
 ---
 
 ## Convenciones del proyecto
@@ -118,7 +126,7 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 
 1. ✅ **Auth + multi-tenant** (Fase 0 — hecho).
 2. 🟡 **Cotizador** (editor funcional listo): editor online + 3 plantillas A4 + columnas dinámicas + cálculo automático + preview en vivo + PDF + subida de imagen. **Falta**: persistencia en DB (guardar/listar/editar cotizaciones).
-3. ⬜ **Recursos**: técnicos, proyectos, asignaciones, calendario.
+3. ✅ **Recursos**: técnicos, cuadrillas, activos y cronograma (calendario) — CRUD completo con persistencia y scoping multi-tenant.
 4. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
 
 **Futuro**: ticketing de mantención Just Burger (migrar desde GAS), reportes por tenant, inventario.

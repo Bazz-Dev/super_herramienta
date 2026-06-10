@@ -1,0 +1,89 @@
+import Link from 'next/link'
+import { PlusIcon } from '@/components/quotes/icons'
+import { DeleteButton } from '@/components/resources/delete-button'
+import { ScheduleCalendar } from '@/components/resources/schedule-calendar'
+import { requireActor } from '@/lib/resources/actor'
+import { listAssignments } from '@/lib/resources/assignments'
+import { formatDateTime } from '@/lib/resources/dates'
+import { ASSIGNMENT_STATUS_COLOR, ASSIGNMENT_STATUS_LABELS, type AssignmentStatusId } from '@/lib/resources/labels'
+import { deleteAssignment } from './actions'
+
+export default async function CronogramaPage() {
+  const actor = await requireActor()
+  const assignments = await listAssignments(actor)
+
+  const events = assignments.map((a) => ({
+    id: a.id,
+    title: a.title,
+    start: a.start.toISOString(),
+    status: a.status as AssignmentStatusId,
+  }))
+
+  return (
+    <div className="mx-auto max-w-5xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <Link href="/recursos" className="text-xs text-gray-400 hover:text-gray-600">← Recursos</Link>
+          <h1 className="text-2xl font-bold">Cronograma</h1>
+        </div>
+        <Link
+          href="/recursos/cronograma/new"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-brand-600"
+        >
+          <PlusIcon /> Nueva asignación
+        </Link>
+      </div>
+
+      <div className="mt-5">
+        <ScheduleCalendar events={events} />
+      </div>
+
+      <h2 className="mt-8 mb-2 text-sm font-semibold text-gray-600">Asignaciones</h2>
+      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        {assignments.length === 0 ? (
+          <p className="px-4 py-10 text-center text-sm text-gray-400">Aún no hay asignaciones. Crea la primera.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                <th className="px-4 py-2.5 font-medium">Título</th>
+                <th className="px-4 py-2.5 font-medium">Inicio</th>
+                <th className="px-4 py-2.5 font-medium">Asignado a</th>
+                <th className="px-4 py-2.5 font-medium">Estado</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignments.map((a) => {
+                const who = [a.technician?.name, a.crew?.name, a.asset?.name].filter(Boolean).join(' · ') || '—'
+                return (
+                  <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
+                    <td className="px-4 py-2.5 font-medium text-ink">{a.title}</td>
+                    <td className="px-4 py-2.5 text-gray-600">{formatDateTime(a.start)}</td>
+                    <td className="px-4 py-2.5 text-gray-600">{who}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`rounded-full border px-2 py-0.5 text-xs ${ASSIGNMENT_STATUS_COLOR[a.status as AssignmentStatusId]}`}>
+                        {ASSIGNMENT_STATUS_LABELS[a.status as AssignmentStatusId]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/recursos/cronograma/${a.id}`}
+                          className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                        >
+                          Editar
+                        </Link>
+                        <DeleteButton action={deleteAssignment.bind(null, a.id)} confirmText={`¿Eliminar "${a.title}"?`} />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}

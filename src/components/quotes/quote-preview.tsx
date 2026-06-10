@@ -25,8 +25,8 @@ export function QuotePreview({
     if (!wrap || !frame) return
     const avail = wrap.clientWidth
     setScale(Math.min(1, avail / virtualWidth) * zoom)
-    const doc = frame.contentWindow?.document
-    if (doc) setHeight(doc.documentElement.scrollHeight)
+    const root = frame.contentWindow?.document?.documentElement
+    if (root) setHeight(root.scrollHeight)
   }, [virtualWidth, zoom])
 
   useEffect(() => {
