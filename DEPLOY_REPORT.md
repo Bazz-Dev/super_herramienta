@@ -114,6 +114,15 @@ real conviene un blob store (Vercel Blob / S3 / R2). **Riesgo pendiente, no bloq
   - SQL de bootstrap para Turso generado en `scripts/turso-bootstrap.sql`.
   - Verificado: build + 17/17 E2E (incl. generación de PDF local) en verde tras los cambios.
   - Pendiente: credenciales del usuario (GitHub, Turso, Vercel) — ver §7.
+- **2026-06-10** — **GitHub publicado**: `https://github.com/Bazz-Dev/super_herramienta`
+  (privado). Remoto `origin`, rama `main`. ⚠️ El usuario compartió tokens de Turso en el
+  chat → **rotar tras el deploy**.
+- **2026-06-10** — **Turso aprovisionado**: base `ingegar` (`libsql://ingegar-ingegar.aws-ap-northeast-1.turso.io`).
+  Esquema aplicado con `scripts/deploy-db.ts` (usa `@libsql/client`, sin CLI de Turso) +
+  seed. Verificado (`scripts/verify-db.ts`): 3 tenants, super admin, datos demo. El primer
+  token entregado era de plataforma (401); el segundo, database token `rw`, funcionó.
+  Secrets (DATABASE_URL, TURSO_AUTH_TOKEN, AUTH_SECRET de prod) en `.env.production.local`
+  (gitignored). Pendiente: **Vercel** (requiere `vercel login` interactivo del usuario).
 
 ---
 
