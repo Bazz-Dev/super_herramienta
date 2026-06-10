@@ -88,7 +88,7 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - **Imágenes opcionales** en ambas plantillas: banner de portada (`coverImageUrl`) + sección "Registro fotográfico" (`images[]` con pie de foto). Se suben vía `/api/uploads`.
 - **UX/UI**: íconos SVG (no emojis, `src/components/quotes/icons.tsx`), `cursor-pointer` + transiciones 150ms + focus-visible, empty states, toolbar de preview con zoom y "abrir en pestaña", `prefers-reduced-motion` global, responsive. Basado en la skill `ui-ux-pro-max` (se mantuvo la marca ámbar/Inter, no la paleta sugerida).
 - **Una sola fuente de verdad de render**: `renderQuoteHTML(data)` (`template.ts`) genera el HTML que usan **tanto** el `QuotePreview` (iframe, escalado a A4) **como** el PDF (Playwright) → preview ≈ PDF.
-- `types.ts` — `QuoteData` (template, customColumns, items con `custom`, coverImageUrl) + Zod + `computeTotals` (IVA 19%).
+- `types.ts` — `QuoteData` (template, customColumns, items con `custom`, coverImageUrl) + Zod + `computeTotals`. **Ajustes** (`adjustments`: utilidad, gastos administrativos, ajuste comercial) sobre el costo base antes del neto, cada uno con checkbox + % editable → `{ base, adjustments[], net, tax, total }`.
 - `template.ts` — 3 plantillas, A4, paginación segura (`break-inside: avoid` en filas/secciones, `thead` repetido, `break-after: page` en portada). Valores escapados con `esc()`.
 - `pdf.ts` — `generateQuotePdf()`: Chromium `page.pdf` A4, `displayHeaderFooter` (n.º de página + contacto), margins 14/16mm. Inyecta la imagen de portada local como data-URI. **Node runtime only.**
 - `quote-id.ts` — genera `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`.
@@ -100,7 +100,9 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - 4 entidades CRUD, todas scoped por tenant (`tenantScope` / `canAccessTenant`): **Técnicos**, **Cuadrillas** (M:N con técnicos), **Activos** (enum `AssetStatus`), **Asignaciones** (cronograma, enum `AssignmentStatus`, links opcionales a técnico/cuadrilla/activo).
 - Patrón por entidad: `lib/resources/<entidad>.ts` (queries) + `app/(app)/recursos/<entidad>/actions.ts` (`'use server'` create/update/delete con Zod + `revalidatePath`) + páginas `page.tsx` (lista), `new/`, `[id]/` + componente form en `components/resources/`.
 - `lib/resources/schemas.ts` — Zod inputs. `labels.ts` — etiquetas/colores de estados. `dates.ts` — helpers `datetime-local`.
-- **Cronograma**: `components/resources/schedule-calendar.tsx` (calendario mensual cliente, Lunes-primero, eventos coloreados por estado) + tabla de asignaciones.
+- **Cronograma**: `schedule-calendar.tsx` con vistas **Día/Semana/Mes** (grid de horas en día/semana), **click en celda → crear** (modal con `AssignmentForm`), **click en evento → detalle** (modal con editar/eliminar). Asignaciones enlazan técnico/cuadrilla/activo/**cliente** + `meetingUrl`.
+- **Técnicos**: `vehiclePlate` (patente). **Activos**: `holderId` → herramienta asignada a la camioneta de un técnico (inventario por camioneta, visible en el perfil del técnico).
+- **Clientes**: modelo `Client` (tenant-scoped); en la asignación se elige de un desplegable o se **crea al vuelo** (`createClientInline`). Prepara las estadísticas por técnico/cliente (siguiente fase).
 - Creación: el `tenantId` se toma del actor (super crea bajo `ingegar` pero ve todos).
 - ⚠️ **Tras cambiar el schema Prisma, reiniciar el dev server**: el cliente se cachea en `globalThis` y el hot-reload no lo recarga.
 

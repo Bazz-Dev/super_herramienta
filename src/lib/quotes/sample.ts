@@ -41,6 +41,11 @@ export const sampleQuote: QuoteData = {
     },
     { description: 'Certificación de partículas ISO 14644-1', quantity: 1, unitPrice: 680000, custom: {} },
   ],
+  adjustments: [
+    { key: 'utilidad', label: 'Utilidad', percent: 7, enabled: false },
+    { key: 'gastos_admin', label: 'Gastos administrativos', percent: 3, enabled: false },
+    { key: 'ajuste_comercial', label: 'Ajuste comercial de cierre', percent: 0, enabled: false },
+  ],
   currency: 'CLP',
   taxRate: 0.19,
   exclusions: [

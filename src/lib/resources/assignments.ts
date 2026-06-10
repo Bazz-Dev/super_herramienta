@@ -6,6 +6,7 @@ const withRefs = {
   technician: { select: { id: true, name: true } },
   crew: { select: { id: true, name: true } },
   asset: { select: { id: true, name: true } },
+  client: { select: { id: true, name: true } },
 } as const
 
 export async function listAssignments(actor: TenantActor) {
@@ -22,12 +23,13 @@ export async function getAssignment(actor: TenantActor, id: string) {
 
 // Options for the assignment form selects.
 export async function assignmentOptions(actor: TenantActor) {
-  const [technicians, crews, assets] = await Promise.all([
+  const [technicians, crews, assets, clients] = await Promise.all([
     prisma.technician.findMany({ where: { ...tenantScope(actor), active: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.crew.findMany({ where: { ...tenantScope(actor), active: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
     prisma.asset.findMany({ where: { ...tenantScope(actor) }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.client.findMany({ where: { ...tenantScope(actor) }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ])
-  return { technicians, crews, assets }
+  return { technicians, crews, assets, clients }
 }
 
 export type AssignmentListItem = Awaited<ReturnType<typeof listAssignments>>[number]

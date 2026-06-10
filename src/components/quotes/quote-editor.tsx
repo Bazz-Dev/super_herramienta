@@ -129,7 +129,57 @@ export function QuoteEditor({ initial }: { initial: QuoteData }) {
             onItemsChange={(items) => set({ items })}
             onColumnsChange={(customColumns) => set({ customColumns })}
           />
+
+          {/* Adjustments (utilidad, gastos admin, ajuste comercial) */}
+          <div className="mt-4 rounded-lg border border-gray-200 p-3">
+            <p className="mb-2 text-xs font-medium text-gray-600">Ajustes sobre el costo base</p>
+            <div className="flex flex-col gap-1.5">
+              {data.adjustments.map((adj) => {
+                const amount = Math.round((totals.base * adj.percent) / 100)
+                return (
+                  <div key={adj.key} className="flex items-center gap-2">
+                    <label className="flex flex-1 cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={adj.enabled}
+                        onChange={(e) =>
+                          set({ adjustments: data.adjustments.map((a) => (a.key === adj.key ? { ...a, enabled: e.target.checked } : a)) })
+                        }
+                        className="h-4 w-4 cursor-pointer accent-brand"
+                      />
+                      <span className={`text-sm ${adj.enabled ? 'text-ink' : 'text-gray-400'}`}>{adj.label}</span>
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        step="any"
+                        value={adj.percent}
+                        disabled={!adj.enabled}
+                        onChange={(e) =>
+                          set({ adjustments: data.adjustments.map((a) => (a.key === adj.key ? { ...a, percent: Number(e.target.value) } : a)) })
+                        }
+                        className="w-16 rounded-md border border-gray-300 px-2 py-1 text-right text-sm outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30 disabled:bg-gray-50 disabled:text-gray-400"
+                      />
+                      <span className="text-xs text-gray-400">%</span>
+                      <span className="w-24 text-right text-xs tabular-nums text-gray-500">
+                        {adj.enabled ? formatMoney(amount, data.currency) : '—'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
           <div className="mt-4 ml-auto w-full max-w-xs text-sm">
+            {totals.adjustments.length > 0 && (
+              <>
+                <Row label="Costo base" value={formatMoney(totals.base, data.currency)} />
+                {totals.adjustments.map((a) => (
+                  <Row key={a.label} label={`${a.label} (${a.percent}%)`} value={formatMoney(a.amount, data.currency)} />
+                ))}
+              </>
+            )}
             <Row label="Neto" value={formatMoney(totals.net, data.currency)} />
             <Row label={`IVA (${Math.round(data.taxRate * 100)}%)`} value={formatMoney(totals.tax, data.currency)} />
             <div className="mt-1 flex justify-between rounded-md bg-ink px-3 py-1.5 font-bold text-brand">

@@ -77,6 +77,25 @@ async function main() {
     })
   }
 
+  // --- Enrich for newer features (idempotent) ---
+  const firstTech = await prisma.technician.findFirst({ where: { tenantId: ingegar.id }, orderBy: { name: 'asc' } })
+  if (firstTech) {
+    if (!firstTech.vehiclePlate) {
+      await prisma.technician.update({ where: { id: firstTech.id }, data: { vehiclePlate: 'GJKL-45' } })
+    }
+    const unheld = await prisma.asset.findFirst({ where: { tenantId: ingegar.id, holderId: null } })
+    if (unheld) await prisma.asset.update({ where: { id: unheld.id }, data: { holderId: firstTech.id } })
+  }
+
+  let client = await prisma.client.findFirst({ where: { tenantId: ingegar.id } })
+  if (!client) {
+    client = await prisma.client.create({
+      data: { name: 'Alcon Laboratorios Chile', rut: '96.789.000-1', tenantId: ingegar.id },
+    })
+  }
+  const noClient = await prisma.assignment.findFirst({ where: { tenantId: ingegar.id, clientId: null } })
+  if (noClient) await prisma.assignment.update({ where: { id: noClient.id }, data: { clientId: client.id } })
+
   console.log('Seed complete.')
   console.log('  Tenants:', tenants.map((t) => t.slug).join(', '))
   console.log('  Super user: admin@ingegarchile.cl /', password)

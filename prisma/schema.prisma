@@ -44,6 +44,7 @@ model Tenant {
   crews       Crew[]
   assets      Asset[]
   assignments Assignment[]
+  clients     Client[]
 
   @@map("tenants")
 }
@@ -68,25 +69,45 @@ model User {
 // --- Recursos: técnicos, cuadrillas, activos, asignaciones (cronograma) ---
 
 model Technician {
-  id        String   @id @default(cuid())
-  name      String
-  rut       String?
-  specialty String? // especialidad / oficio (texto libre)
-  email     String?
-  phone     String?
-  active    Boolean  @default(true)
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  rut          String?
+  specialty    String? // especialidad / oficio (texto libre)
+  email        String?
+  phone        String?
+  vehiclePlate String? // patente del vehículo / camioneta asignada
+  active       Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   crews       Crew[] // M:N implícito
   assignments Assignment[]
+  tools       Asset[] // herramientas/activos asignados a su camioneta
 
   @@index([tenantId])
   @@map("technicians")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  rut       String?
+  contact   String?
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  assignments Assignment[]
+
+  @@index([tenantId])
+  @@map("clients")
 }
 
 model Crew {
@@ -120,9 +141,14 @@ model Asset {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  // Camioneta/técnico al que está asignada la herramienta (inventario por camioneta).
+  holderId String?
+  holder   Technician? @relation(fields: [holderId], references: [id], onDelete: SetNull)
+
   assignments Assignment[]
 
   @@index([tenantId])
+  @@index([holderId])
   @@map("assets")
 }
 
@@ -136,6 +162,8 @@ model Assignment {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
+  meetingUrl String? // enlace de reunión (Meet/Zoom), opcional
+
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -145,6 +173,8 @@ model Assignment {
   crew         Crew?       @relation(fields: [crewId], references: [id], onDelete: SetNull)
   assetId      String?
   asset        Asset?      @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  clientId     String?
+  client       Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([start])

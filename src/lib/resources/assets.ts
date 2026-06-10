@@ -8,7 +8,10 @@ export async function listAssets(actor: TenantActor, search?: string) {
       ...tenantScope(actor),
       ...(q ? { OR: [{ name: { contains: q } }, { code: { contains: q } }, { category: { contains: q } }] } : {}),
     },
-    include: { tenant: { select: { slug: true } } },
+    include: {
+      tenant: { select: { slug: true } },
+      holder: { select: { id: true, name: true, vehiclePlate: true } },
+    },
     orderBy: [{ name: 'asc' }],
   })
 }

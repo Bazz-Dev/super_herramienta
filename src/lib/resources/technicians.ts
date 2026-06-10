@@ -23,10 +23,12 @@ export async function listTechnicians(actor: TenantActor, search?: string) {
 }
 
 export async function getTechnician(actor: TenantActor, id: string) {
-  const tech = await prisma.technician.findFirst({
+  return prisma.technician.findFirst({
     where: { id, ...tenantScope(actor) },
+    include: {
+      tools: { select: { id: true, name: true, code: true, status: true }, orderBy: { name: 'asc' } },
+    },
   })
-  return tech
 }
 
 export type TechnicianListItem = Awaited<ReturnType<typeof listTechnicians>>[number]

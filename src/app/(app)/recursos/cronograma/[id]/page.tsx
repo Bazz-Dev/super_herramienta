@@ -28,6 +28,8 @@ export default async function EditAsignacionPage({ params }: { params: Promise<{
           technicianId: assignment.technicianId,
           crewId: assignment.crewId,
           assetId: assignment.assetId,
+          clientId: assignment.clientId,
+          meetingUrl: assignment.meetingUrl,
         }}
         submitLabel="Guardar cambios"
       />

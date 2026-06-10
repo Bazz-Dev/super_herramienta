@@ -17,6 +17,7 @@ export const technicianInputSchema = z.object({
     .transform((v) => (v === '' ? undefined : v))
     .refine((v) => v === undefined || z.email().safeParse(v).success, 'Email inválido.'),
   phone: optionalText,
+  vehiclePlate: optionalText,
   active: z.boolean().default(true),
   notes: optionalText,
 })
@@ -28,6 +29,7 @@ export const assetInputSchema = z.object({
   code: optionalText,
   category: optionalText,
   status: z.enum(['available', 'in_use', 'maintenance', 'retired']).default('available'),
+  holderId: optionalText, // técnico/camioneta al que se asigna
   notes: optionalText,
 })
 export type AssetInput = z.infer<typeof assetInputSchema>
@@ -50,6 +52,8 @@ export const assignmentInputSchema = z
     technicianId: optionalText,
     crewId: optionalText,
     assetId: optionalText,
+    clientId: optionalText,
+    meetingUrl: optionalText,
   })
   .refine((d) => new Date(d.end) >= new Date(d.start), {
     message: 'El término no puede ser anterior al inicio.',

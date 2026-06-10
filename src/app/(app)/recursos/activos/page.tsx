@@ -48,6 +48,7 @@ export default async function ActivosPage({ searchParams }: { searchParams: Prom
                 <th className="px-4 py-2.5 font-medium">Nombre</th>
                 <th className="px-4 py-2.5 font-medium">Código</th>
                 <th className="px-4 py-2.5 font-medium">Categoría</th>
+                <th className="px-4 py-2.5 font-medium">Camioneta</th>
                 {isSuper && <th className="px-4 py-2.5 font-medium">Tenant</th>}
                 <th className="px-4 py-2.5 font-medium">Estado</th>
                 <th className="px-4 py-2.5"></th>
@@ -59,6 +60,9 @@ export default async function ActivosPage({ searchParams }: { searchParams: Prom
                   <td className="px-4 py-2.5 font-medium text-ink">{a.name}</td>
                   <td className="px-4 py-2.5 text-gray-600">{a.code ?? '—'}</td>
                   <td className="px-4 py-2.5 text-gray-600">{a.category ?? '—'}</td>
+                  <td className="px-4 py-2.5 text-gray-600">
+                    {a.holder ? `${a.holder.name}${a.holder.vehiclePlate ? ` · ${a.holder.vehiclePlate}` : ''}` : '—'}
+                  </td>
                   {isSuper && <td className="px-4 py-2.5 uppercase text-gray-500">{a.tenant.slug}</td>}
                   <td className="px-4 py-2.5">
                     <span className={`rounded-full px-2 py-0.5 text-xs ${ASSET_STATUS_BADGE[a.status as AssetStatusId]}`}>

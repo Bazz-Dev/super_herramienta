@@ -3,20 +3,27 @@ import { PlusIcon } from '@/components/quotes/icons'
 import { DeleteButton } from '@/components/resources/delete-button'
 import { ScheduleCalendar } from '@/components/resources/schedule-calendar'
 import { requireActor } from '@/lib/resources/actor'
-import { listAssignments } from '@/lib/resources/assignments'
+import { assignmentOptions, listAssignments } from '@/lib/resources/assignments'
 import { formatDateTime } from '@/lib/resources/dates'
 import { ASSIGNMENT_STATUS_COLOR, ASSIGNMENT_STATUS_LABELS, type AssignmentStatusId } from '@/lib/resources/labels'
-import { deleteAssignment } from './actions'
+import { createAssignment, deleteAssignment } from './actions'
 
 export default async function CronogramaPage() {
   const actor = await requireActor()
-  const assignments = await listAssignments(actor)
+  const [assignments, options] = await Promise.all([listAssignments(actor), assignmentOptions(actor)])
 
   const events = assignments.map((a) => ({
     id: a.id,
     title: a.title,
     start: a.start.toISOString(),
+    end: a.end.toISOString(),
     status: a.status as AssignmentStatusId,
+    technician: a.technician?.name ?? null,
+    crew: a.crew?.name ?? null,
+    asset: a.asset?.name ?? null,
+    client: a.client?.name ?? null,
+    meetingUrl: a.meetingUrl,
+    description: a.description,
   }))
 
   return (
@@ -35,7 +42,7 @@ export default async function CronogramaPage() {
       </div>
 
       <div className="mt-5">
-        <ScheduleCalendar events={events} />
+        <ScheduleCalendar events={events} options={options} createAction={createAssignment} deleteAction={deleteAssignment} />
       </div>
 
       <h2 className="mt-8 mb-2 text-sm font-semibold text-gray-600">Asignaciones</h2>
@@ -55,7 +62,7 @@ export default async function CronogramaPage() {
             </thead>
             <tbody>
               {assignments.map((a) => {
-                const who = [a.technician?.name, a.crew?.name, a.asset?.name].filter(Boolean).join(' · ') || '—'
+                const who = [a.client?.name, a.technician?.name, a.crew?.name, a.asset?.name].filter(Boolean).join(' · ') || '—'
                 return (
                   <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
                     <td className="px-4 py-2.5 font-medium text-ink">{a.title}</td>

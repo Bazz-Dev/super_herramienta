@@ -19,6 +19,8 @@ function parse(formData: FormData) {
     technicianId: formData.get('technicianId'),
     crewId: formData.get('crewId'),
     assetId: formData.get('assetId'),
+    clientId: formData.get('clientId'),
+    meetingUrl: formData.get('meetingUrl'),
   })
 }
 
@@ -32,7 +34,24 @@ function toData(input: ReturnType<typeof assignmentInputSchema.parse>) {
     technicianId: input.technicianId ?? null,
     crewId: input.crewId ?? null,
     assetId: input.assetId ?? null,
+    clientId: input.clientId ?? null,
+    meetingUrl: input.meetingUrl ?? null,
   }
+}
+
+// Inline client creation from the assignment form (admin can add a missing client).
+export async function createClientInline(
+  name: string,
+  rut?: string,
+): Promise<{ id: string; name: string } | { error: string }> {
+  const actor = await requireActor()
+  const trimmed = name.trim()
+  if (!trimmed) return { error: 'El nombre del cliente es obligatorio.' }
+  const client = await prisma.client.create({
+    data: { name: trimmed, rut: rut?.trim() || null, tenantId: actor.tenantId },
+  })
+  revalidatePath('/recursos/cronograma')
+  return { id: client.id, name: client.name }
 }
 
 export async function createAssignment(_prev: FormState, formData: FormData): Promise<FormState> {
