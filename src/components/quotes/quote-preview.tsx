@@ -5,7 +5,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // Renders the quote using the exact same HTML/CSS the PDF uses, inside an
 // isolated iframe at A4 width (≈794px @96dpi) scaled down to fit the panel.
 // What you see matches the PDF layout (true page breaks only show in the PDF).
-export function QuotePreview({ html, virtualWidth = 794 }: { html: string; virtualWidth?: number }) {
+export function QuotePreview({
+  html,
+  virtualWidth = 794,
+  zoom = 1,
+}: {
+  html: string
+  virtualWidth?: number
+  zoom?: number
+}) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLIFrameElement>(null)
   const [scale, setScale] = useState(1)
@@ -16,10 +24,10 @@ export function QuotePreview({ html, virtualWidth = 794 }: { html: string; virtu
     const frame = frameRef.current
     if (!wrap || !frame) return
     const avail = wrap.clientWidth
-    setScale(Math.min(1, avail / virtualWidth))
+    setScale(Math.min(1, avail / virtualWidth) * zoom)
     const doc = frame.contentWindow?.document
     if (doc) setHeight(doc.documentElement.scrollHeight)
-  }, [virtualWidth])
+  }, [virtualWidth, zoom])
 
   useEffect(() => {
     const ro = new ResizeObserver(measure)

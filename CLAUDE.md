@@ -84,7 +84,9 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 
 ### Módulo Cotizador (`src/lib/quotes/`, `src/components/quotes/`)
 - **Editor online funcional** (`/cotizador`): campos editables, alcance, exclusiones y condiciones como listas, tabla de ítems con **columnas dinámicas**, cálculo automático de neto/IVA/total, **preview en vivo** (debounce 250ms) y descarga PDF.
-- **3 plantillas A4** seleccionables: `minimal`, `clasico`, `imagen-hd` (portada full-bleed con imagen subida por el usuario). El valor histórico de 390px del `DESIGN-SYSTEM.MD` quedó **obsoleto** (override del usuario → A4).
+- **2 plantillas A4** seleccionables: `clasico` (principal) y `minimal`. El valor histórico de 390px del `DESIGN-SYSTEM.MD` quedó **obsoleto** (override del usuario → A4).
+- **Imágenes opcionales** en ambas plantillas: banner de portada (`coverImageUrl`) + sección "Registro fotográfico" (`images[]` con pie de foto). Se suben vía `/api/uploads`.
+- **UX/UI**: íconos SVG (no emojis, `src/components/quotes/icons.tsx`), `cursor-pointer` + transiciones 150ms + focus-visible, empty states, toolbar de preview con zoom y "abrir en pestaña", `prefers-reduced-motion` global, responsive. Basado en la skill `ui-ux-pro-max` (se mantuvo la marca ámbar/Inter, no la paleta sugerida).
 - **Una sola fuente de verdad de render**: `renderQuoteHTML(data)` (`template.ts`) genera el HTML que usan **tanto** el `QuotePreview` (iframe, escalado a A4) **como** el PDF (Playwright) → preview ≈ PDF.
 - `types.ts` — `QuoteData` (template, customColumns, items con `custom`, coverImageUrl) + Zod + `computeTotals` (IVA 19%).
 - `template.ts` — 3 plantillas, A4, paginación segura (`break-inside: avoid` en filas/secciones, `thead` repetido, `break-after: page` en portada). Valores escapados con `esc()`.

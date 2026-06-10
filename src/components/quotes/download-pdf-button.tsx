@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import type { QuoteData } from '@/lib/quotes/types'
+import { DownloadIcon } from './icons'
+import { Button } from './ui'
 
 export function DownloadPdfButton({ data }: { data: QuoteData }) {
   const [loading, setLoading] = useState(false)
@@ -30,15 +32,12 @@ export function DownloadPdfButton({ data }: { data: QuoteData }) {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <button
-        onClick={handleClick}
-        disabled={loading}
-        className="rounded-md bg-brand px-4 py-2 font-semibold text-ink transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {loading ? 'Generando PDF…' : 'Descargar PDF'}
-      </button>
-      {error && <span className="text-sm text-red-600">{error}</span>}
+    <div className="flex items-center gap-2">
+      {error && <span className="text-xs text-red-600">{error}</span>}
+      <Button onClick={handleClick} disabled={loading} aria-busy={loading}>
+        <DownloadIcon />
+        {loading ? 'Generando…' : 'Descargar PDF'}
+      </Button>
     </div>
   )
 }

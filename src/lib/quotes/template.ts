@@ -127,23 +127,18 @@ function baseStyles(): string {
   .tpl-minimal .doc-footer .logo { color: var(--color-black); }
   .tpl-minimal .doc-footer .contact { opacity: 1; color: var(--color-muted); }
 
-  /* ===== Template: Imagen HD (portada full-bleed) ===== */
-  .tpl-hd .cover.hd {
-    position: relative; height: 281mm; margin: -14mm -14mm 0; color: #ffffff; overflow: hidden;
-    display: flex; flex-direction: column; justify-content: flex-end;
-    background-size: cover; background-position: center;
+  /* ===== Optional cover banner (both templates) ===== */
+  .cover-banner {
+    height: 48mm; margin: -14mm -14mm 18px; background-size: cover; background-position: center;
+    position: relative; overflow: hidden;
   }
-  .tpl-hd .cover.hd .overlay {
-    position: absolute; inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 45%, rgba(0,0,0,0.82) 100%);
-  }
-  .tpl-hd .cover.hd .hd-content { position: relative; padding: 0 8mm 14mm; }
-  .tpl-hd .cover.hd .logo { color: #ffffff; font-size: 30px; }
-  .tpl-hd .cover.hd .tagline { color: rgba(255,255,255,0.85); }
-  .tpl-hd .cover.hd .hd-title { font-size: 30px; font-weight: 700; margin-top: 12px; }
-  .tpl-hd .cover.hd .hd-client { font-size: 16px; margin-top: 6px; opacity: 0.9; }
-  .tpl-hd .cover.hd .stripe { width: 80px; margin-top: 14px; }
-  .tpl-hd .cover.hd.no-image { background: var(--color-black); }
+  .cover-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%); }
+
+  /* ===== Registro fotográfico (annex) ===== */
+  .photo-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+  .photo { width: calc(50% - 6px); break-inside: avoid; }
+  .photo img { width: 100%; height: 56mm; object-fit: cover; border: 1px solid var(--color-border); display: block; }
+  .photo .caption { font-size: 11px; color: var(--color-muted); margin-top: 4px; }
   `
 }
 
@@ -160,23 +155,13 @@ function renderCover(data: QuoteData): string {
     ${field('Validez', `${data.validityDays} días`)}
   </div>`
 
-  if (data.template === 'imagen-hd') {
-    const hasImg = !!data.coverImageUrl
-    const bg = hasImg ? `style="background-image:url('${data.coverImageUrl}')"` : ''
-    return `<header class="cover hd ${hasImg ? '' : 'no-image'}" ${bg}>
-      <div class="overlay"></div>
-      <div class="hd-content">
-        <div class="logo">INGEGAR<span class="dot">.</span></div>
-        <div class="tagline">${esc(data.tagline)}</div>
-        <div class="hd-title">Propuesta comercial</div>
-        <div class="hd-client">${esc(data.client.name)}</div>
-        <div class="stripe"></div>
-      </div>
-    </header>`
-  }
+  const banner = data.coverImageUrl
+    ? `<div class="cover-banner" style="background-image:url('${data.coverImageUrl}')"></div>`
+    : ''
 
   if (data.template === 'minimal') {
     return `<header class="cover">
+      ${banner}
       <div class="logo">INGEGAR<span class="dot">.</span></div>
       <div class="tagline">${esc(data.tagline)}</div>
       <div class="cover-title">Cotización</div>
@@ -187,11 +172,26 @@ function renderCover(data: QuoteData): string {
 
   // clásico
   return `<header class="cover">
+    ${banner}
     <div class="logo">INGEGAR<span class="dot">.</span></div>
     <div class="tagline">${esc(data.tagline)}</div>
     ${info}
     <div class="stripe"></div>
   </header>`
+}
+
+function renderImages(data: QuoteData): string {
+  if (!data.images.length) return ''
+  const grid = data.images
+    .map(
+      (img) =>
+        `<figure class="photo"><img src="${img.url}" alt="${esc(img.caption || 'Imagen adjunta')}" />${img.caption ? `<figcaption class="caption">${esc(img.caption)}</figcaption>` : ''}</figure>`,
+    )
+    .join('')
+  return `<section class="block">
+    ${sectionHeader('Registro fotográfico')}
+    <div class="photo-grid">${grid}</div>
+  </section>`
 }
 
 function renderItemsTable(data: QuoteData): string {
@@ -296,6 +296,8 @@ export function renderQuoteHTML(data: QuoteData): string {
       ${conditions}
       <div class="validity">Validez de esta cotización: <strong>${esc(data.validityDays)} días</strong> a contar del ${esc(formatDate(data.date))}.</div>
     </section>
+
+    ${renderImages(data)}
 
     <section class="block">
       <div class="signatures">

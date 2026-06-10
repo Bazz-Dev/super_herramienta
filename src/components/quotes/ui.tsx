@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 
 const inputBase =
-  'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/30'
+  'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-ink placeholder:text-gray-400 outline-none transition-colors duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30'
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -20,11 +20,11 @@ export function TextInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 
 export function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`${inputBase} ${props.className ?? ''}`} />
+  return <textarea {...props} className={`${inputBase} resize-y ${props.className ?? ''}`} />
 }
 
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${inputBase} bg-white ${props.className ?? ''}`} />
+  return <select {...props} className={`${inputBase} cursor-pointer bg-white ${props.className ?? ''}`} />
 }
 
 export function NumberInput({
@@ -39,22 +39,27 @@ export function NumberInput({
     <input
       {...rest}
       type="number"
+      inputMode="decimal"
       value={Number.isFinite(value) ? value : ''}
       onChange={(e) => onValue(e.target.value === '' ? 0 : Number(e.target.value))}
-      className={`${inputBase} ${rest.className ?? ''}`}
+      className={`${inputBase} text-right ${rest.className ?? ''}`}
     />
   )
 }
 
+/** Icon-only button. `label` is required for accessibility (aria-label + title). */
 export function IconButton({
   children,
+  label,
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+}: { label: string } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       type="button"
+      aria-label={label}
+      title={label}
       {...rest}
-      className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-40"
+      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-gray-300 text-gray-500 transition-colors duration-150 hover:bg-gray-50 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {children}
     </button>
@@ -66,17 +71,53 @@ export function AddButton({ children, ...rest }: React.ButtonHTMLAttributes<HTML
     <button
       type="button"
       {...rest}
-      className="rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-brand hover:text-brand-600"
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors duration-150 hover:border-brand hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
     >
       {children}
     </button>
   )
 }
 
-export function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+export function Button({
+  children,
+  variant = 'primary',
+  ...rest
+}: { variant?: 'primary' | 'ghost' } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const styles =
+    variant === 'primary'
+      ? 'bg-brand text-ink hover:bg-brand-600'
+      : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+  return (
+    <button
+      type="button"
+      {...rest}
+      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${rest.className ?? ''}`}
+    >
+      {children}
+    </button>
+  )
+}
+
+export function SectionCard({
+  title,
+  description,
+  icon,
+  children,
+}: {
+  title: string
+  description?: string
+  icon?: ReactNode
+  children: ReactNode
+}) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="mb-3 text-sm font-semibold text-ink">{title}</h3>
+      <div className="mb-3 flex items-start gap-2">
+        {icon && <span className="mt-0.5 text-brand-600">{icon}</span>}
+        <div>
+          <h3 className="text-sm font-semibold text-ink">{title}</h3>
+          {description && <p className="text-xs text-gray-400">{description}</p>}
+        </div>
+      </div>
       {children}
     </section>
   )

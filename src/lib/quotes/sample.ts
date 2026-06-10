@@ -28,6 +28,7 @@ export const sampleQuote: QuoteData = {
       detail: 'Conteo de partículas en reposo y operación; emisión de informe ISO 14644-1.',
     },
   ],
+  images: [],
   customColumns: [],
   items: [
     { description: 'Mantención UMA (por unidad)', quantity: 4, unitPrice: 320000, custom: {} },

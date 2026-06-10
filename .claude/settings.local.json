@@ -6,7 +6,8 @@
       "mcp__plugin_context-mode_context-mode__ctx_execute",
       "Bash(find . -type f \\\\\\( -iname \"design*\" -o -iname \"*design-system*\" -o -path \"*design-reference*\" -o -iname \"cotizacion*\" \\\\\\) -not -path './node_modules/*' -not -path './.next/*')",
       "Bash(ls -la *.MD *.md)",
-      "Bash(ls -la design-reference/)"
+      "Bash(ls -la design-reference/)",
+      "Bash(py -3 scripts/search.py \"internal admin dashboard productivity tool professional\" --design-system -f markdown)"
     ]
   }
 }

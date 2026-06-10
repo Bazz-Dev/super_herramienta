@@ -2,14 +2,23 @@ import { z } from 'zod'
 
 // Data model for a quote ("cotización"). A4 paginated, multi-template.
 
-export const TEMPLATES = ['minimal', 'clasico', 'imagen-hd'] as const
+export const TEMPLATES = ['clasico', 'minimal'] as const
 export type TemplateId = (typeof TEMPLATES)[number]
 
 export const TEMPLATE_LABELS: Record<TemplateId, string> = {
-  minimal: 'Minimal',
   clasico: 'Clásico',
-  'imagen-hd': 'Imagen HD',
+  minimal: 'Minimal',
 }
+
+export const TEMPLATE_DESCRIPTIONS: Record<TemplateId, string> = {
+  clasico: 'Bandas de sección, formal',
+  minimal: 'Limpio, mucho espacio en blanco',
+}
+
+export const quoteImageSchema = z.object({
+  url: z.string().min(1),
+  caption: z.string().default(''),
+})
 
 export const customColumnSchema = z.object({
   id: z.string().min(1),
@@ -37,7 +46,8 @@ export const quoteScopeSchema = z.object({
 
 export const quoteDataSchema = z.object({
   template: z.enum(TEMPLATES).default('clasico'),
-  coverImageUrl: z.string().optional(), // for the "imagen-hd" template
+  coverImageUrl: z.string().optional(), // optional banner image on the cover
+  images: z.array(quoteImageSchema).default([]), // optional photo annex
 
   quoteId: z.string().min(1), // ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]
   date: z.string().min(1),
@@ -74,6 +84,7 @@ export const quoteDataSchema = z.object({
 })
 
 export type CustomColumn = z.infer<typeof customColumnSchema>
+export type QuoteImage = z.infer<typeof quoteImageSchema>
 export type QuoteItem = z.infer<typeof quoteItemSchema>
 export type QuoteChip = z.infer<typeof quoteChipSchema>
 export type QuoteScope = z.infer<typeof quoteScopeSchema>

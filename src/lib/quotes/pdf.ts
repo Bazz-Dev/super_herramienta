@@ -12,20 +12,28 @@ const MIME: Record<string, string> = {
   '.gif': 'image/gif',
 }
 
-// Inline a locally-uploaded cover image (/uploads/..) as a data URI so Chromium
-// can render it without resolving relative URLs (setContent has no base URL).
-async function inlineCoverImage(data: QuoteData): Promise<QuoteData> {
-  const url = data.coverImageUrl
-  if (!url || !url.startsWith('/')) return data
+// Inline a locally-uploaded image (/uploads/..) as a data URI so Chromium can
+// render it without resolving relative URLs (setContent has no base URL).
+async function inlineUrl(url: string | undefined): Promise<string | undefined> {
+  if (!url || !url.startsWith('/')) return url
   try {
     const filePath = path.join(process.cwd(), 'public', url)
     const buf = await readFile(filePath)
     const ext = path.extname(filePath).toLowerCase()
     const mime = MIME[ext] ?? 'image/png'
-    return { ...data, coverImageUrl: `data:${mime};base64,${buf.toString('base64')}` }
+    return `data:${mime};base64,${buf.toString('base64')}`
   } catch {
-    return data // fall back to whatever URL was given
+    return url // fall back to whatever URL was given
   }
+}
+
+// Inline every locally-uploaded image (cover banner + photo annex).
+async function inlineImages(data: QuoteData): Promise<QuoteData> {
+  const [coverImageUrl, images] = await Promise.all([
+    inlineUrl(data.coverImageUrl),
+    Promise.all(data.images.map(async (img) => ({ ...img, url: (await inlineUrl(img.url)) ?? img.url }))),
+  ])
+  return { ...data, coverImageUrl, images }
 }
 
 function footerTemplate(company: string): string {
@@ -39,7 +47,7 @@ function footerTemplate(company: string): string {
 // Renders the quote HTML to an A4 PDF via headless Chromium, paginated with a
 // repeating footer. Requires Chromium (VPS / Node host). See CLAUDE.md.
 export async function generateQuotePdf(input: QuoteData): Promise<Buffer> {
-  const data = await inlineCoverImage(input)
+  const data = await inlineImages(input)
   const html = renderQuoteHTML(data)
 
   const browser = await chromium.launch({ args: ['--no-sandbox'] })
