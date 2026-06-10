@@ -1,10 +1,10 @@
 import 'dotenv/config'
 import { PrismaClient } from '../src/generated/prisma/client.js'
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { createPrismaAdapter } from '../src/lib/db-adapter.js'
 import bcrypt from 'bcryptjs'
 
-const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL ?? 'file:./prisma/dev.db' })
-const prisma = new PrismaClient({ adapter })
+// Adapter chosen from DATABASE_URL: local file (better-sqlite3) or Turso (libSQL).
+const prisma = new PrismaClient({ adapter: createPrismaAdapter() })
 
 async function main() {
   // --- Tenants ---

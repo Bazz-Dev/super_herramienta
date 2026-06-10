@@ -144,17 +144,27 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 
 ---
 
-## Deploy — VPS (requerido por Playwright)
+## Deploy — Vercel (serverless) o VPS/contenedor
 
-El cotizador genera PDFs con Chromium, que **no corre en cPanel compartido**. Por eso el target de producción es un **VPS** (Benzahosting u otro) con Node + Chromium.
+El cotizador genera PDFs con Chromium y la app usa SQLite. El código soporta **dos targets**
+(ver `DEPLOY_REPORT.md` para el runbook completo):
 
-- En el VPS: `npx playwright install --with-deps chromium` (instala Chromium + libs del sistema).
-- `chromium.launch({ args: ['--no-sandbox'] })` ya está configurado en `src/lib/quotes/pdf.ts`.
-- SQLite: el archivo de DB fuera del webroot público, con permisos de escritura.
-- `AUTH_SECRET` de producción: `npx auth secret` (nunca reutilizar el de `.env` de dev).
-- Build (`npm run build`) en CI/local o en el VPS; `npm start` sirve el output.
+### Vercel (serverless) — target actual
+- **PDF**: `src/lib/quotes/pdf.ts` → `launchBrowser()` elige por entorno. En serverless
+  (`process.env.VERCEL`) usa **`@sparticuz/chromium` + `playwright-core`**; en local usa
+  `playwright`. Ambos por import dinámico.
+- **DB**: `src/lib/db-adapter.ts` elige el adapter por `DATABASE_URL`. En Vercel usa
+  **Turso (libSQL)** (`libsql://` + `TURSO_AUTH_TOKEN`); el `schema.prisma` sigue siendo
+  SQLite. Bootstrap del esquema: `scripts/turso-bootstrap.sql`.
+- **Uploads de imágenes** (`/api/uploads` → `public/uploads`) **no persisten** en serverless;
+  para producción real migrar a un blob store (Vercel Blob / S3 / R2). Opcional para el cotizador.
+- Vars: `AUTH_SECRET`, `DATABASE_URL`, `TURSO_AUTH_TOKEN`, `AUTH_URL`/`NEXTAUTH_URL`,
+  `AUTH_TRUST_HOST=true`, `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`.
 
-**Alternativa** si se quisiera mantener la app en cPanel: extraer la generación de PDF a un microservicio aparte (VPS pequeño o navegador headless gestionado tipo Browserless) y que el endpoint lo invoque. No implementado.
+### VPS / contenedor (Railway, Render, Fly) — alternativa
+- Con disco persistente: SQLite (`file:`) + `npx playwright install --with-deps chromium`
+  funcionan tal cual, sin Turso ni @sparticuz. El selector de adapter/navegador cae solo
+  en el camino local.
 
 ---
 

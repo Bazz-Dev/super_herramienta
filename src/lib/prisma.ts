@@ -1,15 +1,12 @@
 import { PrismaClient } from '@/generated/prisma/client'
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { createPrismaAdapter } from '@/lib/db-adapter'
 
-// Prisma 7 uses driver adapters. better-sqlite3 is a pure-Node driver that runs
-// fine on shared hosting (cPanel) — no external database server required.
+// Prisma 7 uses driver adapters. The adapter is chosen from DATABASE_URL:
+// better-sqlite3 for a local file (dev/tests), libSQL for Turso (serverless).
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 function createClient() {
-  const adapter = new PrismaBetterSqlite3({
-    url: process.env.DATABASE_URL ?? 'file:./prisma/dev.db',
-  })
-  return new PrismaClient({ adapter })
+  return new PrismaClient({ adapter: createPrismaAdapter() })
 }
 
 export const prisma = globalForPrisma.prisma ?? createClient()

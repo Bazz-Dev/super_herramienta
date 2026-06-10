@@ -100,7 +100,73 @@ real conviene un blob store (Vercel Blob / S3 / R2). **Riesgo pendiente, no bloq
 - **2026-06-10** — Auditoría inicial. Build/lint/typecheck/E2E verdes. Detectados los dos
   blockers serverless (§3.1, §3.2). `.gitignore` correcto (ignora `dev.db`, `.env*`,
   `src/generated`, `public/uploads`). `gh` y `vercel` CLI **no instalados**. Repo git local
-  en `main`, **sin remoto**. Pendiente: decisión de hosting + credenciales.
+  en `main`, **sin remoto**. Commit de estado estable `718d44a`.
+- **2026-06-10** — Decisión de hosting: **Vercel** (elegido por el usuario). Se adapta el
+  código a serverless:
+  - **PDF (§3.1) RESUELTO**: `src/lib/quotes/pdf.ts` ahora elige el navegador por entorno
+    (`launchBrowser()`): en serverless usa `@sparticuz/chromium` + `playwright-core`; en
+    local/tests usa `playwright` (Chromium empaquetado), ambos por import dinámico.
+    `playwright` movido a devDependencies; `playwright-core` a dependencies.
+  - **DB (§3.2) RESUELTO en código**: `src/lib/db-adapter.ts` elige el adapter por
+    `DATABASE_URL` — `better-sqlite3` para `file:` (local), **libSQL/Turso** para
+    `libsql://`/`http(s)://` (prod). `prisma.ts` y `seed.ts` usan el factory compartido.
+  - `next.config.ts`: `serverExternalPackages` incluye los paquetes nativos/binarios.
+  - SQL de bootstrap para Turso generado en `scripts/turso-bootstrap.sql`.
+  - Verificado: build + 17/17 E2E (incl. generación de PDF local) en verde tras los cambios.
+  - Pendiente: credenciales del usuario (GitHub, Turso, Vercel) — ver §7.
+
+---
+
+## 7. Runbook de despliegue (Vercel + Turso + GitHub)
+
+> Estos pasos requieren **tus credenciales** (cuentas GitHub / Turso / Vercel). El asistente
+> los ejecuta contigo o tú los corres con el prefijo `!` en el prompt.
+
+### 7.1 GitHub (publicar el repo)
+```bash
+# Opción A — GitHub CLI (recomendado)
+winget install GitHub.cli         # o: https://cli.github.com
+gh auth login                     # autenticación interactiva
+gh repo create ingegar-platform --private --source=. --remote=origin --push
+
+# Opción B — manual: crea el repo vacío en github.com y luego:
+git remote add origin https://github.com/<usuario>/ingegar-platform.git
+git push -u origin main
+```
+
+### 7.2 Turso (base de datos serverless)
+```bash
+# Instala Turso CLI (https://docs.turso.tech/cli/installation) y autentica:
+turso auth login
+turso db create ingegar
+turso db show ingegar --url            # → DATABASE_URL (libsql://...)
+turso db tokens create ingegar         # → TURSO_AUTH_TOKEN
+# Crea el esquema (una vez):
+turso db shell ingegar < scripts/turso-bootstrap.sql
+# Siembra el super admin + datos demo apuntando a Turso:
+DATABASE_URL="libsql://...turso.io" TURSO_AUTH_TOKEN="<token>" npm run db:seed
+```
+
+### 7.3 Vercel (deploy)
+```bash
+npm i -g vercel
+vercel login
+vercel link                            # vincula el proyecto
+# Variables de entorno (production):
+vercel env add AUTH_SECRET production           # pega: npx auth secret
+vercel env add DATABASE_URL production          # libsql://...turso.io
+vercel env add TURSO_AUTH_TOKEN production       # token de Turso
+vercel env add AUTH_TRUST_HOST production        # true
+vercel env add PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD production  # 1
+# AUTH_URL / NEXTAUTH_URL se setean al conocer el dominio final.
+vercel --prod
+```
+Tras el deploy: setear `AUTH_URL` y `NEXTAUTH_URL` al dominio asignado y redeploy.
+
+### 7.4 Auto-deploy (loop de feedback con tu socio)
+Al conectar el repo de GitHub en el dashboard de Vercel (o vía `vercel link`), **cada push
+a `main` despliega a producción** y cada push a otra rama genera una **URL de preview**.
+Recomendado: trabajar en ramas `feature/*` → PR → preview para tu socio → merge a `main`.
 
 ---
 

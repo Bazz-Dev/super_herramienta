@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { chromium } from 'playwright'
+import type { Browser } from 'playwright-core'
 import { renderQuoteHTML } from './template'
 import type { QuoteData } from './types'
 
@@ -44,13 +44,33 @@ function footerTemplate(company: string): string {
   </div>`
 }
 
+// Launches Chromium for the current environment:
+//   - Serverless (Vercel/Lambda): @sparticuz/chromium binary + playwright-core
+//   - Local dev/tests:            full `playwright` (bundled Chromium)
+// Both are dynamically imported so the heavy serverless dep isn't loaded locally
+// and the bundled browser isn't required on serverless.
+async function launchBrowser(): Promise<Browser> {
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+  if (isServerless) {
+    const { default: sparticuz } = await import('@sparticuz/chromium')
+    const { chromium } = await import('playwright-core')
+    return chromium.launch({
+      args: sparticuz.args,
+      executablePath: await sparticuz.executablePath(),
+      headless: true,
+    })
+  }
+  const { chromium } = await import('playwright')
+  return chromium.launch({ args: ['--no-sandbox'] })
+}
+
 // Renders the quote HTML to an A4 PDF via headless Chromium, paginated with a
-// repeating footer. Requires Chromium (VPS / Node host). See CLAUDE.md.
+// repeating footer. See DEPLOY_REPORT.md for the serverless Chromium setup.
 export async function generateQuotePdf(input: QuoteData): Promise<Buffer> {
   const data = await inlineImages(input)
   const html = renderQuoteHTML(data)
 
-  const browser = await chromium.launch({ args: ['--no-sandbox'] })
+  const browser = await launchBrowser()
   try {
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: 'networkidle' })

@@ -10,8 +10,17 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
-  // better-sqlite3 is a native module; keep it external to the server bundle.
-  serverExternalPackages: ['better-sqlite3', '@prisma/adapter-better-sqlite3'],
+  // Native / binary-bearing modules must stay external to the server bundle so
+  // their platform binaries resolve correctly (local + serverless).
+  serverExternalPackages: [
+    'better-sqlite3',
+    '@prisma/adapter-better-sqlite3',
+    '@libsql/client',
+    '@prisma/adapter-libsql',
+    '@sparticuz/chromium',
+    'playwright-core',
+    'playwright',
+  ],
 }
 
 export default nextConfig
