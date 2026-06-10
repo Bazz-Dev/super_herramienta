@@ -123,6 +123,14 @@ real conviene un blob store (Vercel Blob / S3 / R2). **Riesgo pendiente, no bloq
   token entregado era de plataforma (401); el segundo, database token `rw`, funcionó.
   Secrets (DATABASE_URL, TURSO_AUTH_TOKEN, AUTH_SECRET de prod) en `.env.production.local`
   (gitignored). Pendiente: **Vercel** (requiere `vercel login` interactivo del usuario).
+- **2026-06-10** — Usuario importó el repo en Vercel vía dashboard (auto-deploy). **Primer
+  build falló**: `PrismaConfigEnvError: Cannot resolve environment variable: DATABASE_URL`
+  en `prisma generate`. Causa: `prisma.config.ts` usaba `env('DATABASE_URL')` (helper que
+  **lanza** si falta). **CORREGIDO** (`2a911ef`): usa `process.env.DATABASE_URL ?? 'file:...'`
+  — `generate` no necesita la URL; el runtime la resuelve vía adapter. ⚠️ Que faltara en el
+  build sugiere que las env vars no estaban aplicadas → **verificar las 5 vars en Vercel**.
+- **2026-06-10** — Renombrado UI: "Cotizador" → "Generador de Propuesta Técnico Comercial"
+  (`767880f`). Ruta `/cotizador` y código en inglés sin cambios.
 
 ---
 
