@@ -20,24 +20,34 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
       <h1 className="mb-6 text-2xl font-bold">Editar técnico</h1>
       <TechnicianForm action={updateTechnician.bind(null, tech.id)} initial={tech} submitLabel="Guardar cambios" />
 
-      {/* Inventario de la camioneta */}
+      {/* Camioneta asignada + inventario */}
       <div className="mt-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">
-            Inventario de la camioneta
-            {tech.vehiclePlate && <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">{tech.vehiclePlate}</span>}
+            Camioneta e inventario
+            {tech.vehicle && <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">{tech.vehicle.plate}</span>}
           </h2>
-          <Link href="/recursos/activos/new" className="text-xs text-brand-600 hover:underline">
-            + Asignar herramienta
-          </Link>
+          {tech.vehicle ? (
+            <Link href={`/recursos/vehiculos/${tech.vehicle.id}`} className="text-xs text-brand-600 hover:underline">
+              Ver camioneta
+            </Link>
+          ) : (
+            <Link href="/recursos/vehiculos/new" className="text-xs text-brand-600 hover:underline">
+              + Asignar camioneta
+            </Link>
+          )}
         </div>
-        {tech.tools.length === 0 ? (
+        {!tech.vehicle ? (
           <p className="text-xs text-gray-400">
-            Sin herramientas asignadas. En <strong>Activos</strong>, asigna la herramienta a este técnico.
+            Este técnico no tiene camioneta. En <strong>Vehículos</strong>, crea o edita una camioneta y asígnasela.
+          </p>
+        ) : tech.vehicle.assets.length === 0 ? (
+          <p className="text-xs text-gray-400">
+            La camioneta {tech.vehicle.plate} no tiene herramientas. En <strong>Maquinaria / activos</strong>, asígnalas a esta camioneta.
           </p>
         ) : (
           <ul className="divide-y divide-gray-100 text-sm">
-            {tech.tools.map((t) => (
+            {tech.vehicle.assets.map((t) => (
               <li key={t.id} className="flex items-center justify-between py-2">
                 <span className="text-ink">
                   {t.name}

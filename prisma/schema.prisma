@@ -31,6 +31,17 @@ enum AssignmentStatus {
   cancelled
 }
 
+enum VehicleStatus {
+  active
+  maintenance
+  retired
+}
+
+enum AssigneeRole {
+  tecnico
+  ayudante
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   slug      String   @unique // ingegar | justburger | loficoffee
@@ -43,6 +54,7 @@ model Tenant {
   technicians Technician[]
   crews       Crew[]
   assets      Asset[]
+  vehicles    Vehicle[]
   assignments Assignment[]
   clients     Client[]
 
@@ -69,27 +81,50 @@ model User {
 // --- Recursos: técnicos, cuadrillas, activos, asignaciones (cronograma) ---
 
 model Technician {
-  id           String   @id @default(cuid())
-  name         String
-  rut          String?
-  specialty    String? // especialidad / oficio (texto libre)
-  email        String?
-  phone        String?
-  vehiclePlate String? // patente del vehículo / camioneta asignada
-  active       Boolean  @default(true)
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  rut       String?
+  specialty String? // especialidad / oficio (texto libre)
+  email     String?
+  phone     String?
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  crews       Crew[] // M:N implícito
-  assignments Assignment[]
-  tools       Asset[] // herramientas/activos asignados a su camioneta
+  crews     Crew[] // M:N implícito
+  vehicle   Vehicle? // 1:1 — camioneta asignada (back-relation de Vehicle.technicianId)
+  assignees AssignmentAssignee[] // participaciones en asignaciones (técnico/ayudante)
 
   @@index([tenantId])
   @@map("technicians")
+}
+
+model Vehicle {
+  id        String        @id @default(cuid())
+  plate     String // patente
+  brand     String?
+  model     String?
+  year      Int?
+  status    VehicleStatus @default(active)
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // 1:1 con técnico (un técnico, una camioneta).
+  technicianId String?     @unique
+  technician   Technician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+
+  assets Asset[] // herramientas en la camioneta (inventario)
+
+  @@index([tenantId])
+  @@map("vehicles")
 }
 
 model Client {
@@ -122,7 +157,6 @@ model Crew {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   technicians Technician[] // M:N implícito
-  assignments Assignment[]
 
   @@index([tenantId])
   @@map("crews")
@@ -141,42 +175,49 @@ model Asset {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  // Camioneta/técnico al que está asignada la herramienta (inventario por camioneta).
-  holderId String?
-  holder   Technician? @relation(fields: [holderId], references: [id], onDelete: SetNull)
-
-  assignments Assignment[]
+  // Camioneta a la que pertenece la herramienta (inventario por camioneta).
+  vehicleId String?
+  vehicle   Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
-  @@index([holderId])
+  @@index([vehicleId])
   @@map("assets")
 }
 
 model Assignment {
-  id          String           @id @default(cuid())
-  title       String
-  description String?
-  start       DateTime
-  end         DateTime
-  status      AssignmentStatus @default(scheduled)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
-  meetingUrl String? // enlace de reunión (Meet/Zoom), opcional
+  id                 String           @id @default(cuid())
+  title              String
+  description        String?
+  start              DateTime
+  end                DateTime
+  status             AssignmentStatus @default(scheduled)
+  permissionRequested Boolean         @default(false) // permiso de sucursal solicitado (verde/amarillo)
+  meetingUrl         String? // enlace de reunión (Meet/Zoom), opcional
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  technicianId String?
-  technician   Technician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
-  crewId       String?
-  crew         Crew?       @relation(fields: [crewId], references: [id], onDelete: SetNull)
-  assetId      String?
-  asset        Asset?      @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  clientId     String?
-  client       Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  assignees AssignmentAssignee[] // técnicos y ayudantes
 
   @@index([tenantId])
   @@index([start])
   @@map("assignments")
+}
+
+model AssignmentAssignee {
+  id           String       @id @default(cuid())
+  role         AssigneeRole @default(tecnico)
+  assignmentId String
+  assignment   Assignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  technicianId String
+  technician   Technician   @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, technicianId])
+  @@index([technicianId])
+  @@map("assignment_assignees")
 }

@@ -4,8 +4,9 @@ Herramienta interna de gestión de INGEGAR: gestión de técnicos, cronogramas,
 cotizador con plantillas propias y pipeline comercial. Multi-tenant ligero
 (INGEGAR + clientes). UI en español, código en inglés.
 
-> **Estado:** Fase 0 (fundación) completa — Auth + multi-tenant + dashboard.
-> Los módulos de negocio (Cotizador, Recursos, Pipeline) aún no están construidos.
+> **Estado:** Auth + multi-tenant, **Cotizador** (editor + PDF), **Recursos**
+> (técnicos, vehículos, activos, cuadrillas, clientes) y **Cronograma** (calendario)
+> construidos. Pendiente: persistencia de cotizaciones y módulo Pipeline.
 
 ---
 
@@ -97,14 +98,21 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - **Pendiente**: persistencia en DB (modelo `Quote`, guardar/listar/editar) — se hará junto al Pipeline. Validación visual fina vs. los PDFs de `design-reference/`.
 
 ### Módulo Recursos (`src/lib/resources/`, `src/components/resources/`, `/recursos`)
-- 4 entidades CRUD, todas scoped por tenant (`tenantScope` / `canAccessTenant`): **Técnicos**, **Cuadrillas** (M:N con técnicos), **Activos** (enum `AssetStatus`), **Asignaciones** (cronograma, enum `AssignmentStatus`, links opcionales a técnico/cuadrilla/activo).
-- Patrón por entidad: `lib/resources/<entidad>.ts` (queries) + `app/(app)/recursos/<entidad>/actions.ts` (`'use server'` create/update/delete con Zod + `revalidatePath`) + páginas `page.tsx` (lista), `new/`, `[id]/` + componente form en `components/resources/`.
-- `lib/resources/schemas.ts` — Zod inputs. `labels.ts` — etiquetas/colores de estados. `dates.ts` — helpers `datetime-local`.
-- **Cronograma**: `schedule-calendar.tsx` con vistas **Día/Semana/Mes** (grid de horas en día/semana), **click en celda → crear** (modal con `AssignmentForm`), **click en evento → detalle** (modal con editar/eliminar). Asignaciones enlazan técnico/cuadrilla/activo/**cliente** + `meetingUrl`.
-- **Técnicos**: `vehiclePlate` (patente). **Activos**: `holderId` → herramienta asignada a la camioneta de un técnico (inventario por camioneta, visible en el perfil del técnico).
-- **Clientes**: modelo `Client` (tenant-scoped); en la asignación se elige de un desplegable o se **crea al vuelo** (`createClientInline`). Prepara las estadísticas por técnico/cliente (siguiente fase).
+- 5 entidades CRUD, todas scoped por tenant (`tenantScope` / `canAccessTenant`): **Técnicos**, **Vehículos** (camionetas), **Activos** (herramientas, enum `AssetStatus`), **Cuadrillas** (M:N con técnicos), **Clientes**.
+- Patrón por entidad: `lib/resources/<entidad>.ts` (queries) + `app/(app)/recursos/<entidad>/actions.ts` (`'use server'` create/update/delete con Zod + `revalidatePath`) + páginas `page.tsx` (lista), `new/`, `[id]/` + componente form en `components/resources/`. Cada página/lista lleva un **enlace "← atrás"** (a Recursos o al Dashboard).
+- `lib/resources/schemas.ts` — Zod inputs. `labels.ts` — etiquetas/colores de estados (activos, vehículos, roles de asignado, color de permiso). `dates.ts` — helpers `datetime-local`.
+- **Relación de inventario (clave)**: un **Técnico ↔ una Camioneta** (`Vehicle.technicianId @unique`, 1:1); una **Camioneta ↔ N Herramientas** (`Asset.vehicleId`). Así el inventario y el estado se ven por camioneta. El perfil del técnico (`tecnicos/[id]`) muestra su camioneta + herramientas; la camioneta (`vehiculos/[id]`) lista su inventario. Al asignar un técnico a una camioneta, se libera de cualquier otra (helper `freeTechnician`).
+- **Clientes**: modelo `Client` (tenant-scoped); CRUD propio en `/recursos/clientes`. En la asignación se elige de un desplegable o se **crea al vuelo** (`createClientInline`, exportado desde `clientes/actions.ts`).
 - Creación: el `tenantId` se toma del actor (super crea bajo `ingegar` pero ve todos).
 - ⚠️ **Tras cambiar el schema Prisma, reiniciar el dev server**: el cliente se cachea en `globalThis` y el hot-reload no lo recarga.
+
+### Módulo Cronograma (`src/app/(app)/cronograma/`, `/cronograma` — **top-level**, fuera de Recursos)
+- Calendario de trabajos enfocado en **qué equipo está con qué cliente, cuándo, y si se pidió permiso de sucursal**.
+- Modelo `Assignment` (enum `AssignmentStatus`) + `clientId` + `permissionRequested` (bool) + `meetingUrl`. El equipo se modela con **`AssignmentAssignee`** (M:N técnico↔asignación, enum `AssigneeRole` = `tecnico | ayudante`) → permite ver/formar equipos ad-hoc (técnico + ayudantes) y su distribución semanal. **No** enlaza cuadrilla ni activo.
+- `schedule-calendar.tsx`: vistas **Día/Semana/Mes** (grid de horas en día/semana), **click en celda → crear** (modal con `AssignmentForm`), **click en evento → detalle** (modal: equipo con roles, cliente, permiso, editar/eliminar). **Filtro por técnico** (Todos / cada técnico) en la toolbar.
+- **Color del evento = permiso de sucursal**: `permissionEventColor()` → **verde** si `permissionRequested`, **amarillo** si no, gris/tachado si `cancelled`. El estado (`AssignmentStatus`) queda como dato secundario.
+- `assignment-form.tsx`: hidden input `assignees` con JSON `[{technicianId, role}]`; checkbox `permissionRequested`; cliente con creación inline. La acción reemplaza assignees en bloque (delete+create en transacción) al editar.
+- Las acciones (`createAssignment`/`updateAssignment`/`deleteAssignment`) viven en `app/(app)/cronograma/actions.ts`.
 
 ---
 
@@ -128,10 +136,11 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 
 1. ✅ **Auth + multi-tenant** (Fase 0 — hecho).
 2. 🟡 **Cotizador** (editor funcional listo): editor online + 3 plantillas A4 + columnas dinámicas + cálculo automático + preview en vivo + PDF + subida de imagen. **Falta**: persistencia en DB (guardar/listar/editar cotizaciones).
-3. ✅ **Recursos**: técnicos, cuadrillas, activos y cronograma (calendario) — CRUD completo con persistencia y scoping multi-tenant.
-4. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
+3. ✅ **Recursos**: técnicos, vehículos (1:1 técnico), activos (inventario por camioneta), cuadrillas y clientes — CRUD completo con persistencia y scoping multi-tenant.
+4. ✅ **Cronograma** (top-level): calendario Día/Semana/Mes, equipos técnico/ayudante, cliente, color por permiso de sucursal, filtro por técnico.
+5. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
 
-**Futuro**: ticketing de mantención Just Burger (migrar desde GAS), reportes por tenant, inventario.
+**Futuro**: **estadísticas por técnico/cliente** (trabajos por persona, distribución semanal); ticketing de mantención Just Burger (migrar desde GAS); reportes por tenant.
 
 ---
 

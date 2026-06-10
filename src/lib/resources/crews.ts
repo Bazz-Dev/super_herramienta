@@ -23,7 +23,7 @@ export async function getCrew(actor: TenantActor, id: string) {
 export async function technicianOptions(actor: TenantActor) {
   return prisma.technician.findMany({
     where: { ...tenantScope(actor), active: true },
-    select: { id: true, name: true, specialty: true, vehiclePlate: true },
+    select: { id: true, name: true, specialty: true },
     orderBy: { name: 'asc' },
   })
 }

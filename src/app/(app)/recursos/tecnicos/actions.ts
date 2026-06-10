@@ -16,7 +16,6 @@ function parse(formData: FormData) {
     specialty: formData.get('specialty'),
     email: formData.get('email'),
     phone: formData.get('phone'),
-    vehiclePlate: formData.get('vehiclePlate'),
     active: formData.get('active') === 'on',
     notes: formData.get('notes'),
   })

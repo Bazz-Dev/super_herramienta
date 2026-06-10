@@ -4,6 +4,7 @@ import { AssignmentForm } from '@/components/resources/assignment-form'
 import { requireActor } from '@/lib/resources/actor'
 import { assignmentOptions, getAssignment } from '@/lib/resources/assignments'
 import { toDatetimeLocal } from '@/lib/resources/dates'
+import type { AssigneeRoleId } from '@/lib/resources/labels'
 import { updateAssignment } from '../actions'
 
 export default async function EditAsignacionPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,7 +15,7 @@ export default async function EditAsignacionPage({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-2xl">
-      <Link href="/recursos/cronograma" className="text-xs text-gray-400 hover:text-gray-600">← Cronograma</Link>
+      <Link href="/cronograma" className="text-xs text-gray-400 hover:text-gray-600">← Cronograma</Link>
       <h1 className="mb-6 text-2xl font-bold">Editar asignación</h1>
       <AssignmentForm
         action={updateAssignment.bind(null, assignment.id)}
@@ -25,11 +26,10 @@ export default async function EditAsignacionPage({ params }: { params: Promise<{
           start: toDatetimeLocal(assignment.start),
           end: toDatetimeLocal(assignment.end),
           status: assignment.status,
-          technicianId: assignment.technicianId,
-          crewId: assignment.crewId,
-          assetId: assignment.assetId,
+          permissionRequested: assignment.permissionRequested,
           clientId: assignment.clientId,
           meetingUrl: assignment.meetingUrl,
+          assignees: assignment.assignees.map((a) => ({ technicianId: a.technicianId, role: a.role as AssigneeRoleId })),
         }}
         submitLabel="Guardar cambios"
       />

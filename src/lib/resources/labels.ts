@@ -32,3 +32,42 @@ export const ASSIGNMENT_STATUS_COLOR: Record<AssignmentStatusId, string> = {
   done: 'bg-green-100 text-green-700 border-green-200',
   cancelled: 'bg-gray-100 text-gray-500 border-gray-200 line-through',
 }
+
+// --- Vehículos ---
+export const VEHICLE_STATUS = ['active', 'maintenance', 'retired'] as const
+export type VehicleStatusId = (typeof VEHICLE_STATUS)[number]
+
+export const VEHICLE_STATUS_LABELS: Record<VehicleStatusId, string> = {
+  active: 'Operativa',
+  maintenance: 'En mantención',
+  retired: 'De baja',
+}
+
+export const VEHICLE_STATUS_BADGE: Record<VehicleStatusId, string> = {
+  active: 'bg-green-100 text-green-700',
+  maintenance: 'bg-amber-100 text-amber-700',
+  retired: 'bg-gray-100 text-gray-500',
+}
+
+// --- Rol de un integrante en una asignación ---
+export const ASSIGNEE_ROLE = ['tecnico', 'ayudante'] as const
+export type AssigneeRoleId = (typeof ASSIGNEE_ROLE)[number]
+
+export const ASSIGNEE_ROLE_LABELS: Record<AssigneeRoleId, string> = {
+  tecnico: 'Técnico',
+  ayudante: 'Ayudante',
+}
+
+export const ASSIGNEE_ROLE_BADGE: Record<AssigneeRoleId, string> = {
+  tecnico: 'bg-brand/15 text-brand-600',
+  ayudante: 'bg-gray-100 text-gray-600',
+}
+
+// Color del evento en el calendario según el permiso de sucursal.
+// Verde = permiso solicitado/concedido · Amarillo = pendiente. Cancelada gana en gris.
+export function permissionEventColor(permissionRequested: boolean, status: AssignmentStatusId): string {
+  if (status === 'cancelled') return 'bg-gray-100 text-gray-500 border-gray-200 line-through'
+  return permissionRequested
+    ? 'bg-green-100 text-green-800 border-green-300'
+    : 'bg-amber-100 text-amber-900 border-amber-300'
+}

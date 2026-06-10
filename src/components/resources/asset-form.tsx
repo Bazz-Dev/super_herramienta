@@ -6,24 +6,24 @@ import type { FormState } from '@/app/(app)/recursos/activos/actions'
 import { Button, Field, Select, TextArea, TextInput } from '@/components/quotes/ui'
 import { ASSET_STATUS, ASSET_STATUS_LABELS } from '@/lib/resources/labels'
 
-type TechOption = { id: string; name: string; vehiclePlate?: string | null }
+type VehicleOption = { id: string; plate: string; technician?: { name: string } | null }
 type Values = {
   name?: string
   code?: string | null
   category?: string | null
   status?: string
-  holderId?: string | null
+  vehicleId?: string | null
   notes?: string | null
 }
 
 export function AssetForm({
   action,
-  technicians = [],
+  vehicles = [],
   initial = {},
   submitLabel,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>
-  technicians?: TechOption[]
+  vehicles?: VehicleOption[]
   initial?: Values
   submitLabel: string
 }) {
@@ -51,12 +51,12 @@ export function AssetForm({
             ))}
           </Select>
         </Field>
-        <Field label="Asignada a (camioneta / técnico)" hint="Para inventario por camioneta">
-          <Select name="holderId" defaultValue={initial.holderId ?? ''}>
+        <Field label="Camioneta" hint="Inventario por camioneta">
+          <Select name="vehicleId" defaultValue={initial.vehicleId ?? ''}>
             <option value="">— Sin asignar (bodega)</option>
-            {technicians.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}{t.vehiclePlate ? ` · ${t.vehiclePlate}` : ''}
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.plate}{v.technician ? ` · ${v.technician.name}` : ''}
               </option>
             ))}
           </Select>

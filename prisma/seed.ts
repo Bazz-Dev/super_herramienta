@@ -51,7 +51,7 @@ async function main() {
       ].map((t) => prisma.technician.create({ data: { ...t, tenantId: ingegar.id } })),
     )
 
-    const crew = await prisma.crew.create({
+    await prisma.crew.create({
       data: {
         name: 'Cuadrilla A',
         description: 'Mantención salas limpias',
@@ -60,8 +60,32 @@ async function main() {
       },
     })
 
-    const asset = await prisma.asset.create({
-      data: { name: 'Contador de partículas', code: 'INV-001', category: 'Instrumento', status: 'available', tenantId: ingegar.id },
+    // Camioneta de Carlos + su inventario (herramienta a bordo).
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        plate: 'GJKL-45',
+        brand: 'Toyota',
+        model: 'Hilux',
+        year: 2022,
+        status: 'active',
+        tenantId: ingegar.id,
+        technicianId: techs[0].id,
+      },
+    })
+
+    await prisma.asset.create({
+      data: {
+        name: 'Contador de partículas',
+        code: 'INV-001',
+        category: 'Instrumento',
+        status: 'in_use',
+        tenantId: ingegar.id,
+        vehicleId: vehicle.id,
+      },
+    })
+
+    const client = await prisma.client.create({
+      data: { name: 'Alcon Laboratorios Chile', rut: '96.789.000-1', tenantId: ingegar.id },
     })
 
     await prisma.assignment.create({
@@ -70,31 +94,52 @@ async function main() {
         start: new Date('2026-06-15T09:00:00'),
         end: new Date('2026-06-15T17:00:00'),
         status: 'scheduled',
+        permissionRequested: true,
         tenantId: ingegar.id,
-        crewId: crew.id,
-        assetId: asset.id,
+        clientId: client.id,
+        assignees: {
+          create: [
+            { technicianId: techs[0].id, role: 'tecnico' },
+            { technicianId: techs[2].id, role: 'ayudante' },
+          ],
+        },
       },
     })
   }
 
-  // --- Enrich for newer features (idempotent) ---
+  // --- Enrich existing data to the v3 shape (idempotent, non-destructive) ---
   const firstTech = await prisma.technician.findFirst({ where: { tenantId: ingegar.id }, orderBy: { name: 'asc' } })
   if (firstTech) {
-    if (!firstTech.vehiclePlate) {
-      await prisma.technician.update({ where: { id: firstTech.id }, data: { vehiclePlate: 'GJKL-45' } })
+    let vehicle = await prisma.vehicle.findFirst({ where: { tenantId: ingegar.id } })
+    if (!vehicle) {
+      vehicle = await prisma.vehicle.create({
+        data: { plate: 'GJKL-45', brand: 'Toyota', model: 'Hilux', year: 2022, status: 'active', tenantId: ingegar.id, technicianId: firstTech.id },
+      })
     }
-    const unheld = await prisma.asset.findFirst({ where: { tenantId: ingegar.id, holderId: null } })
-    if (unheld) await prisma.asset.update({ where: { id: unheld.id }, data: { holderId: firstTech.id } })
+    const orphanAsset = await prisma.asset.findFirst({ where: { tenantId: ingegar.id, vehicleId: null } })
+    if (orphanAsset) await prisma.asset.update({ where: { id: orphanAsset.id }, data: { vehicleId: vehicle.id } })
   }
 
   let client = await prisma.client.findFirst({ where: { tenantId: ingegar.id } })
   if (!client) {
-    client = await prisma.client.create({
-      data: { name: 'Alcon Laboratorios Chile', rut: '96.789.000-1', tenantId: ingegar.id },
-    })
+    client = await prisma.client.create({ data: { name: 'Alcon Laboratorios Chile', rut: '96.789.000-1', tenantId: ingegar.id } })
   }
-  const noClient = await prisma.assignment.findFirst({ where: { tenantId: ingegar.id, clientId: null } })
-  if (noClient) await prisma.assignment.update({ where: { id: noClient.id }, data: { clientId: client.id } })
+  // Make sure the demo assignment has a client + a team, if it lost them in the migration.
+  const demoAssignment = await prisma.assignment.findFirst({
+    where: { tenantId: ingegar.id },
+    include: { _count: { select: { assignees: true } } },
+  })
+  if (demoAssignment) {
+    if (!demoAssignment.clientId) {
+      await prisma.assignment.update({ where: { id: demoAssignment.id }, data: { clientId: client.id, permissionRequested: true } })
+    }
+    if (demoAssignment._count.assignees === 0) {
+      const teamTechs = await prisma.technician.findMany({ where: { tenantId: ingegar.id }, orderBy: { name: 'asc' }, take: 2 })
+      await prisma.assignmentAssignee.createMany({
+        data: teamTechs.map((t, i) => ({ assignmentId: demoAssignment.id, technicianId: t.id, role: i === 0 ? 'tecnico' : 'ayudante' })),
+      })
+    }
+  }
 
   console.log('Seed complete.')
   console.log('  Tenants:', tenants.map((t) => t.slug).join(', '))

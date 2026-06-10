@@ -9,7 +9,7 @@ export default async function NewAsignacionPage() {
   const options = await assignmentOptions(actor)
   return (
     <div className="mx-auto max-w-2xl">
-      <Link href="/recursos/cronograma" className="text-xs text-gray-400 hover:text-gray-600">← Cronograma</Link>
+      <Link href="/cronograma" className="text-xs text-gray-400 hover:text-gray-600">← Cronograma</Link>
       <h1 className="mb-6 text-2xl font-bold">Nueva asignación</h1>
       <AssignmentForm action={createAssignment} options={options} submitLabel="Crear asignación" />
     </div>

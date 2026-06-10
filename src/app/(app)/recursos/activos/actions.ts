@@ -15,7 +15,7 @@ function parse(formData: FormData) {
     code: formData.get('code'),
     category: formData.get('category'),
     status: formData.get('status'),
-    holderId: formData.get('holderId'),
+    vehicleId: formData.get('vehicleId'),
     notes: formData.get('notes'),
   })
 }
@@ -24,8 +24,8 @@ export async function createAsset(_prev: FormState, formData: FormData): Promise
   const actor = await requireActor()
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  const { holderId, ...rest } = parsed.data
-  await prisma.asset.create({ data: { ...rest, holderId: holderId ?? null, tenantId: actor.tenantId } })
+  const { vehicleId, ...rest } = parsed.data
+  await prisma.asset.create({ data: { ...rest, vehicleId: vehicleId ?? null, tenantId: actor.tenantId } })
   revalidatePath('/recursos/activos')
   redirect('/recursos/activos')
 }
@@ -36,8 +36,8 @@ export async function updateAsset(id: string, _prev: FormState, formData: FormDa
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  const { holderId, ...rest } = parsed.data
-  await prisma.asset.update({ where: { id }, data: { ...rest, holderId: holderId ?? null } })
+  const { vehicleId, ...rest } = parsed.data
+  await prisma.asset.update({ where: { id }, data: { ...rest, vehicleId: vehicleId ?? null } })
   revalidatePath('/recursos/activos')
   redirect('/recursos/activos')
 }

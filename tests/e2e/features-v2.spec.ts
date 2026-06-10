@@ -16,22 +16,39 @@ test('cotizador shows pricing adjustments', async ({ page }) => {
   await expect(page.getByText('Gastos administrativos')).toBeVisible()
 })
 
-test('schedule has day/week/month views', async ({ page }) => {
+test('cronograma is a top-level module with day/week/month views', async ({ page }) => {
   await login(page)
-  await page.goto('/recursos/cronograma')
+  await page.goto('/cronograma')
   await expect(page.getByRole('button', { name: 'Día' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Semana' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Mes' })).toBeVisible()
+  // Technician filter + permission legend.
+  await expect(page.getByLabel('Filtrar por técnico')).toBeVisible()
+  await expect(page.getByText('Permiso solicitado')).toBeVisible()
 })
 
-test('technician form has vehicle plate', async ({ page }) => {
+test('assignment form has team + permission, no crew/asset', async ({ page }) => {
   await login(page)
-  await page.goto('/recursos/tecnicos/new')
-  await expect(page.getByLabel('Patente vehículo / camioneta')).toBeVisible()
+  await page.goto('/cronograma/new')
+  await expect(page.getByText('Equipo asignado')).toBeVisible()
+  await expect(page.getByText('Permiso de sucursal solicitado')).toBeVisible()
 })
 
-test('asset form has holder (camioneta) select', async ({ page }) => {
+test('vehicles section exists with technician assignment', async ({ page }) => {
+  await login(page)
+  await page.goto('/recursos/vehiculos/new')
+  await expect(page.getByLabel('Patente *')).toBeVisible()
+  await expect(page.getByText('Técnico asignado')).toBeVisible()
+})
+
+test('clients section exists', async ({ page }) => {
+  await login(page)
+  await page.goto('/recursos/clientes/new')
+  await expect(page.getByLabel('Nombre / razón social *')).toBeVisible()
+})
+
+test('asset form assigns tool to a vehicle', async ({ page }) => {
   await login(page)
   await page.goto('/recursos/activos/new')
-  await expect(page.getByText('Asignada a (camioneta / técnico)')).toBeVisible()
+  await expect(page.getByText('Camioneta', { exact: true })).toBeVisible()
 })

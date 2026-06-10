@@ -17,7 +17,11 @@ export async function listTechnicians(actor: TenantActor, search?: string) {
           }
         : {}),
     },
-    include: { tenant: { select: { slug: true } }, _count: { select: { crews: true } } },
+    include: {
+      tenant: { select: { slug: true } },
+      _count: { select: { crews: true } },
+      vehicle: { select: { id: true, plate: true } },
+    },
     orderBy: [{ active: 'desc' }, { name: 'asc' }],
   })
 }
@@ -26,7 +30,11 @@ export async function getTechnician(actor: TenantActor, id: string) {
   return prisma.technician.findFirst({
     where: { id, ...tenantScope(actor) },
     include: {
-      tools: { select: { id: true, name: true, code: true, status: true }, orderBy: { name: 'asc' } },
+      vehicle: {
+        include: {
+          assets: { select: { id: true, name: true, code: true, status: true }, orderBy: { name: 'asc' } },
+        },
+      },
     },
   })
 }

@@ -10,7 +10,7 @@ export async function listAssets(actor: TenantActor, search?: string) {
     },
     include: {
       tenant: { select: { slug: true } },
-      holder: { select: { id: true, name: true, vehiclePlate: true } },
+      vehicle: { select: { id: true, plate: true, technician: { select: { name: true } } } },
     },
     orderBy: [{ name: 'asc' }],
   })

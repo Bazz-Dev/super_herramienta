@@ -24,7 +24,7 @@ test('crews section shows seeded crew with technicians', async ({ page }) => {
 
 test('schedule shows calendar and seeded assignment', async ({ page }) => {
   await login(page)
-  await page.goto('/recursos/cronograma')
+  await page.goto('/cronograma')
   await expect(page.getByRole('heading', { name: 'Cronograma' })).toBeVisible()
   await expect(page.getByText('Mantención UMA — Alcon').first()).toBeVisible()
 })

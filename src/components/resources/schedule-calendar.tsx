@@ -2,13 +2,22 @@
 
 import Link from 'next/link'
 import { useMemo, useState, useTransition, type ReactNode } from 'react'
-import type { FormState } from '@/app/(app)/recursos/cronograma/actions'
+import type { FormState } from '@/app/(app)/cronograma/actions'
 import type { AssignmentOptions } from '@/lib/resources/assignments'
-import { ASSIGNMENT_STATUS_COLOR, ASSIGNMENT_STATUS_LABELS, type AssignmentStatusId } from '@/lib/resources/labels'
+import {
+  ASSIGNEE_ROLE_BADGE,
+  ASSIGNEE_ROLE_LABELS,
+  ASSIGNMENT_STATUS_LABELS,
+  permissionEventColor,
+  type AssigneeRoleId,
+  type AssignmentStatusId,
+} from '@/lib/resources/labels'
 import { dayKey, formatDateTime, toDatetimeLocal } from '@/lib/resources/dates'
 import { IconButton } from '@/components/quotes/ui'
 import { AssignmentForm } from './assignment-form'
 import { Modal } from './modal'
+
+export type CalendarAssignee = { id: string; name: string; role: AssigneeRoleId }
 
 export type CalendarEvent = {
   id: string
@@ -16,12 +25,11 @@ export type CalendarEvent = {
   start: string // ISO
   end: string // ISO
   status: AssignmentStatusId
-  technician?: string | null
-  crew?: string | null
-  asset?: string | null
+  permissionRequested: boolean
   client?: string | null
   meetingUrl?: string | null
   description?: string | null
+  assignees: CalendarAssignee[]
 }
 
 type View = 'month' | 'week' | 'day'
@@ -60,18 +68,24 @@ export function ScheduleCalendar({
   const [cursor, setCursor] = useState(new Date(today.getFullYear(), today.getMonth(), today.getDate()))
   const [createInitial, setCreateInitial] = useState<{ start: string; end: string } | null>(null)
   const [detail, setDetail] = useState<CalendarEvent | null>(null)
+  const [techFilter, setTechFilter] = useState('') // '' = todos
   const [isDeleting, startDelete] = useTransition()
+
+  const filtered = useMemo(
+    () => (techFilter ? events.filter((e) => e.assignees.some((a) => a.id === techFilter)) : events),
+    [events, techFilter],
+  )
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>()
-    for (const e of events) {
+    for (const e of filtered) {
       const k = dayKey(new Date(e.start))
       const arr = map.get(k) ?? []
       arr.push(e)
       map.set(k, arr)
     }
     return map
-  }, [events])
+  }, [filtered])
 
   function openCreateAt(date: Date) {
     const start = new Date(date)
@@ -109,7 +123,18 @@ export function ScheduleCalendar({
       {/* Toolbar */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold capitalize text-ink">{title}</h2>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <select
+            value={techFilter}
+            onChange={(e) => setTechFilter(e.target.value)}
+            className="mr-1 cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-1 text-xs text-gray-600 outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
+            aria-label="Filtrar por técnico"
+          >
+            <option value="">Todos los técnicos</option>
+            {options.technicians.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
           <div className="mr-1 flex rounded-md border border-gray-300 p-0.5 text-xs">
             {(['day', 'week', 'month'] as View[]).map((v) => (
               <button
@@ -140,12 +165,18 @@ export function ScheduleCalendar({
 
       {/* Legend */}
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-        {(Object.keys(ASSIGNMENT_STATUS_LABELS) as AssignmentStatusId[]).map((s) => (
-          <span key={s} className="flex items-center gap-1.5">
-            <span className={`inline-block h-3 w-3 rounded border ${ASSIGNMENT_STATUS_COLOR[s]}`} />
-            {ASSIGNMENT_STATUS_LABELS[s]}
-          </span>
-        ))}
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded border border-green-300 bg-green-100" />
+          Permiso solicitado
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded border border-amber-300 bg-amber-100" />
+          Sin permiso
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-3 w-3 rounded border border-gray-200 bg-gray-100" />
+          Cancelada
+        </span>
       </div>
 
       {/* Create modal */}
@@ -159,15 +190,29 @@ export function ScheduleCalendar({
       <Modal open={!!detail} onClose={() => setDetail(null)} title={detail?.title ?? ''}>
         {detail && (
           <div className="flex flex-col gap-3 text-sm">
-            <span className={`w-fit rounded-full border px-2 py-0.5 text-xs ${ASSIGNMENT_STATUS_COLOR[detail.status]}`}>
-              {ASSIGNMENT_STATUS_LABELS[detail.status]}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`w-fit rounded-full border px-2 py-0.5 text-xs ${permissionEventColor(detail.permissionRequested, detail.status)}`}>
+                {detail.permissionRequested ? 'Permiso solicitado' : 'Sin permiso de sucursal'}
+              </span>
+              <span className="text-xs text-gray-400">{ASSIGNMENT_STATUS_LABELS[detail.status]}</span>
+            </div>
             <DetailRow label="Inicio" value={formatDateTime(new Date(detail.start))} />
             <DetailRow label="Término" value={formatDateTime(new Date(detail.end))} />
             {detail.client && <DetailRow label="Cliente" value={detail.client} />}
-            {detail.technician && <DetailRow label="Técnico" value={detail.technician} />}
-            {detail.crew && <DetailRow label="Cuadrilla" value={detail.crew} />}
-            {detail.asset && <DetailRow label="Activo" value={detail.asset} />}
+            {detail.assignees.length > 0 && (
+              <DetailRow
+                label="Equipo"
+                value={
+                  <span className="flex flex-wrap gap-1.5">
+                    {detail.assignees.map((a) => (
+                      <span key={a.id} className={`rounded-full px-2 py-0.5 text-xs ${ASSIGNEE_ROLE_BADGE[a.role]}`}>
+                        {a.name} · {ASSIGNEE_ROLE_LABELS[a.role]}
+                      </span>
+                    ))}
+                  </span>
+                }
+              />
+            )}
             {detail.description && <DetailRow label="Descripción" value={detail.description} />}
             {detail.meetingUrl && (
               <DetailRow
@@ -180,7 +225,7 @@ export function ScheduleCalendar({
               />
             )}
             <div className="mt-2 flex items-center gap-2">
-              <Link href={`/recursos/cronograma/${detail.id}`} className="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-brand-600">
+              <Link href={`/cronograma/${detail.id}`} className="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-ink transition-colors hover:bg-brand-600">
                 Editar
               </Link>
               <button
@@ -258,7 +303,7 @@ function MonthView({
                   key={e.id}
                   type="button"
                   onClick={(ev) => { ev.stopPropagation(); onSelect(e) }}
-                  className={`cursor-pointer truncate rounded border px-1.5 py-0.5 text-left text-[11px] transition-opacity hover:opacity-80 ${ASSIGNMENT_STATUS_COLOR[e.status]}`}
+                  className={`cursor-pointer truncate rounded border px-1.5 py-0.5 text-left text-[11px] transition-opacity hover:opacity-80 ${permissionEventColor(e.permissionRequested, e.status)}`}
                 >
                   {e.title}
                 </button>
@@ -330,7 +375,7 @@ function TimeGridView({
                         key={e.id}
                         type="button"
                         onClick={(ev) => { ev.stopPropagation(); onSelect(e) }}
-                        className={`absolute left-1 right-1 cursor-pointer overflow-hidden rounded border px-1.5 py-0.5 text-left text-[11px] transition-opacity hover:opacity-90 ${ASSIGNMENT_STATUS_COLOR[e.status]}`}
+                        className={`absolute left-1 right-1 cursor-pointer overflow-hidden rounded border px-1.5 py-0.5 text-left text-[11px] transition-opacity hover:opacity-90 ${permissionEventColor(e.permissionRequested, e.status)}`}
                         style={{ top, height }}
                       >
                         <span className="block font-medium">{s.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>

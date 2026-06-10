@@ -11,7 +11,6 @@ type Values = {
   specialty?: string | null
   email?: string | null
   phone?: string | null
-  vehiclePlate?: string | null
   active?: boolean
   notes?: string | null
 }
@@ -46,9 +45,6 @@ export function TechnicianForm({
         </Field>
         <Field label="Teléfono">
           <TextInput name="phone" defaultValue={initial.phone ?? ''} placeholder="+56 9 ..." />
-        </Field>
-        <Field label="Patente vehículo / camioneta">
-          <TextInput name="vehiclePlate" defaultValue={initial.vehiclePlate ?? ''} placeholder="ABCD-12" />
         </Field>
         <label className="flex items-center gap-2 self-end pb-2">
           <input type="checkbox" name="active" defaultChecked={initial.active ?? true} className="h-4 w-4 cursor-pointer accent-brand" />
