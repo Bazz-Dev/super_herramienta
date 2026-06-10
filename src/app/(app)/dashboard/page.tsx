@@ -3,7 +3,7 @@ import { auth } from '@/auth'
 
 const MODULES = [
   { name: 'Cotizador', desc: 'Plantillas, formularios y exportación PDF', status: 'Disponible', href: '/cotizador' },
-  { name: 'Recursos', desc: 'Técnicos, proyectos, asignaciones y calendario', status: 'Próximamente', href: null },
+  { name: 'Recursos', desc: 'Técnicos, cuadrillas, activos y cronograma', status: 'Disponible', href: '/recursos' },
   { name: 'Pipeline', desc: 'Cotizaciones enviadas, estados y seguimiento', status: 'Próximamente', href: null },
 ]
 

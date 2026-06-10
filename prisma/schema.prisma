@@ -17,6 +17,20 @@ enum Role {
   client
 }
 
+enum AssetStatus {
+  available
+  in_use
+  maintenance
+  retired
+}
+
+enum AssignmentStatus {
+  scheduled
+  in_progress
+  done
+  cancelled
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   slug      String   @unique // ingegar | justburger | loficoffee
@@ -25,7 +39,11 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users       User[]
+  technicians Technician[]
+  crews       Crew[]
+  assets      Asset[]
+  assignments Assignment[]
 
   @@map("tenants")
 }
@@ -45,4 +63,90 @@ model User {
 
   @@index([tenantId])
   @@map("users")
+}
+
+// --- Recursos: técnicos, cuadrillas, activos, asignaciones (cronograma) ---
+
+model Technician {
+  id        String   @id @default(cuid())
+  name      String
+  rut       String?
+  specialty String? // especialidad / oficio (texto libre)
+  email     String?
+  phone     String?
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  crews       Crew[] // M:N implícito
+  assignments Assignment[]
+
+  @@index([tenantId])
+  @@map("technicians")
+}
+
+model Crew {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  technicians Technician[] // M:N implícito
+  assignments Assignment[]
+
+  @@index([tenantId])
+  @@map("crews")
+}
+
+model Asset {
+  id        String      @id @default(cuid())
+  name      String
+  code      String?
+  category  String?
+  status    AssetStatus @default(available)
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  assignments Assignment[]
+
+  @@index([tenantId])
+  @@map("assets")
+}
+
+model Assignment {
+  id          String           @id @default(cuid())
+  title       String
+  description String?
+  start       DateTime
+  end         DateTime
+  status      AssignmentStatus @default(scheduled)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  technicianId String?
+  technician   Technician? @relation(fields: [technicianId], references: [id], onDelete: SetNull)
+  crewId       String?
+  crew         Crew?       @relation(fields: [crewId], references: [id], onDelete: SetNull)
+  assetId      String?
+  asset        Asset?      @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([start])
+  @@map("assignments")
 }

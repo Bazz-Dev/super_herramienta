@@ -40,6 +40,43 @@ async function main() {
     },
   })
 
+  // --- Sample resources (only if none exist for INGEGAR) ---
+  const techCount = await prisma.technician.count({ where: { tenantId: ingegar.id } })
+  if (techCount === 0) {
+    const techs = await Promise.all(
+      [
+        { name: 'Carlos Fuentes', specialty: 'Climatización', phone: '+56 9 1111 1111' },
+        { name: 'Marcela Rojas', specialty: 'Eléctrica', phone: '+56 9 2222 2222' },
+        { name: 'Diego Soto', specialty: 'Mecánica', phone: '+56 9 3333 3333' },
+      ].map((t) => prisma.technician.create({ data: { ...t, tenantId: ingegar.id } })),
+    )
+
+    const crew = await prisma.crew.create({
+      data: {
+        name: 'Cuadrilla A',
+        description: 'Mantención salas limpias',
+        tenantId: ingegar.id,
+        technicians: { connect: [{ id: techs[0].id }, { id: techs[2].id }] },
+      },
+    })
+
+    const asset = await prisma.asset.create({
+      data: { name: 'Contador de partículas', code: 'INV-001', category: 'Instrumento', status: 'available', tenantId: ingegar.id },
+    })
+
+    await prisma.assignment.create({
+      data: {
+        title: 'Mantención UMA — Alcon',
+        start: new Date('2026-06-15T09:00:00'),
+        end: new Date('2026-06-15T17:00:00'),
+        status: 'scheduled',
+        tenantId: ingegar.id,
+        crewId: crew.id,
+        assetId: asset.id,
+      },
+    })
+  }
+
   console.log('Seed complete.')
   console.log('  Tenants:', tenants.map((t) => t.slug).join(', '))
   console.log('  Super user: admin@ingegarchile.cl /', password)
