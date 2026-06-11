@@ -141,6 +141,14 @@ real conviene un blob store (Vercel Blob / S3 / R2). **Riesgo pendiente, no bloq
   `npm run test:unit`): 16 casos (totales, render/anti-XSS, generación de PDF con bordes:
   vacío, estrés multipágina, monedas, caracteres especiales; guardia de regresión ≤2 págs).
   Scripts de diagnóstico: `scripts/diag-pdf.ts` (rasteriza para inspección visual).
+- **2026-06-11** — Deploy con env vars OK: **login funciona en producción**, pero
+  `/api/quotes/generate` daba **500** (Chromium serverless). Fixes (`da257f1`):
+  (1) `outputFileTracingIncludes` fuerza el binario de `@sparticuz/chromium` dentro de la
+  función (Next no lo trazaba → executablePath inexistente → 500); (2) `setContent` con
+  `waitUntil:'load'` + tope de 2.5s a las fuentes (networkidle se cuelga en serverless);
+  (3) el 500 ahora devuelve `detail` con el error real para diagnóstico desde el cliente.
+  **Navegación**: barra de módulos persistente (Inicio/Propuestas/Recursos/Cronograma) con
+  estado activo, header pegajoso, logo a inicio. Pendiente: verificar PDF en prod tras redeploy.
 
 ---
 
