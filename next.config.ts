@@ -21,12 +21,19 @@ const nextConfig: NextConfig = {
     'playwright-core',
     'playwright',
   ],
-  // Force the @sparticuz/chromium binary (bin/*.br) into the serverless function
-  // for the PDF route — Next's file tracing otherwise misses it, so Chromium's
-  // executablePath points at a file that isn't deployed → 500 at runtime.
+  // Force the serverless function to include files Next's tracing misses:
+  //  - @sparticuz/chromium binary (bin/*.br) → otherwise executablePath is missing
+  //  - playwright-core data files (browsers.json, etc.) → otherwise coreBundle.js
+  //    throws "Cannot find module .../playwright-core/browsers.json" at runtime.
   outputFileTracingIncludes: {
-    '/api/quotes/generate': ['./node_modules/@sparticuz/chromium/**'],
-    '/api/quotes/diag': ['./node_modules/@sparticuz/chromium/**'],
+    '/api/quotes/generate': [
+      './node_modules/@sparticuz/chromium/**',
+      './node_modules/playwright-core/**',
+    ],
+    '/api/quotes/diag': [
+      './node_modules/@sparticuz/chromium/**',
+      './node_modules/playwright-core/**',
+    ],
   },
 }
 
