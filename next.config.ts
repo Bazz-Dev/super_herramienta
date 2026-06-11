@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   // executablePath points at a file that isn't deployed → 500 at runtime.
   outputFileTracingIncludes: {
     '/api/quotes/generate': ['./node_modules/@sparticuz/chromium/**'],
+    '/api/quotes/diag': ['./node_modules/@sparticuz/chromium/**'],
   },
 }
 
