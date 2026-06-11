@@ -17,6 +17,16 @@ export function createPrismaAdapter() {
     return new PrismaLibSql({ url, authToken: process.env.TURSO_AUTH_TOKEN })
   }
 
+  // On a serverless host a `file:` URL means DATABASE_URL was not configured.
+  // Fail loudly instead of silently using an empty SQLite file (which surfaces
+  // as confusing "invalid credentials" because no user exists).
+  if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    throw new Error(
+      'DATABASE_URL no apunta a Turso (debe empezar con libsql://). ' +
+        'Configura DATABASE_URL y TURSO_AUTH_TOKEN en las variables de entorno del hosting.',
+    )
+  }
+
   const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3')
   return new PrismaBetterSqlite3({ url })
 }
