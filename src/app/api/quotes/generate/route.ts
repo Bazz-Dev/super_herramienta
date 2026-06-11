@@ -40,6 +40,9 @@ export async function POST(request: Request) {
     })
   } catch (err) {
     console.error('PDF generation failed:', err)
-    return NextResponse.json({ error: 'No se pudo generar el PDF.' }, { status: 500 })
+    // Surface the real error so we can diagnose serverless Chromium issues from
+    // the client (Network tab) without digging through hosting logs.
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+    return NextResponse.json({ error: 'No se pudo generar el PDF.', detail }, { status: 500 })
   }
 }

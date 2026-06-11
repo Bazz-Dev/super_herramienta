@@ -73,8 +73,13 @@ export async function generateQuotePdf(input: QuoteData): Promise<Buffer> {
   const browser = await launchBrowser()
   try {
     const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'networkidle' })
-    await page.evaluate(() => document.fonts.ready)
+    await page.setContent(html, { waitUntil: 'load' })
+    // Don't block forever on remote (Google) fonts in serverless — cap the wait
+    // so a slow/blocked font request can't hang the function until timeout.
+    await Promise.race([
+      page.evaluate(() => document.fonts.ready),
+      new Promise((resolve) => setTimeout(resolve, 2500)),
+    ])
 
     const pdf = await page.pdf({
       format: 'A4',
