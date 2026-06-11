@@ -18,7 +18,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:unit": "node --import tsx --test \"tests/unit/*.test.ts\""
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -49,6 +50,7 @@
     "@types/react-dom": "^19.2.0",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.7",
+    "pdf-to-img": "^6.1.0",
     "playwright": "^1.60.0",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.3.0",

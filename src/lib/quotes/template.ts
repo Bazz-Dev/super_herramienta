@@ -35,10 +35,15 @@ function baseStyles(): string {
   /* ---- Pagination safety: nothing important splits across pages ---- */
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
+  p { orphans: 3; widows: 3; }
   .block { margin-bottom: 22px; }
   .avoid, .scope-item, .totals, .signatures, .doc-footer, table.prices tr { break-inside: avoid; }
+  /* Keep a section header glued to the content that follows it. */
   .section-header, h2 { break-after: avoid; }
-  .cover { break-after: page; }
+  /* Keep small trailing elements attached to the block above them. */
+  .validity, .signatures { break-before: avoid; }
+  /* NOTE: the cover is NOT forced onto its own page — content flows right after
+     it so short quotes don't leave a near-empty first page. */
 
   .muted { color: var(--color-muted); }
   .logo { font-weight: 700; color: var(--color-black); letter-spacing: -0.02em; }
@@ -107,7 +112,7 @@ function baseStyles(): string {
   .doc-footer .logo { color: #ffffff; font-size: 18px; }
   .doc-footer .contact { margin-top: 8px; font-size: 11px; line-height: 1.7; opacity: 0.85; }
 
-  .body-pad { padding: 0; }
+  .body-pad { padding-top: 18px; }
 
   /* ===== Template: Clásico ===== */
   .tpl-clasico .cover { padding: 4px 0 0; }
@@ -129,8 +134,8 @@ function baseStyles(): string {
 
   /* ===== Optional cover banner (both templates) ===== */
   .cover-banner {
-    height: 48mm; margin: -14mm -14mm 18px; background-size: cover; background-position: center;
-    position: relative; overflow: hidden;
+    height: 44mm; margin: 0 0 16px; background-size: cover; background-position: center;
+    position: relative; overflow: hidden; border-radius: 3px;
   }
   .cover-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%); }
 

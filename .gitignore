@@ -28,6 +28,7 @@ next-env.d.ts
 # misc
 *.tsbuildinfo
 /tmp-quote*.pdf
+/tmp-pdf-diag
 /public/uploads
 .DS_Store
 *.pem

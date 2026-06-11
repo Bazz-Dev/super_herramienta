@@ -131,6 +131,16 @@ real conviene un blob store (Vercel Blob / S3 / R2). **Riesgo pendiente, no bloq
   build sugiere que las env vars no estaban aplicadas → **verificar las 5 vars en Vercel**.
 - **2026-06-10** — Renombrado UI: "Cotizador" → "Generador de Propuesta Técnico Comercial"
   (`767880f`). Ruta `/cotizador` y código en inglés sin cambios.
+- **2026-06-11** — **Calidad del PDF (debugging sistemático con evidencia visual)**. Se
+  rasterizó el PDF a PNG para inspeccionar. Causas raíz halladas y corregidas en
+  `template.ts`: (1) `.cover { break-after: page }` forzaba una primera página casi vacía
+  → eliminado, el contenido fluye tras la portada (base 3→2 págs); (2) caja "Validez"
+  huérfana → `break-before: avoid` la mantiene con sus condiciones; (3) banner con franja
+  blanca por margen negativo → banner limpio dentro del ancho de contenido. Tabla larga,
+  totales y anexo fotográfico ya paginaban bien. **Tests añadidos** (`tests/unit/`,
+  `npm run test:unit`): 16 casos (totales, render/anti-XSS, generación de PDF con bordes:
+  vacío, estrés multipágina, monedas, caracteres especiales; guardia de regresión ≤2 págs).
+  Scripts de diagnóstico: `scripts/diag-pdf.ts` (rasteriza para inspección visual).
 
 ---
 

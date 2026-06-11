@@ -12,7 +12,7 @@ async function login(page: import('@playwright/test').Page) {
 test('cotizador renders the quote preview', async ({ page }) => {
   await login(page)
   await page.goto('/cotizador')
-  await expect(page.getByRole('heading', { name: 'Cotizador' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Generador de Propuesta Técnico Comercial' })).toBeVisible()
   await expect(page.locator('iframe[title="Vista previa de cotización"]')).toBeVisible()
 })
 
