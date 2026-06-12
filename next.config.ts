@@ -30,10 +30,6 @@ const nextConfig: NextConfig = {
       './node_modules/@sparticuz/chromium/**',
       './node_modules/playwright-core/**',
     ],
-    '/api/quotes/diag': [
-      './node_modules/@sparticuz/chromium/**',
-      './node_modules/playwright-core/**',
-    ],
   },
 }
 

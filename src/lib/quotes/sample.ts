@@ -61,7 +61,7 @@ export const sampleQuote: QuoteData = {
   contact: {
     company: 'INGEGAR SpA',
     email: 'contacto@ingegarchile.cl',
-    phone: '+56 9 1234 5678',
+    phone: '+56 9 7962 7151',
     web: 'ingegarchile.cl',
   },
 }

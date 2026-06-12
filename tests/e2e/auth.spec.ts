@@ -9,7 +9,7 @@ test('unauthenticated user is redirected to login', async ({ page }) => {
 test('super user can log in and reach the dashboard', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('Email').fill('admin@ingegarchile.cl')
-  await page.getByLabel('Contraseña').fill('ingegar123')
+  await page.getByLabel('Contraseña', { exact: true }).fill('ingegar123')
   await page.getByRole('button', { name: 'Ingresar' }).click()
 
   await expect(page).toHaveURL(/\/dashboard/)
@@ -20,7 +20,7 @@ test('super user can log in and reach the dashboard', async ({ page }) => {
 test('invalid credentials show an error', async ({ page }) => {
   await page.goto('/login')
   await page.getByLabel('Email').fill('admin@ingegarchile.cl')
-  await page.getByLabel('Contraseña').fill('wrong-password')
+  await page.getByLabel('Contraseña', { exact: true }).fill('wrong-password')
   await page.getByRole('button', { name: 'Ingresar' }).click()
 
   await expect(page.getByText('Email o contraseña incorrectos.')).toBeVisible()

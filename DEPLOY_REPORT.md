@@ -149,6 +149,15 @@ real conviene un blob store (Vercel Blob / S3 / R2). **Riesgo pendiente, no bloq
   (3) el 500 ahora devuelve `detail` con el error real para diagnóstico desde el cliente.
   **Navegación**: barra de módulos persistente (Inicio/Propuestas/Recursos/Cronograma) con
   estado activo, header pegajoso, logo a inicio. Pendiente: verificar PDF en prod tras redeploy.
+- **2026-06-11** — **PDF en producción RESUELTO**. El diag mostró: binario de Chromium OK
+  (`execExists:true`) pero `playwright-core` no cargaba `browsers.json` (no trazado). Fix
+  (`23a95bb`): `outputFileTracingIncludes` incluye `playwright-core/**`. PDF funciona en prod.
+- **2026-06-12** — Mejoras UX: (1) teléfono de INGEGAR corregido a `+56 9 7962 7151` en la
+  plantilla; (2) login con **ver/ocultar contraseña** + **recordar correo** (localStorage,
+  nunca la contraseña); (3) **menú sidebar tipo sistema interno** (íconos, estado activo,
+  responsive con drawer móvil) reemplaza la nav superior; (4) endpoint `/api/quotes/diag`
+  eliminado. Tests de login ajustados a match exacto del label (el botón "Mostrar contraseña"
+  colisionaba por substring). 16 unit + 17 e2e verdes.
 
 ---
 
