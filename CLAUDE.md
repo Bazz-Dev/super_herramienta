@@ -86,16 +86,23 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 ### Módulo Cotizador (`src/lib/quotes/`, `src/components/quotes/`)
 - **Editor online funcional** (`/cotizador`): campos editables, alcance, exclusiones y condiciones como listas, tabla de ítems con **columnas dinámicas**, cálculo automático de neto/IVA/total, **preview en vivo** (debounce 250ms) y descarga PDF.
 - **2 plantillas A4** seleccionables: `clasico` (principal) y `minimal`. El valor histórico de 390px del `DESIGN-SYSTEM.MD` quedó **obsoleto** (override del usuario → A4).
-- **Imágenes opcionales** en ambas plantillas: banner de portada (`coverImageUrl`) + sección "Registro fotográfico" (`images[]` con pie de foto). Se suben vía `/api/uploads`.
+- **Imágenes opcionales** en ambas plantillas: banner de portada (`coverImageUrl`) + sección "Registro fotográfico" (`images[]` con pie de foto). Se convierten a **data URI en el cliente** (`src/lib/quotes/image-data-url.ts`: redimensiona ≤1600px + recomprime) y se guardan inline en `QuoteData` — **no** se suben al servidor. Esto funciona en Vercel serverless (filesystem read-only); el viejo `/api/uploads` quedó obsoleto.
 - **UX/UI**: íconos SVG (no emojis, `src/components/quotes/icons.tsx`), `cursor-pointer` + transiciones 150ms + focus-visible, empty states, toolbar de preview con zoom y "abrir en pestaña", `prefers-reduced-motion` global, responsive. Basado en la skill `ui-ux-pro-max` (se mantuvo la marca ámbar/Inter, no la paleta sugerida).
 - **Una sola fuente de verdad de render**: `renderQuoteHTML(data)` (`template.ts`) genera el HTML que usan **tanto** el `QuotePreview` (iframe, escalado a A4) **como** el PDF (Playwright) → preview ≈ PDF.
 - `types.ts` — `QuoteData` (template, customColumns, items con `custom`, coverImageUrl) + Zod + `computeTotals`. **Ajustes** (`adjustments`: utilidad, gastos administrativos, ajuste comercial) sobre el costo base antes del neto, cada uno con checkbox + % editable → `{ base, adjustments[], net, tax, total }`.
 - `template.ts` — 3 plantillas, A4, paginación segura (`break-inside: avoid` en filas/secciones, `thead` repetido, `break-after: page` en portada). Valores escapados con `esc()`.
-- `pdf.ts` — `generateQuotePdf()`: Chromium `page.pdf` A4, `displayHeaderFooter` (n.º de página + contacto), margins 14/16mm. Inyecta la imagen de portada local como data-URI. **Node runtime only.**
+- `pdf.ts` — `generateQuotePdf()`: arma el HTML y delega en `renderHtmlToPdf()` (módulo compartido `src/lib/pdf/render.ts` con el `launchBrowser()` serverless/local). A4, `displayHeaderFooter` (n.º de página + contacto), margins 14/16mm. **Node runtime only.**
 - `quote-id.ts` — genera `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`.
 - API: `POST /api/quotes/generate` (→ PDF) y `POST /api/uploads` (imagen de portada → `public/uploads`, gitignored). Ambas autenticadas, `runtime='nodejs'`.
 - Componentes (`src/components/quotes/`): `quote-editor` (orquestador), `items-editor` (columnas dinámicas), `scope-editor`, `string-list-editor`, `cover-image-upload`, `quote-preview`, `download-pdf-button`, `ui` (primitivos).
 - **Pendiente**: persistencia en DB (modelo `Quote`, guardar/listar/editar) — se hará junto al Pipeline. Validación visual fina vs. los PDFs de `design-reference/`.
+
+### Módulo Informe Técnico (`src/lib/reports/`, `src/components/reports/`, `/informe`)
+- **Creador de Informe Técnico** (`/informe`): misma lógica que el cotizador pero para el documento "Informe Técnico". Editor con identificación (n.º reporte, versión, contacto, cliente, sucursal, dirección, observación, OT), **secciones numeradas** (título + párrafo + viñetas, reordenables) y **registro fotográfico** (fotos como data URI vía el mismo helper de cliente). Preview en vivo (debounce 250ms) + descarga PDF A4.
+- Estructura basada en el PDF de muestra `design-reference/IT - 260519-JB-PR-78 - PROVIDENCIA.pdf`: masthead de marca, tarjeta de identificación, secciones (Alcance / Actividades / Observaciones / Conclusión) y anexo fotográfico al final.
+- `types.ts` — `ReportData` (Zod) + `reportFilename()` (`IT - <reportId> - <SUCURSAL>`). `template.ts` — `renderReportHTML(data)`, única fuente de verdad para preview y PDF; el registro fotográfico arranca en página nueva (`break-before: page`). `sample.ts` — informe de muestra (caso Providencia) que precarga el editor. `pdf.ts` — `generateReportPdf()` usa `renderHtmlToPdf()` compartido.
+- API: `POST /api/reports/generate` (→ PDF, autenticada, `runtime='nodejs'`). Agregada a `outputFileTracingIncludes` en `next.config.ts` (mismo Chromium serverless que el cotizador).
+- Tests: `tests/unit/report.test.ts` (HTML, escape anti-inyección, nombre de archivo, PDF válido, borde vacío, anexo fotográfico en página propia).
 
 ### Módulo Recursos (`src/lib/resources/`, `src/components/resources/`, `/recursos`)
 - 5 entidades CRUD, todas scoped por tenant (`tenantScope` / `canAccessTenant`): **Técnicos**, **Vehículos** (camionetas), **Activos** (herramientas, enum `AssetStatus`), **Cuadrillas** (M:N con técnicos), **Clientes**.

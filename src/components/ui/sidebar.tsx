@@ -8,6 +8,7 @@ import { Logo } from './logo'
 const LINKS = [
   { href: '/dashboard', label: 'Inicio', icon: HomeIcon },
   { href: '/cotizador', label: 'Propuestas', icon: DocIcon },
+  { href: '/informe', label: 'Informes', icon: ReportIcon },
   { href: '/recursos', label: 'Recursos', icon: ToolsIcon },
   { href: '/cronograma', label: 'Cronograma', icon: CalendarIcon },
 ]
@@ -108,6 +109,14 @@ function DocIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
       <path d="M14 3v5h5M9 13h6M9 17h6" />
+    </svg>
+  )
+}
+function ReportIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />
+      <path d="M14 2v4h4M8 13l2 2 3-4M8 18h6" />
     </svg>
   )
 }
