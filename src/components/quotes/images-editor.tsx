@@ -2,17 +2,9 @@
 
 import { useState } from 'react'
 import type { QuoteImage } from '@/lib/quotes/types'
+import { fileToDataUrl } from '@/lib/quotes/image-data-url'
 import { ImageIcon, PlusIcon, TrashIcon } from './icons'
-import { AddButton, IconButton, TextInput } from './ui'
-
-async function uploadImage(file: File): Promise<string> {
-  const fd = new FormData()
-  fd.append('file', file)
-  const res = await fetch('/api/uploads', { method: 'POST', body: fd })
-  const json = await res.json()
-  if (!res.ok) throw new Error(json.error ?? 'Error al subir la imagen')
-  return json.url as string
-}
+import { IconButton, TextInput } from './ui'
 
 export function ImagesEditor({
   coverImageUrl,
@@ -32,7 +24,7 @@ export function ImagesEditor({
     setBusy(true)
     setError(null)
     try {
-      onCoverChange(await uploadImage(file))
+      onCoverChange(await fileToDataUrl(file))
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al subir')
     } finally {
@@ -44,7 +36,7 @@ export function ImagesEditor({
     setBusy(true)
     setError(null)
     try {
-      const uploaded = await Promise.all(Array.from(files).map(uploadImage))
+      const uploaded = await Promise.all(Array.from(files).map(fileToDataUrl))
       onImagesChange([...images, ...uploaded.map((url) => ({ url, caption: '' }))])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al subir')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useActionState } from 'react'
 import { authenticate, type LoginState } from './actions'
 
@@ -10,20 +10,17 @@ const REMEMBER_KEY = 'ingegar.login.email'
 const inputCls =
   'w-full rounded-md border border-gray-300 px-3 py-2 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/30'
 
+// Read the remembered email once, lazily (SSR-safe). We never store the password.
+function rememberedEmail(): string {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem(REMEMBER_KEY) ?? ''
+}
+
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(authenticate, initialState)
   const [showPassword, setShowPassword] = useState(false)
-  const [remember, setRemember] = useState(false)
-  const [email, setEmail] = useState('')
-
-  // Prefill the remembered email (we never store the password).
-  useEffect(() => {
-    const saved = localStorage.getItem(REMEMBER_KEY)
-    if (saved) {
-      setEmail(saved)
-      setRemember(true)
-    }
-  }, [])
+  const [email, setEmail] = useState(rememberedEmail)
+  const [remember, setRemember] = useState(() => rememberedEmail() !== '')
 
   function onSubmit() {
     if (remember && email) localStorage.setItem(REMEMBER_KEY, email)
