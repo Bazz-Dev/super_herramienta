@@ -199,14 +199,38 @@ crean al vuelo durante la migración.
 
 ## 7. Indicadores (dashboard del módulo)
 
-- **KPIs (período + filtro cliente):** Facturado · Por cobrar · Cobrado ·
-  Sin facturar (sin OC) · Vencido.
+Lente de control: en una empresa de servicios de terreno (correctivos +
+preventivos) lo que decide la supervivencia es **el efectivo** (cobrar rápido y
+no dejar trabajos sin facturar) y la **rentabilidad real por trabajo**. Los
+indicadores se priorizan en ese orden.
+
+**A. Caja / cobranza (lo más crítico)**
+- KPIs (período + filtro cliente): Facturado · Por cobrar · Cobrado · **Vencido**.
 - **Aging** de cuentas por cobrar (0–30 / 31–60 / 60+) y **días promedio de
   cobro** (`paymentDate − invoiceDate`).
-- **Margen total y %** (se activa al cargar costos).
-- Cortes por **sucursal, tipo, mes (tendencia), técnico**; top trabajos por
-  monto / margen.
-- Cálculo en `src/lib/cashflow/metrics.ts` (funciones puras, testeables).
+
+**B. Palancas de control que los datos ya revelan**
+- **Backlog "SIN OC"**: trabajos **ejecutados sin orden de compra** (82 de 205
+  hoy) = monto **en riesgo de no facturarse**. KPI destacado con su monto: "no
+  dejar plata en la calle".
+- **Lag de facturación**: días entre `executionDate` → `invoiceDate` (y
+  ejecución → OC). Mide cuánto tarda el trabajo en convertirse en factura cobrable.
+
+**C. Rentabilidad (se activa al cargar costos)**
+- **Margen total y %** por trabajo, sucursal, tipo y técnico. **Ticket promedio**
+  por trabajo/tipo.
+
+**D. Salud estratégica del negocio**
+- **Mix por tipo** (emergencia / requerimiento / preventivo) y su tendencia: el
+  preventivo es ingreso **recurrente/predecible**; mucha emergencia = negocio
+  reactivo.
+- **Concentración**: % de ingreso por cliente y por sucursal (riesgo de
+  dependencia — hoy 100% Just Burger).
+- **Productividad por técnico**: nº trabajos, ingreso y margen generados.
+
+Cortes transversales: **sucursal, tipo, mes (tendencia), técnico**; top trabajos
+por monto / margen. Cálculo en `src/lib/cashflow/metrics.ts` (funciones puras,
+testeables). El dashboard prioriza A y B arriba; C y D en una segunda fila.
 
 ## 8. Arquitectura / UI (sigue patrones existentes)
 
