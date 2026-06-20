@@ -140,6 +140,8 @@ model Client {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   assignments Assignment[]
+  branches    Branch[]
+  jobs        Job[]
 
   @@index([tenantId])
   @@map("clients")
@@ -220,4 +222,108 @@ model AssignmentAssignee {
   @@unique([assignmentId, technicianId])
   @@index([technicianId])
   @@map("assignment_assignees")
+}
+
+// --- Flujo de Caja: sucursales, trabajos y costos ---
+
+enum JobType {
+  requerimiento
+  emergencia
+  preventivo
+  proyecto
+  otro
+}
+
+enum JobStatus {
+  pendiente
+  en_proceso
+  ejecutado
+  anulado
+}
+
+enum CollectionStatus {
+  sin_oc
+  pendiente_pago
+  pagado
+}
+
+enum CostCategory {
+  materiales
+  mano_obra
+  subcontrato
+  transporte
+  otros
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  tenantId  String
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  name      String
+  active    Boolean  @default(true)
+  jobs      Job[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clientId, name])
+  @@index([tenantId])
+}
+
+model Job {
+  id                String           @id @default(cuid())
+  tenantId          String
+  clientId          String
+  client            Client           @relation(fields: [clientId], references: [id])
+  branchId          String
+  branch            Branch           @relation(fields: [branchId], references: [id])
+
+  costCenter        String?
+  jobNumber         Int?
+  importRef         String?          @unique
+  quoteRef          String?
+  hasTechReport     Boolean          @default(false)
+  reportId          String?
+  description       String
+  type              JobType          @default(requerimiento)
+  status            JobStatus        @default(ejecutado)
+  executionDate     DateTime?
+  technicianId      String?
+  notes             String?
+  extraNotes        String?
+
+  currency          String           @default("CLP")
+  netAmount         Int?
+  taxAmount         Int?
+
+  purchaseOrder     String?
+  purchaseOrderDate DateTime?
+  invoiceNumber     String?
+  invoiceDate       DateTime?
+  creditDays        Int?
+  paymentMethodRaw  String?
+  collectionStatus  CollectionStatus @default(sin_oc)
+  paymentDate       DateTime?
+
+  costs             JobCost[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([tenantId, clientId])
+  @@index([branchId])
+}
+
+model JobCost {
+  id          String       @id @default(cuid())
+  jobId       String
+  job         Job          @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  category    CostCategory @default(materiales)
+  description String?
+  amount      Int
+  date        DateTime?
+  supplier    String?
+  documentRef String?
+  createdAt   DateTime     @default(now())
+
+  @@index([jobId])
 }
