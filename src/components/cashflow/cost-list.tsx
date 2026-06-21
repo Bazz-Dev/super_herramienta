@@ -1,6 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Field, TextInput, Select, Button } from '@/components/quotes/ui'
 import { COST_CATEGORY_LABELS } from '@/lib/cashflow/labels'
 import { clp } from '@/lib/cashflow/format'
@@ -26,6 +27,7 @@ export function CostList({
   jobId: string
   netAmount: number | null
 }) {
+  const router = useRouter()
   const [pending, startTransition] = useTransition()
 
   const totalCosts = costs.reduce((s, c) => s + c.amount, 0)
@@ -33,7 +35,10 @@ export function CostList({
 
   function handleDelete(costId: string) {
     if (window.confirm('¿Eliminar este costo?')) {
-      startTransition(() => deleteCost(costId, jobId))
+      startTransition(async () => {
+        await deleteCost(costId, jobId)
+        router.refresh()
+      })
     }
   }
 
