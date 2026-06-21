@@ -83,8 +83,10 @@ export async function deleteJob(id: string) {
 }
 
 export async function addCost(form: FormData) {
-  await requireActor()
+  const u = await requireActor()
   const p = jobCostInput.parse(Object.fromEntries(form))
+  const job = await prisma.job.findFirst({ where: { id: p.jobId, ...tenantScope(u) } })
+  if (!job) throw new Error('No autorizado')
   await prisma.jobCost.create({
     data: {
       jobId: p.jobId,
@@ -100,7 +102,9 @@ export async function addCost(form: FormData) {
 }
 
 export async function deleteCost(id: string, jobId: string) {
-  await requireActor()
-  await prisma.jobCost.delete({ where: { id } })
+  const u = await requireActor()
+  await prisma.jobCost.deleteMany({
+    where: { id, job: { id: jobId, ...tenantScope(u) } },
+  })
   revalidatePath(`/flujo/trabajos/${jobId}`)
 }
