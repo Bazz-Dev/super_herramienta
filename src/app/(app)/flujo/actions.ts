@@ -8,6 +8,8 @@ import { tenantScope } from '@/lib/tenant'
 import { branchInput, jobInput, jobCostInput } from '@/lib/cashflow/schemas'
 import { fromDateInput } from '@/lib/cashflow/dates'
 
+export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
+
 function jobData(p: ReturnType<typeof jobInput.parse>) {
   return {
     branchId: p.branchId,
@@ -59,18 +61,20 @@ export async function deleteBranch(id: string) {
   revalidatePath('/flujo/sucursales')
 }
 
-export async function createJob(form: FormData) {
+export async function createJob(_prev: FormState, form: FormData): Promise<FormState> {
   const u = await requireActor()
-  const p = jobInput.parse(Object.fromEntries(form))
-  await prisma.job.create({ data: { tenantId: u.tenantId, clientId: p.clientId, ...jobData(p) } })
+  const parsed = jobInput.safeParse(Object.fromEntries(form))
+  if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  await prisma.job.create({ data: { tenantId: u.tenantId, clientId: parsed.data.clientId, ...jobData(parsed.data) } })
   revalidatePath('/flujo')
   redirect('/flujo/trabajos')
 }
 
-export async function updateJob(id: string, form: FormData) {
+export async function updateJob(id: string, _prev: FormState, form: FormData): Promise<FormState> {
   const u = await requireActor()
-  const p = jobInput.parse(Object.fromEntries(form))
-  await prisma.job.updateMany({ where: { id, ...tenantScope(u) }, data: jobData(p) })
+  const parsed = jobInput.safeParse(Object.fromEntries(form))
+  if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  await prisma.job.updateMany({ where: { id, ...tenantScope(u) }, data: jobData(parsed.data) })
   revalidatePath('/flujo')
   redirect('/flujo/trabajos')
 }
