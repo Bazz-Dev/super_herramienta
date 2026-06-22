@@ -44,6 +44,8 @@ export async function createBranch(form: FormData) {
     name: form.get('name'),
     active: form.get('active') === 'on',
   })
+  const client = await prisma.client.findFirst({ where: { id: p.clientId, ...tenantScope(u) }, select: { id: true } })
+  if (!client) throw new Error('Cliente no válido.')
   await prisma.branch.create({ data: { tenantId: u.tenantId, clientId: p.clientId, name: p.name, active: p.active } })
   revalidatePath('/flujo/sucursales')
 }
@@ -65,6 +67,14 @@ export async function createJob(_prev: FormState, form: FormData): Promise<FormS
   const u = await requireActor()
   const parsed = jobInput.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  const client = await prisma.client.findFirst({ where: { id: parsed.data.clientId, ...tenantScope(u) }, select: { id: true } })
+  if (!client) return { error: 'Cliente no válido.' }
+  const branch = await prisma.branch.findFirst({ where: { id: parsed.data.branchId, clientId: client.id, ...tenantScope(u) }, select: { id: true } })
+  if (!branch) return { error: 'Sucursal no válida.' }
+  if (parsed.data.technicianId) {
+    const tech = await prisma.technician.findFirst({ where: { id: parsed.data.technicianId, ...tenantScope(u) }, select: { id: true } })
+    if (!tech) return { error: 'Técnico no válido.' }
+  }
   await prisma.job.create({ data: { tenantId: u.tenantId, clientId: parsed.data.clientId, ...jobData(parsed.data) } })
   revalidatePath('/flujo')
   redirect('/flujo/trabajos')
@@ -74,6 +84,12 @@ export async function updateJob(id: string, _prev: FormState, form: FormData): P
   const u = await requireActor()
   const parsed = jobInput.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  const branch = await prisma.branch.findFirst({ where: { id: parsed.data.branchId, ...tenantScope(u) }, select: { id: true } })
+  if (!branch) return { error: 'Sucursal no válida.' }
+  if (parsed.data.technicianId) {
+    const tech = await prisma.technician.findFirst({ where: { id: parsed.data.technicianId, ...tenantScope(u) }, select: { id: true } })
+    if (!tech) return { error: 'Técnico no válido.' }
+  }
   await prisma.job.updateMany({ where: { id, ...tenantScope(u) }, data: jobData(parsed.data) })
   revalidatePath('/flujo')
   redirect('/flujo/trabajos')

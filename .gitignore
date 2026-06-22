@@ -35,3 +35,4 @@ next-env.d.ts
 npm-debug.log*
 .vscode/
 design-reference/flujo-consolidado.csv
+design-reference/*.xlsx
