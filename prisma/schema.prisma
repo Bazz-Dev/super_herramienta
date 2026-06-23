@@ -259,7 +259,7 @@ model Branch {
   id        String   @id @default(cuid())
   tenantId  String
   clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
   name      String
   active    Boolean  @default(true)
   jobs      Job[]
@@ -268,15 +268,16 @@ model Branch {
 
   @@unique([clientId, name])
   @@index([tenantId])
+  @@map("branches")
 }
 
 model Job {
   id                String           @id @default(cuid())
   tenantId          String
   clientId          String
-  client            Client           @relation(fields: [clientId], references: [id])
+  client            Client           @relation(fields: [clientId], references: [id], onDelete: Restrict)
   branchId          String
-  branch            Branch           @relation(fields: [branchId], references: [id])
+  branch            Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
   costCenter        String?
   jobNumber         Int?
@@ -311,6 +312,7 @@ model Job {
 
   @@index([tenantId, clientId])
   @@index([branchId])
+  @@map("jobs")
 }
 
 model JobCost {
@@ -326,4 +328,5 @@ model JobCost {
   createdAt   DateTime     @default(now())
 
   @@index([jobId])
+  @@map("job_costs")
 }
