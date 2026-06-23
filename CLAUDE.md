@@ -154,7 +154,7 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 2. 🟡 **Cotizador** (editor funcional listo): editor online + 3 plantillas A4 + columnas dinámicas + cálculo automático + preview en vivo + PDF + subida de imagen. **Falta**: persistencia en DB (guardar/listar/editar cotizaciones).
 3. ✅ **Recursos**: técnicos, vehículos (1:1 técnico), activos (inventario por camioneta), cuadrillas y clientes — CRUD completo con persistencia y scoping multi-tenant.
 4. ✅ **Cronograma** (top-level): calendario Día/Semana/Mes, equipos técnico/ayudante, cliente, color por permiso de sucursal, filtro por técnico.
-5. 🟡 **Flujo de Caja** (modelos listos): `Branch`/`Job`/`JobCost` + enums en schema, migración aplicada. **Falta**: UI `/flujo`, queries, actions, importador histórico.
+5. ✅ **Flujo de Caja** (`/flujo`): `Branch`/`Job`/`JobCost` + enums; importador idempotente (`scripts/import-flujo.ts`, 205 trabajos), métricas puras (cobranza/aging/backlog SIN OC/margen), queries+actions scoped, dashboard con KPIs filtrable por cliente, CRUD de trabajos con costos+margen en vivo, admin de sucursales. **Pendiente prod**: correr el import contra Turso para poblar datos en producción.
 6. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
 
 **Futuro**: **estadísticas por técnico/cliente** (trabajos por persona, distribución semanal); ticketing de mantención Just Burger (migrar desde GAS); reportes por tenant.
