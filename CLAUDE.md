@@ -121,6 +121,15 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - `assignment-form.tsx`: hidden input `assignees` con JSON `[{technicianId, role}]`; checkbox `permissionRequested`; cliente con creación inline. La acción reemplaza assignees en bloque (delete+create en transacción) al editar.
 - Las acciones (`createAssignment`/`updateAssignment`/`deleteAssignment`) viven en `app/(app)/cronograma/actions.ts`.
 
+### Módulo Flujo de Caja (`src/lib/cashflow/`, `src/app/(app)/flujo/` — **top-level**)
+- Registro histórico de trabajos facturados: costos reales vs. ingresos, estado de cobranza, y gestión de sucursales por cliente.
+- **Modelos Prisma**: `Branch` (sucursal del cliente — `clientId`, `tenantId`, `name`, `active`; unique `[clientId, name]`), `Job` (trabajo ejecutado — campos financieros `netAmount`/`taxAmount` en CLP entero, `collectionStatus`, `purchaseOrder`, `invoiceNumber`, `executionDate`; scoping `tenantId + clientId`), `JobCost` (costos del trabajo — `category`, `amount` en CLP entero, `supplier`, `documentRef`).
+- **Enums**: `JobType` (`requerimiento|emergencia|preventivo|proyecto|otro`), `JobStatus` (`pendiente|en_proceso|ejecutado|anulado`), `CollectionStatus` (`sin_oc|pendiente_pago|pagado`), `CostCategory` (`materiales|mano_obra|subcontrato|transporte|otros`).
+- **Relaciones**: `Client → Branch[]` y `Client → Job[]` (inversas en `Client`); `Branch → Job[]`; `Job → JobCost[]` (cascade delete).
+- **Scoping**: `tenantId` en `Job` y `Branch` — usar `tenantScope(actor)` igual que otros módulos. `Client` ya está scoped; `Branch` y `Job` heredan el scope via `clientId`.
+- **Ruta**: `/flujo` (pendiente de implementar).
+- **Carga histórica**: `scripts/import-flujo.ts` (pendiente — importará desde Excel/CSV a `Branch`, `Job`, `JobCost`).
+
 ---
 
 ## Convenciones del proyecto
@@ -145,7 +154,8 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 2. 🟡 **Cotizador** (editor funcional listo): editor online + 3 plantillas A4 + columnas dinámicas + cálculo automático + preview en vivo + PDF + subida de imagen. **Falta**: persistencia en DB (guardar/listar/editar cotizaciones).
 3. ✅ **Recursos**: técnicos, vehículos (1:1 técnico), activos (inventario por camioneta), cuadrillas y clientes — CRUD completo con persistencia y scoping multi-tenant.
 4. ✅ **Cronograma** (top-level): calendario Día/Semana/Mes, equipos técnico/ayudante, cliente, color por permiso de sucursal, filtro por técnico.
-5. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
+5. 🟡 **Flujo de Caja** (modelos listos): `Branch`/`Job`/`JobCost` + enums en schema, migración aplicada. **Falta**: UI `/flujo`, queries, actions, importador histórico.
+6. ⬜ **Pipeline**: cotizaciones enviadas, estados, alertas de seguimiento.
 
 **Futuro**: **estadísticas por técnico/cliente** (trabajos por persona, distribución semanal); ticketing de mantención Just Burger (migrar desde GAS); reportes por tenant.
 

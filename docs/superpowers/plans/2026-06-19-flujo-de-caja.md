@@ -280,7 +280,7 @@ export const jobInput = z.object({
   costCenter: z.string().optional(),
   jobNumber: z.coerce.number().int().optional(),
   quoteRef: z.string().optional(),
-  hasTechReport: z.coerce.boolean(), // checkbox: "on"/absent → true/false
+  hasTechReport: z.coerce.boolean().default(false), // checkbox: absent key must default to false
   technicianId: z.string().optional(),
   notes: z.string().optional(),
   extraNotes: z.string().optional(),
