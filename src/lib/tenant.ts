@@ -10,9 +10,23 @@ import type { Role } from '@/generated/prisma/enums'
  *
  *   await prisma.someResource.findMany({ where: { ...tenantScope(session) } })
  */
+import { auth } from '@/auth'
+import { redirect } from 'next/navigation'
+
 export type TenantActor = {
+  id: string
   role: Role
   tenantId: string
+}
+
+export async function requireActor(): Promise<TenantActor> {
+  const session = await auth()
+  if (!session?.user?.tenantId) redirect('/login')
+  return {
+    id: session.user.id,
+    role: session.user.role,
+    tenantId: session.user.tenantId,
+  }
 }
 
 export function tenantScope(actor: TenantActor): { tenantId?: string } {

@@ -5,13 +5,34 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Logo } from './logo'
 
-const LINKS = [
-  { href: '/dashboard', label: 'Inicio', icon: HomeIcon },
-  { href: '/cotizador', label: 'Propuestas', icon: DocIcon },
-  { href: '/informe', label: 'Informes', icon: ReportIcon },
-  { href: '/recursos', label: 'Recursos', icon: ToolsIcon },
-  { href: '/cronograma', label: 'Cronograma', icon: CalendarIcon },
-  { href: '/flujo', label: 'Flujo de Caja', icon: CashIcon },
+const NAV_SECTIONS = [
+  {
+    label: null,
+    links: [
+      { href: '/dashboard', label: 'Inicio', icon: HomeIcon },
+    ],
+  },
+  {
+    label: 'Operaciones',
+    links: [
+      { href: '/cronograma', label: 'Cronograma', icon: CalendarIcon },
+      { href: '/tickets', label: 'Tickets', icon: TicketIcon },
+    ],
+  },
+  {
+    label: 'Comercial',
+    links: [
+      { href: '/cotizador', label: 'Propuestas', icon: DocIcon },
+      { href: '/informe', label: 'Informes', icon: ReportIcon },
+      { href: '/flujo', label: 'Flujo de Caja', icon: CashIcon },
+    ],
+  },
+  {
+    label: 'Recursos',
+    links: [
+      { href: '/recursos', label: 'Recursos', icon: ToolsIcon },
+    ],
+  },
 ]
 
 export function Sidebar({
@@ -34,24 +55,33 @@ export function Sidebar({
         <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-gray-400">Sistema interno</p>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 px-3">
-        {LINKS.map(({ href, label, icon: Icon }) => {
-          const active = isActive(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setOpen(false)}
-              aria-current={active ? 'page' : undefined}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
-                active ? 'bg-brand text-ink shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-ink'
-              }`}
-            >
-              <Icon />
-              {label}
-            </Link>
-          )
-        })}
+      <nav className="flex flex-1 flex-col gap-4 px-3 overflow-y-auto">
+        {NAV_SECTIONS.map((section, si) => (
+          <div key={si}>
+            {section.label && (
+              <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                {section.label}
+              </p>
+            )}
+            {section.links.map(({ href, label, icon: Icon }) => {
+              const active = isActive(href)
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setOpen(false)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+                    active ? 'bg-brand text-ink shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-ink'
+                  }`}
+                >
+                  <Icon />
+                  {label}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="border-t border-gray-200 px-5 py-4 text-sm">
@@ -150,6 +180,14 @@ function MenuIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
       <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  )
+}
+function TicketIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+      <path d="M13 5v2M13 17v2M13 11v2" />
     </svg>
   )
 }

@@ -89,6 +89,13 @@ model User {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  clientId String? // set when role = client, scopes portal access
+
+  ticketsCreated  Ticket[]        @relation("TicketCreatedBy")
+  ticketsAssigned Ticket[]        @relation("TicketAssignedTo")
+  ticketHistory   TicketHistory[]
+  ticketDocuments TicketDocument[]
+
   @@index([tenantId])
   @@map("users")
 }
@@ -117,10 +124,11 @@ model Technician {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  crews     Crew[] // M:N implícito
-  vehicle   Vehicle? // 1:1 — camioneta asignada (back-relation de Vehicle.technicianId)
-  assignees AssignmentAssignee[] // participaciones en asignaciones (técnico/ayudante)
-  documents TechnicianDocument[]
+  crews         Crew[] // M:N implícito
+  vehicle       Vehicle? // 1:1 — camioneta asignada (back-relation de Vehicle.technicianId)
+  assignees     AssignmentAssignee[] // participaciones en asignaciones (técnico/ayudante)
+  documents     TechnicianDocument[]
+  ticketCollab  TicketCollaborator[]
 
   @@index([tenantId])
   @@map("technicians")
@@ -159,13 +167,16 @@ model Vehicle {
 }
 
 model Client {
-  id        String   @id @default(cuid())
-  name      String
-  rut       String?
-  contact   String?
-  email     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  rut          String?
+  contact      String?
+  email        String?
+  portalSlug   String?  @unique // URL slug del portal: /portal/[portalSlug]
+  portalTheme  String?  // JSON: { primary, secondary, bg, card, text }
+  driveFolderId String? // ID raíz en Google Drive para este cliente
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -173,6 +184,7 @@ model Client {
   assignments Assignment[]
   branches    Branch[]
   jobs        Job[]
+  tickets     Ticket[]
 
   @@index([tenantId])
   @@map("clients")
@@ -292,8 +304,10 @@ model Branch {
   clientId  String
   client    Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
   name      String
+  city      String?
   active    Boolean  @default(true)
   jobs      Job[]
+  tickets   Ticket[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -338,6 +352,7 @@ model Job {
   paymentDate       DateTime?
 
   costs             JobCost[]
+  ticket            Ticket?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
@@ -359,6 +374,133 @@ model TechnicianDocument {
 
   @@index([technicianId])
   @@map("technician_documents")
+}
+
+// --- ClientOps: tickets de mantención por cliente ---
+
+enum TicketUrgency {
+  emergencia
+  urgencia
+  no_urgente
+  preventivo
+}
+
+enum TicketStatus {
+  nuevo
+  en_revision
+  en_ejecucion
+  esperando_aprobacion
+  resuelto
+  cancelado
+  fusionado
+}
+
+enum ItemStatus {
+  pendiente
+  en_proceso
+  resuelto
+}
+
+model Ticket {
+  id             String        @id @default(cuid())
+  ticketCode     String        @unique
+  title          String
+  description    String?
+  urgency        TicketUrgency @default(no_urgente)
+  category       String?
+  status         TicketStatus  @default(nuevo)
+  otNumber       String?
+  estimatedDate  DateTime?
+  closedDate     DateTime?
+  workSummary    String?
+  clientComment  String?
+  internalNotes  String?
+  driveFolderUrl String?
+  parentTicketId String?
+  showToClient   Boolean       @default(true)
+  tenantId       String
+  clientId       String
+  branchId       String?
+  createdById    String
+  assignedToId   String?
+  jobId          String?       @unique
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  client        Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  branch        Branch?             @relation(fields: [branchId], references: [id])
+  createdBy     User                @relation("TicketCreatedBy", fields: [createdById], references: [id])
+  assignedTo    User?               @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  job           Job?                @relation(fields: [jobId], references: [id])
+  history       TicketHistory[]
+  items         TicketItem[]
+  documents     TicketDocument[]
+  collaborators TicketCollaborator[]
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@index([status])
+  @@map("tickets")
+}
+
+model TicketHistory {
+  id         String   @id @default(cuid())
+  ticketId   String
+  userId     String?
+  fromStatus String?
+  toStatus   String?
+  note       String?
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_history")
+}
+
+model TicketItem {
+  id          String     @id @default(cuid())
+  ticketId    String
+  title       String
+  description String?
+  status      ItemStatus @default(pendiente)
+  order       Int        @default(0)
+  createdAt   DateTime   @default(now())
+
+  ticket      Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("ticket_items")
+}
+
+model TicketDocument {
+  id           String   @id @default(cuid())
+  ticketId     String
+  uploadedById String?
+  name         String
+  fileUrl      String
+  mimeType     String?
+  uploadedAt   DateTime @default(now())
+
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_documents")
+}
+
+model TicketCollaborator {
+  id           String     @id @default(cuid())
+  ticketId     String
+  technicianId String
+
+  ticket       Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  technician   Technician @relation(fields: [technicianId], references: [id])
+
+  @@unique([ticketId, technicianId])
+  @@map("ticket_collaborators")
 }
 
 model JobCost {

@@ -31,6 +31,7 @@ export const authConfig = {
         token.role = user.role
         token.tenantId = user.tenantId
         token.tenantSlug = user.tenantSlug
+        token.clientId = user.clientId ?? null
       }
       return token
     },
@@ -40,6 +41,7 @@ export const authConfig = {
         session.user.role = token.role as Role
         session.user.tenantId = token.tenantId as string
         session.user.tenantSlug = token.tenantSlug as string
+        session.user.clientId = (token.clientId as string | null | undefined) ?? null
       }
       return session
     },
