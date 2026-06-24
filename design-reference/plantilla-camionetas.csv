@@ -1,0 +1,2 @@
+patente,marca,modelo,año,estado,tecnico_asignado,rev_tecnica_vence,soap_vence,permiso_circulacion_vence,ultimo_servicio,proximo_servicio,notas
+XXXX-00,Toyota,Hilux,2022,activo,Nombre Apellido,31/12/2026,31/03/2027,31/03/2027,15/01/2026,15/07/2026,Ejemplo — reemplazar con datos reales
