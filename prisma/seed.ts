@@ -24,21 +24,54 @@ async function main() {
 
   const ingegar = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'ingegar' } })
 
-  // --- Super user (INGEGAR) ---
-  const password = process.env.SEED_ADMIN_PASSWORD ?? 'ingegar123'
-  const passwordHash = await bcrypt.hash(password, 10)
+  // --- Users ---
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'ingegar123'
+  const adminHash = await bcrypt.hash(adminPassword, 10)
 
+  // System super admin
   await prisma.user.upsert({
     where: { email: 'admin@ingegarchile.cl' },
-    update: { passwordHash, role: 'super', name: 'Admin INGEGAR', active: true },
+    update: { passwordHash: adminHash, role: 'super', name: 'Admin INGEGAR', active: true },
     create: {
       email: 'admin@ingegarchile.cl',
       name: 'Admin INGEGAR',
-      passwordHash,
+      passwordHash: adminHash,
       role: 'super',
       tenantId: ingegar.id,
     },
   })
+
+  // Sebastián Garrido — Gerente de Operaciones (super: ve todos los tenants igual que admin)
+  const sebastianPassword = process.env.SEED_SEBASTIAN_PASSWORD ?? 'Ingegar@2026'
+  const sebastianHash = await bcrypt.hash(sebastianPassword, 10)
+  await prisma.user.upsert({
+    where: { email: 'sgarrido@ingegarchile.cl' },
+    update: { passwordHash: sebastianHash, role: 'super', name: 'Sebastián Garrido', active: true },
+    create: {
+      email: 'sgarrido@ingegarchile.cl',
+      name: 'Sebastián Garrido',
+      passwordHash: sebastianHash,
+      role: 'super',
+      tenantId: ingegar.id,
+    },
+  })
+
+  // Cristian — Analista Comercial (supervisor: ve y edita datos de INGEGAR)
+  const cristianPassword = process.env.SEED_CRISTIAN_PASSWORD ?? 'Ingegar@Comercial1'
+  const cristianHash = await bcrypt.hash(cristianPassword, 10)
+  await prisma.user.upsert({
+    where: { email: 'cristian@ingegarchile.cl' },
+    update: { passwordHash: cristianHash, role: 'supervisor', name: 'Cristian INGEGAR', active: true },
+    create: {
+      email: 'cristian@ingegarchile.cl',
+      name: 'Cristian INGEGAR',
+      passwordHash: cristianHash,
+      role: 'supervisor',
+      tenantId: ingegar.id,
+    },
+  })
+
+  const password = adminPassword // for log below
 
   // --- Sample resources (only if none exist for INGEGAR) ---
   const techCount = await prisma.technician.count({ where: { tenantId: ingegar.id } })
@@ -143,7 +176,9 @@ async function main() {
 
   console.log('Seed complete.')
   console.log('  Tenants:', tenants.map((t) => t.slug).join(', '))
-  console.log('  Super user: admin@ingegarchile.cl /', password)
+  console.log('  admin@ingegarchile.cl  /', password, '(super)')
+  console.log('  sgarrido@ingegarchile.cl /', sebastianPassword, '(super — Gerente Operaciones)')
+  console.log('  cristian@ingegarchile.cl /', cristianPassword, '(supervisor — Analista Comercial)')
 }
 
 main()
