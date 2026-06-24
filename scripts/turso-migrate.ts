@@ -30,6 +30,7 @@ const migrations = [
   '20260620022941_cashflow_module',
   '20260623001007_cashflow_table_naming_and_restrict',
   '20260624034801_technicians_contracts_vehicle_expiry_docs',
+  '20260624120000_clientops_tickets_portal',
 ]
 
 for (const name of migrations) {
