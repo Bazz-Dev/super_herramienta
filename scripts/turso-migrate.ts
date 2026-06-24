@@ -3,7 +3,11 @@
  * Run with: dotenv -e .env.production.local -- npx tsx scripts/turso-migrate.ts
  * Or:       DATABASE_URL=... TURSO_AUTH_TOKEN=... npx tsx scripts/turso-migrate.ts
  */
-import 'dotenv/config'
+import { config } from 'dotenv'
+// Load production env if DATABASE_URL not already set (allows direct `npx tsx` invocation)
+if (!process.env.DATABASE_URL) {
+  config({ path: '.env.production.local' })
+}
 import { createClient } from '@libsql/client'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
