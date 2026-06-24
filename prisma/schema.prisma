@@ -42,6 +42,21 @@ enum AssigneeRole {
   ayudante
 }
 
+enum ContractType {
+  indefinido
+  plazo_fijo
+  ayudante
+}
+
+enum DocType {
+  contrato
+  epp
+  altura
+  antecedentes
+  licencia
+  otro
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   slug      String   @unique // ingegar | justburger | loficoffee
@@ -92,12 +107,20 @@ model Technician {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  contractType    ContractType @default(indefinido)
+  contractEndDate DateTime?   // solo para plazo_fijo
+  dailyRate       Int?        // CLP/día — para ayudantes eventuales
+  birthDate       DateTime?
+  emergencyContact String?
+  emergencyPhone  String?
+
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   crews     Crew[] // M:N implícito
   vehicle   Vehicle? // 1:1 — camioneta asignada (back-relation de Vehicle.technicianId)
   assignees AssignmentAssignee[] // participaciones en asignaciones (técnico/ayudante)
+  documents TechnicianDocument[]
 
   @@index([tenantId])
   @@map("technicians")
@@ -111,8 +134,16 @@ model Vehicle {
   year      Int?
   status    VehicleStatus @default(active)
   notes     String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+
+  // Vencimientos y mantenimiento
+  revTecnicaExpiry         DateTime?
+  soapExpiry               DateTime?
+  permisoCirculacionExpiry DateTime?
+  lastServiceDate          DateTime?
+  nextServiceDate          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -313,6 +344,21 @@ model Job {
   @@index([tenantId, clientId])
   @@index([branchId])
   @@map("jobs")
+}
+
+model TechnicianDocument {
+  id           String     @id @default(cuid())
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  type         DocType    @default(otro)
+  label        String?    // nombre personalizado del documento
+  fileUrl      String     // ruta relativa: /uploads/docs/[techId]/[filename]
+  expiryDate   DateTime?  // vencimiento (ej. contrato plazo fijo, examen altura)
+  notes        String?
+  uploadedAt   DateTime   @default(now())
+
+  @@index([technicianId])
+  @@map("technician_documents")
 }
 
 model JobCost {
