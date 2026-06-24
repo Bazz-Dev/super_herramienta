@@ -13,6 +13,8 @@ const createSchema = z.object({
   category: z.string().optional(),
   clientId: z.string().min(1),
   branchId: z.string().optional(),
+  assignedToId: z.string().optional(),
+  internalNotes: z.string().optional(),
 })
 
 const updateSchema = z.object({
@@ -41,14 +43,21 @@ export async function createTicket(_: unknown, fd: FormData) {
     category: fd.get('category') || undefined,
     clientId: fd.get('clientId'),
     branchId: fd.get('branchId') || undefined,
+    assignedToId: fd.get('assignedToId') || undefined,
+    internalNotes: fd.get('internalNotes') || undefined,
   })
+
+  const { assignedToId, internalNotes, ...ticketData } = parsed
+  const initialStatus = assignedToId ? 'en_revision' : 'nuevo'
 
   const ticket = await prisma.ticket.create({
     data: {
-      ...parsed,
+      ...ticketData,
+      assignedToId: assignedToId ?? null,
+      internalNotes: internalNotes ?? null,
       tenantId: actor.tenantId,
       createdById: actor.id,
-      status: 'nuevo',
+      status: initialStatus,
     },
   })
 
@@ -57,8 +66,8 @@ export async function createTicket(_: unknown, fd: FormData) {
       ticketId: ticket.id,
       userId: actor.id,
       fromStatus: null,
-      toStatus: 'nuevo',
-      note: 'Ticket creado',
+      toStatus: initialStatus,
+      note: assignedToId ? 'Ticket creado y asignado' : 'Ticket creado',
       isInternal: false,
     },
   })
