@@ -12,46 +12,114 @@ export default async function PortalLoginPage({ params }: { params: Promise<{ sl
   })
   if (!client) notFound()
 
-  // If already logged in as a client user for this portal, redirect
   const session = await auth()
   if (session?.user?.role === 'client' && session.user.clientId === client.id) {
     redirect(`/portal/${slug}/tickets`)
   }
 
-  let theme = { primary: '#f5b100', bg: '#1a1a2e', card: '#16213e', text: '#e0e0e0' }
+  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
   if (client.portalTheme) {
     try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {}
   }
 
+  const initials = client.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      {/* Logo / branding area */}
-      <div className="mb-8 text-center">
-        <div
-          className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl text-2xl font-black"
-          style={{ background: theme.primary, color: '#111' }}
-        >
-          {client.name.substring(0, 2).toUpperCase()}
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0f0e0d' }}>
+      {/* Left panel — branding */}
+      <div style={{
+        width: '420px', minWidth: '420px', padding: '48px 40px',
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        background: 'linear-gradient(160deg, #1a1210 0%, #0f0e0d 100%)',
+        borderRight: '1px solid rgba(255,255,255,0.05)',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{
+          position: 'absolute', top: '-80px', left: '-80px',
+          width: '320px', height: '320px', borderRadius: '50%',
+          background: `radial-gradient(circle, ${theme.primary}33 0%, transparent 70%)`,
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '56px' }}>
+            <div style={{
+              width: '28px', height: '28px', borderRadius: '6px',
+              background: theme.primary, display: 'grid', placeItems: 'center',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 3h10M2 7h10M2 11h6" stroke="#fff" strokeWidth="1.8" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.30)', letterSpacing: '1.2px', textTransform: 'uppercase' }}>
+              Powered by INGEGAR
+            </span>
+          </div>
+
+          <div style={{
+            width: '64px', height: '64px', borderRadius: '16px',
+            background: theme.primary, display: 'grid', placeItems: 'center',
+            fontSize: '22px', fontWeight: '800', color: '#fff', marginBottom: '20px',
+            boxShadow: `0 8px 32px ${theme.primary}55`,
+          }}>
+            {initials}
+          </div>
+          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#fff', lineHeight: '1.2', marginBottom: '10px' }}>
+            {client.name}
+          </h1>
+          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.38)', lineHeight: '1.6' }}>
+            Portal de gestión de mantención<br/>y soporte técnico.
+          </p>
+
+          <div style={{ marginTop: '40px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[
+              ['📋', 'Seguimiento en tiempo real'],
+              ['🔔', 'Notificaciones de estado'],
+              ['📁', 'Documentos y fotos adjuntas'],
+              ['💬', 'Comunicación con el equipo'],
+            ].map(([icon, text]) => (
+              <div key={String(text)} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '30px', height: '30px', borderRadius: '7px',
+                  background: 'rgba(255,255,255,0.06)', display: 'grid', placeItems: 'center',
+                  fontSize: '13px', flexShrink: 0,
+                }}>{icon}</div>
+                <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>{text}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <h1 className="text-2xl font-bold" style={{ color: theme.text }}>
-          {client.name}
-        </h1>
-        <p className="mt-1 text-sm opacity-60" style={{ color: theme.text }}>
-          Portal de mantención · INGEGAR
+
+        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.16)', position: 'relative' }}>
+          © 2026 INGEGAR Chile SpA · Portal v2.1
         </p>
       </div>
 
-      {/* Login card */}
-      <div
-        className="w-full max-w-sm rounded-2xl p-8 shadow-xl"
-        style={{ background: theme.card, color: theme.text }}
-      >
-        <PortalLoginForm slug={slug} primaryColor={theme.primary} />
-      </div>
+      {/* Right panel — form */}
+      <div style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 24px', background: '#f4f3f1',
+      }}>
+        <div style={{ width: '100%', maxWidth: '380px' }}>
+          <div style={{ marginBottom: '30px' }}>
+            <h2 style={{ fontSize: '21px', fontWeight: '800', color: '#18130e', marginBottom: '6px' }}>
+              Iniciar sesión
+            </h2>
+            <p style={{ fontSize: '13px', color: 'rgba(24,19,14,0.48)' }}>
+              Ingresa tus credenciales para acceder al portal.
+            </p>
+          </div>
 
-      <p className="mt-6 text-xs opacity-40" style={{ color: theme.text }}>
-        Powered by INGEGAR Chile SpA
-      </p>
+          <PortalLoginForm slug={slug} primaryColor={theme.primary} />
+
+          <p style={{ marginTop: '24px', fontSize: '12px', color: 'rgba(24,19,14,0.32)', textAlign: 'center' }}>
+            ¿Problemas para ingresar?{' '}
+            <a href="mailto:soporte@ingegarchile.cl" style={{ color: theme.primary, fontWeight: '600', textDecoration: 'none' }}>
+              Contactar soporte
+            </a>
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

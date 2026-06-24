@@ -3,123 +3,156 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getClientTickets } from '@/lib/tickets/tickets'
-import { STATUS_LABEL, STATUS_COLOR, URGENCY_LABEL, URGENCY_COLOR, type TicketStatusId, type TicketUrgencyId } from '@/lib/tickets/labels'
+import { PortalShell } from '@/components/tickets/portal-shell'
+
+const SL: Record<string, string> = {
+  nuevo: 'Nuevo', en_revision: 'En revisión', en_ejecucion: 'En ejecución',
+  esperando_aprobacion: 'Esp. aprobación', resuelto: 'Resuelto', cancelado: 'Cancelado',
+}
+const UL: Record<string, string> = {
+  emergencia: 'Emergencia', urgencia: 'Urgente', no_urgente: 'Normal', preventivo: 'Preventivo',
+}
+const SB: Record<string, string> = {
+  nuevo: 'badge badge-nuevo', en_revision: 'badge badge-revision',
+  en_ejecucion: 'badge badge-ejecucion', esperando_aprobacion: 'badge badge-espera',
+  resuelto: 'badge badge-resuelto', cancelado: 'badge badge-cancelado',
+}
+const UB: Record<string, string> = {
+  emergencia: 'badge badge-em', urgencia: 'badge badge-ur',
+  no_urgente: 'badge badge-rq', preventivo: 'badge badge-pr',
+}
+const STEPS = ['nuevo', 'en_revision', 'en_ejecucion', 'resuelto']
+const SLBL  = ['Nuevo', 'En revisión', 'En ejecución', 'Resuelto']
 
 export default async function PortalTicketsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const session = await auth()
-
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
     select: { id: true, name: true, portalTheme: true },
   })
   if (!client) notFound()
-
   if (!session?.user || session.user.role !== 'client' || session.user.clientId !== client.id) {
     redirect(`/portal/${slug}`)
   }
 
   const tickets = await getClientTickets(client.id)
+  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
+  if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
 
-  let theme = { primary: '#f5b100', card: '#ffffff', text: '#111111', bg: '#f9fafb' }
-  if (client.portalTheme) {
-    try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {}
-  }
+  const open   = tickets.filter(t => !['resuelto', 'cancelado', 'fusionado'].includes(t.status))
+  const closed = tickets.filter(t => ['resuelto', 'cancelado'].includes(t.status))
+  const bySt   = tickets.reduce<Record<string, number>>((a, t) => { a[t.status] = (a[t.status] ?? 0) + 1; return a }, {})
 
-  const open   = tickets.filter((t) => !['resuelto', 'cancelado'].includes(t.status))
-  const closed = tickets.filter((t) => ['resuelto', 'cancelado'].includes(t.status))
+  const btn = (
+    <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration: 'none', fontSize: '13px', padding: '8px 16px' }}>
+      + Nueva solicitud
+    </Link>
+  )
 
   return (
-    <div className="min-h-screen" style={{ background: theme.bg }}>
-      {/* Portal header */}
-      <header className="border-b px-6 py-4 flex items-center justify-between" style={{ background: theme.card, borderColor: `${theme.text}20` }}>
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl flex items-center justify-center text-sm font-black" style={{ background: theme.primary, color: '#111' }}>
-            {client.name.substring(0, 2).toUpperCase()}
-          </div>
-          <div>
-            <p className="font-bold text-sm" style={{ color: theme.text }}>{client.name}</p>
-            <p className="text-xs opacity-50" style={{ color: theme.text }}>Portal de mantención</p>
-          </div>
-        </div>
-        <Link
-          href={`/portal/${slug}/tickets/new`}
-          className="rounded-lg px-4 py-2 text-sm font-semibold transition hover:opacity-90"
-          style={{ background: theme.primary, color: '#111' }}
-        >
-          + Nueva solicitud
-        </Link>
-      </header>
+    <PortalShell slug={slug} clientName={client.name} userName={session.user.name ?? 'Usuario'} primary={theme.primary}
+      activeHref={`/portal/${slug}/tickets`} topbarTitle="Mis solicitudes"
+      topbarSub={`${tickets.length} solicitudes · ${open.length} activas`} topbarRight={btn}>
+      <div style={{ padding: '24px 28px' }}>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 space-y-8">
-        {/* Open tickets */}
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide mb-3 opacity-60" style={{ color: theme.text }}>
-            Solicitudes activas ({open.length})
-          </h2>
-          {open.length === 0 && (
-            <div className="rounded-xl border-2 border-dashed p-8 text-center opacity-40" style={{ borderColor: theme.text, color: theme.text }}>
-              <p className="text-sm">No tienes solicitudes activas.</p>
-              <Link href={`/portal/${slug}/tickets/new`} className="mt-2 inline-block text-sm font-semibold underline">
-                Crear primera solicitud
-              </Link>
+        {/* KPIs */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: '10px', marginBottom: '24px' }}>
+          {[
+            { label: 'Activas', n: open.length, color: theme.primary },
+            { label: 'En ejecución', n: bySt['en_ejecucion'] ?? 0, color: '#f59e0b' },
+            { label: 'Resueltas', n: bySt['resuelto'] ?? 0, color: '#22c55e' },
+            { label: 'Total', n: tickets.length, color: 'var(--p-t2)' },
+          ].map(({ label, n, color }) => (
+            <div key={label} className="pcard" style={{ padding: '14px 16px' }}>
+              <p style={{ fontSize: '22px', fontWeight: '800', color, lineHeight: 1, marginBottom: '4px' }}>{n}</p>
+              <p style={{ fontSize: '11px', color: 'var(--p-t3)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
             </div>
-          )}
-          <div className="space-y-3">
-            {open.map((t) => (
-              <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
-                className="block rounded-xl p-4 shadow-sm transition hover:shadow-md"
-                style={{ background: theme.card }}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-mono text-xs opacity-40 mb-0.5" style={{ color: theme.text }}>{t.ticketCode}</p>
-                    <p className="font-semibold text-sm truncate" style={{ color: theme.text }}>{t.title}</p>
-                    {t.branch && <p className="text-xs opacity-50 mt-0.5" style={{ color: theme.text }}>📍 {t.branch.name}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLOR[t.status as TicketStatusId]}`}>
-                      {STATUS_LABEL[t.status as TicketStatusId]}
-                    </span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs ${URGENCY_COLOR[t.urgency as TicketUrgencyId]}`}>
-                      {URGENCY_LABEL[t.urgency as TicketUrgencyId]}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-2 flex items-center justify-between text-xs opacity-40" style={{ color: theme.text }}>
-                  <span>{t.assignedTo ? `Técnico: ${t.assignedTo.name}` : 'En revisión'}</span>
-                  <span>{new Date(t.createdAt).toLocaleDateString('es-CL')}</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+          ))}
+        </div>
 
-        {/* Closed tickets */}
+        {/* Active */}
+        {open.length === 0 ? (
+          <div className="pcard" style={{ marginBottom: '24px' }}>
+            <div className="pempty">
+              <div className="pempty-icon">📋</div>
+              <p className="pempty-title">Sin solicitudes activas</p>
+              <p className="pempty-sub">Crea una nueva solicitud cuando necesites asistencia técnica.</p>
+              <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration: 'none' }}>+ Crear solicitud</Link>
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginBottom: '28px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--p-t3)', marginBottom: '10px' }}>
+              Activas — {open.length}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {open.map(t => {
+                const si = STEPS.indexOf(t.status)
+                return (
+                  <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`} className="pcard pcard-hover"
+                    style={{ display: 'block', padding: '16px 18px', textDecoration: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: si >= 0 ? '10px' : '0' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                          <span className="mono" style={{ fontSize: '10px', color: 'var(--p-t3)' }}>{t.ticketCode}</span>
+                          <span className={UB[t.urgency] ?? 'badge'}>{UL[t.urgency] ?? t.urgency}</span>
+                          {t.branch && <span style={{ fontSize: '11px', color: 'var(--p-t3)' }}>📍 {t.branch.name}</span>}
+                        </div>
+                        <p style={{ fontSize: '14px', fontWeight: '600', color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '2px' }}>{t.title}</p>
+                        <p style={{ fontSize: '12px', color: 'var(--p-t3)' }}>
+                          {t.assignedTo
+                            ? <span>Técnico: <strong style={{ color: 'var(--p-t2)', fontWeight: '600' }}>{t.assignedTo.name}</strong></span>
+                            : <span>Pendiente de asignación</span>}
+                          {' · '}{new Date(t.createdAt).toLocaleDateString('es-CL')}
+                        </p>
+                      </div>
+                      <span className={SB[t.status] ?? 'badge'} style={{ flexShrink: 0 }}>{SL[t.status] ?? t.status}</span>
+                    </div>
+                    {si >= 0 && (
+                      <div className="psteps">
+                        {STEPS.map((s, i) => (
+                          <div key={s} className={['pstep', i < si ? 'pstep-done' : i === si ? 'pstep-current' : ''].filter(Boolean).join(' ')}>{SLBL[i]}</div>
+                        ))}
+                      </div>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* History */}
         {closed.length > 0 && (
-          <section>
-            <h2 className="text-sm font-semibold uppercase tracking-wide mb-3 opacity-40" style={{ color: theme.text }}>
-              Historial ({closed.length})
-            </h2>
-            <div className="space-y-2">
-              {closed.map((t) => (
-                <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
-                  className="flex items-center justify-between rounded-lg px-4 py-3 transition hover:opacity-80"
-                  style={{ background: theme.card, opacity: 0.7 }}
-                >
-                  <div>
-                    <p className="font-mono text-xs opacity-40" style={{ color: theme.text }}>{t.ticketCode}</p>
-                    <p className="text-sm" style={{ color: theme.text }}>{t.title}</p>
-                  </div>
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLOR[t.status as TicketStatusId]}`}>
-                    {STATUS_LABEL[t.status as TicketStatusId]}
-                  </span>
-                </Link>
+          <div>
+            <p style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1.2px', color: 'var(--p-t3)', marginBottom: '10px' }}>
+              Historial — {closed.length}
+            </p>
+            <div className="pcard" style={{ overflow: 'hidden' }}>
+              {closed.map((t, i) => (
+                <div key={t.id}>
+                  {i > 0 && <div className="pdivider" />}
+                  <Link href={`/portal/${slug}/tickets/${t.id}`}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', textDecoration: 'none', gap: '12px', transition: 'background 0.1s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--p-bg)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span className="mono" style={{ fontSize: '10px', color: 'var(--p-t3)' }}>{t.ticketCode} · </span>
+                      <span style={{ fontSize: '13px', color: 'var(--p-text)' }}>{t.title}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      {t.closedDate && <span style={{ fontSize: '11px', color: 'var(--p-t3)' }}>{new Date(t.closedDate).toLocaleDateString('es-CL')}</span>}
+                      <span className={SB[t.status] ?? 'badge'}>{SL[t.status] ?? t.status}</span>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2.5l3.5 3.5L4 9.5" stroke="var(--p-t3)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  </Link>
+                </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
-      </main>
-    </div>
+      </div>
+    </PortalShell>
   )
 }
