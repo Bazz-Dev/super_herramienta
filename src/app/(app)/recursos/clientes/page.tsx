@@ -5,7 +5,11 @@ import { requireActor } from '@/lib/resources/actor'
 import { listClients } from '@/lib/resources/clients'
 import { deleteClient } from './actions'
 
-export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function ClientesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>
+}) {
   const actor = await requireActor()
   const { q } = await searchParams
   const clients = await listClients(actor, q)
@@ -15,7 +19,9 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
     <div className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/recursos" className="text-xs text-gray-400 hover:text-gray-600">← Recursos</Link>
+          <Link href="/recursos" className="text-xs text-gray-400 hover:text-gray-600">
+            ← Recursos
+          </Link>
           <h1 className="text-2xl font-bold">Clientes</h1>
         </div>
         <Link
@@ -37,7 +43,9 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
 
       <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         {clients.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-gray-400">{q ? 'Sin resultados.' : 'Aún no hay clientes. Crea el primero.'}</p>
+          <p className="px-4 py-10 text-center text-sm text-gray-400">
+            {q ? 'Sin resultados.' : 'Aún no hay clientes. Crea el primero.'}
+          </p>
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -45,19 +53,61 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
                 <th className="px-4 py-2.5 font-medium">Nombre</th>
                 <th className="px-4 py-2.5 font-medium">RUT</th>
                 <th className="px-4 py-2.5 font-medium">Contacto</th>
-                <th className="px-4 py-2.5 font-medium">Trabajos</th>
+                <th className="px-4 py-2.5 font-medium text-right">Flujo</th>
+                <th className="px-4 py-2.5 font-medium text-right">Sucursales</th>
+                <th className="px-4 py-2.5 font-medium text-right">Cronograma</th>
                 {isSuper && <th className="px-4 py-2.5 font-medium">Tenant</th>}
-                <th className="px-4 py-2.5"></th>
+                <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody>
               {clients.map((c) => (
-                <tr key={c.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
-                  <td className="px-4 py-2.5 font-medium text-ink">{c.name}</td>
+                <tr
+                  key={c.id}
+                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60"
+                >
+                  <td className="px-4 py-2.5">
+                    <Link
+                      href={`/recursos/clientes/${c.id}`}
+                      className="font-semibold text-ink hover:text-brand-700 hover:underline"
+                    >
+                      {c.name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2.5 text-gray-600">{c.rut ?? '—'}</td>
                   <td className="px-4 py-2.5 text-gray-600">{c.contact ?? c.email ?? '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{c._count.assignments}</td>
-                  {isSuper && <td className="px-4 py-2.5 uppercase text-gray-500">{c.tenant.slug}</td>}
+                  <td className="px-4 py-2.5 text-right">
+                    {c._count.jobs > 0 ? (
+                      <Link
+                        href={`/flujo?cliente=${c.id}`}
+                        className="font-medium text-brand-700 hover:underline"
+                      >
+                        {c._count.jobs} trabajos
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    {c._count.branches > 0 ? (
+                      <Link
+                        href={`/flujo/sucursales?cliente=${c.id}`}
+                        className="text-gray-600 hover:text-ink hover:underline"
+                      >
+                        {c._count.branches}
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-gray-600">
+                    {c._count.assignments > 0 ? c._count.assignments : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
+                  {isSuper && (
+                    <td className="px-4 py-2.5 uppercase text-gray-500">{c.tenant.slug}</td>
+                  )}
                   <td className="px-4 py-2.5">
                     <div className="flex items-center justify-end gap-2">
                       <Link
@@ -66,7 +116,10 @@ export default async function ClientesPage({ searchParams }: { searchParams: Pro
                       >
                         Editar
                       </Link>
-                      <DeleteButton action={deleteClient.bind(null, c.id)} confirmText={`¿Eliminar ${c.name}?`} />
+                      <DeleteButton
+                        action={deleteClient.bind(null, c.id)}
+                        confirmText={`¿Eliminar ${c.name}?`}
+                      />
                     </div>
                   </td>
                 </tr>
