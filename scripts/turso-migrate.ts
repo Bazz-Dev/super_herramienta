@@ -1,10 +1,8 @@
 /**
- * Applies all pending migrations to Turso (production) and runs the seed.
- * Run with: dotenv -e .env.production.local -- npx tsx scripts/turso-migrate.ts
- * Or:       DATABASE_URL=... TURSO_AUTH_TOKEN=... npx tsx scripts/turso-migrate.ts
+ * Applies all Prisma migrations to Turso (production).
+ * Run via: npm run db:migrate:prod
+ * tsx --env-file=.env.production.local loads the correct DATABASE_URL automatically.
  */
-import { config } from 'dotenv'
-config({ path: '.env.production.local', override: true })
 import { createClient } from '@libsql/client'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -13,18 +11,17 @@ const url = process.env.DATABASE_URL
 const authToken = process.env.TURSO_AUTH_TOKEN
 
 if (!url || !url.startsWith('libsql://')) {
-  console.error('❌  DATABASE_URL must be a libsql:// URL. Are you loading .env.production.local?')
+  console.error('❌  DATABASE_URL must be a libsql:// URL.')
+  console.error('    Got:', url ?? '(undefined)')
   process.exit(1)
 }
 
 const client = createClient({ url, authToken })
 
-// Check existing tables
 const tableResult = await client.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 const existing = new Set(tableResult.rows.map((r) => String(r[0])))
-console.log('📋 Existing tables:', [...existing].join(', ') || '(none)')
+console.log('📋 Tablas existentes:', [...existing].join(', ') || '(ninguna)')
 
-// Read and split migrations
 const migrations = [
   '20260609175152_init',
   '20260610003228_add_resources',
@@ -39,37 +36,33 @@ for (const name of migrations) {
   const sqlPath = join(process.cwd(), 'prisma', 'migrations', name, 'migration.sql')
   const sql = readFileSync(sqlPath, 'utf8')
 
-  // Split on statement-level delimiters, skip empty lines
   const statements = sql
     .split(/;\s*\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0 && !s.startsWith('--'))
 
-  console.log(`\n⚙️  Applying ${name} (${statements.length} statements)…`)
+  process.stdout.write(`⚙️  ${name} … `)
 
   for (const stmt of statements) {
     try {
       await client.execute(stmt + ';')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      // Skip "already exists" errors — idempotent re-run
       if (
         msg.includes('already exists') ||
         msg.includes('duplicate column') ||
-        msg.includes('no such table') && stmt.includes('DROP TABLE')
+        (msg.includes('no such table') && stmt.includes('DROP TABLE'))
       ) {
-        process.stdout.write('.')
+        // idempotente — tabla/columna ya existe
       } else {
-        console.warn(`  ⚠  Skipped statement (${msg.slice(0, 80)}):`)
+        console.warn(`\n  ⚠  ${msg.slice(0, 100)}`)
       }
     }
   }
-  console.log(' ✓')
+  console.log('✓')
 }
 
-// Verify
 const after = await client.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-console.log('\n✅ Tables after migration:', after.rows.map((r) => String(r[0])).join(', '))
+console.log('\n✅ Tablas tras migración:', after.rows.map((r) => String(r[0])).join(', '))
 
 await client.close()
-console.log('\nDone. Now run: dotenv -e .env.production.local -- npx tsx prisma/seed.ts')
