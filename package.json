@@ -20,7 +20,10 @@
     "db:reset": "prisma migrate reset --force",
     "test:e2e": "playwright test",
     "test:unit": "node --import tsx --test \"tests/unit/*.test.ts\"",
-    "import:flujo": "node --import tsx scripts/import-flujo.ts"
+    "import:flujo": "node --import tsx scripts/import-flujo.ts",
+    "db:migrate:prod": "dotenv -e .env.production.local -- tsx scripts/turso-migrate.ts",
+    "db:seed:prod": "dotenv -e .env.production.local -- tsx prisma/seed.ts",
+    "import:flujo:prod": "dotenv -e .env.production.local -- node --import tsx scripts/import-flujo.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
