@@ -132,3 +132,99 @@ export function computeMetrics(jobs: JobLike[], now: Date): CashflowMetrics {
     mix: [...mixMap.entries()].map(([type, v]) => ({ type, ...v })).sort((a, b) => b.amount - a.amount),
   }
 }
+
+// --- Per-client breakdown ---
+
+export type ClientBreakdown = {
+  clientId: string
+  clientName: string
+  facturado: number
+  cobrado: number
+  porCobrar: number
+  sinOc: number
+  jobCount: number
+  cobradoPct: number | null
+  avgTicket: number | null
+}
+
+export function computeClientBreakdown(
+  jobs: (JobLike & { clientId: string; client: { name: string } })[],
+): ClientBreakdown[] {
+  const map = new Map<string, ClientBreakdown>()
+
+  for (const j of jobs) {
+    if (!map.has(j.clientId)) {
+      map.set(j.clientId, {
+        clientId: j.clientId,
+        clientName: j.client.name,
+        facturado: 0,
+        cobrado: 0,
+        porCobrar: 0,
+        sinOc: 0,
+        jobCount: 0,
+        cobradoPct: null,
+        avgTicket: null,
+      })
+    }
+    const c = map.get(j.clientId)!
+    const amount = net(j)
+    c.jobCount++
+    if (j.collectionStatus === 'sin_oc') {
+      c.sinOc += amount
+    } else {
+      c.facturado += amount
+      if (j.collectionStatus === 'pendiente_pago') c.porCobrar += amount
+      if (j.collectionStatus === 'pagado') c.cobrado += amount
+    }
+  }
+
+  for (const c of map.values()) {
+    c.cobradoPct = c.facturado > 0 ? Math.round((c.cobrado / c.facturado) * 100) : null
+    c.avgTicket = c.jobCount > 0 ? Math.round((c.facturado + c.sinOc) / c.jobCount) : null
+  }
+
+  return [...map.values()].sort((a, b) => b.facturado - a.facturado)
+}
+
+// --- Monthly trend ---
+
+export type MonthlyBucket = {
+  month: string
+  label: string
+  facturado: number
+  cobrado: number
+  sinOc: number
+  jobCount: number
+}
+
+const MONTHS_ES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+
+export function computeMonthlyTrend(
+  jobs: { executionDate: Date | null; netAmount: number | null; collectionStatus: string }[],
+): MonthlyBucket[] {
+  const map = new Map<string, MonthlyBucket>()
+
+  for (const j of jobs) {
+    if (!j.executionDate) continue
+    const d = j.executionDate
+    const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    if (!map.has(month)) {
+      map.set(month, {
+        month,
+        label: `${MONTHS_ES[d.getMonth()]} ${d.getFullYear()}`,
+        facturado: 0,
+        cobrado: 0,
+        sinOc: 0,
+        jobCount: 0,
+      })
+    }
+    const b = map.get(month)!
+    const amount = j.netAmount ?? 0
+    b.jobCount++
+    if (j.collectionStatus === 'sin_oc') b.sinOc += amount
+    else b.facturado += amount
+    if (j.collectionStatus === 'pagado') b.cobrado += amount
+  }
+
+  return [...map.values()].sort((a, b) => a.month.localeCompare(b.month))
+}

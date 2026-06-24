@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { listBranches } from '@/lib/cashflow/queries'
 import { listClients } from '@/lib/resources/clients'
-import { createBranch, deleteBranch } from '@/app/(app)/flujo/actions'
+import { createBranch, deleteBranch, updateBranch } from '@/app/(app)/flujo/actions'
 import { BranchForm } from '@/components/cashflow/branch-form'
+import { BranchEditForm } from '@/components/cashflow/branch-edit-form'
 import { DeleteButton } from '@/components/resources/delete-button'
 
 export default async function SucursalesPage({
@@ -75,10 +76,10 @@ export default async function SucursalesPage({
           <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
             {branches.map((b) => (
               <li key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-ink">{b.name}</span>
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="truncate text-sm font-medium text-ink">{b.name}</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                       b.active
                         ? 'bg-green-100 text-green-700'
                         : 'bg-gray-100 text-gray-500'
@@ -87,10 +88,13 @@ export default async function SucursalesPage({
                     {b.active ? 'Activa' : 'Inactiva'}
                   </span>
                 </div>
-                <DeleteButton
-                  action={deleteBranch.bind(null, b.id)}
-                  confirmText={`¿Eliminar sucursal "${b.name}"?`}
-                />
+                <div className="flex shrink-0 items-center gap-3">
+                  <BranchEditForm branch={b} clientId={clientId} action={updateBranch} />
+                  <DeleteButton
+                    action={deleteBranch.bind(null, b.id)}
+                    confirmText={`¿Eliminar sucursal "${b.name}"?`}
+                  />
+                </div>
               </li>
             ))}
           </ul>

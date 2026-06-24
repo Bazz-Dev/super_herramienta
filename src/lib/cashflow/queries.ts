@@ -14,12 +14,13 @@ export async function listClientsForCashflow(actor: Actor) {
 
 export async function listJobs(
   actor: Actor,
-  opts: { clientId?: string; from?: Date; to?: Date } = {},
+  opts: { clientId?: string; collectionStatus?: string; from?: Date; to?: Date } = {},
 ) {
   return prisma.job.findMany({
     where: {
       ...tenantScope(actor),
       ...(opts.clientId ? { clientId: opts.clientId } : {}),
+      ...(opts.collectionStatus ? { collectionStatus: opts.collectionStatus as never } : {}),
       ...(opts.from || opts.to
         ? {
             executionDate: {
@@ -29,7 +30,7 @@ export async function listJobs(
           }
         : {}),
     },
-    include: { branch: true, costs: true },
+    include: { branch: true, client: { select: { id: true, name: true } }, costs: true },
     orderBy: [{ executionDate: 'desc' }, { createdAt: 'desc' }],
   })
 }
@@ -45,5 +46,48 @@ export async function listBranches(actor: Actor, clientId: string) {
   return prisma.branch.findMany({
     where: { ...tenantScope(actor), clientId },
     orderBy: { name: 'asc' },
+  })
+}
+
+export async function getClientSummaries(actor: Actor) {
+  return prisma.job.findMany({
+    where: tenantScope(actor),
+    select: {
+      clientId: true,
+      client: { select: { name: true } },
+      netAmount: true,
+      taxAmount: true,
+      collectionStatus: true,
+      invoiceDate: true,
+      paymentDate: true,
+      creditDays: true,
+      executionDate: true,
+      type: true,
+      branchId: true,
+      technicianId: true,
+      costs: { select: { amount: true } },
+    },
+  })
+}
+
+export async function getMonthlySummary(actor: Actor, months = 12) {
+  const from = new Date()
+  from.setMonth(from.getMonth() - months + 1)
+  from.setDate(1)
+  from.setHours(0, 0, 0, 0)
+
+  return prisma.job.findMany({
+    where: {
+      ...tenantScope(actor),
+      executionDate: { gte: from },
+    },
+    select: {
+      executionDate: true,
+      netAmount: true,
+      collectionStatus: true,
+      clientId: true,
+      client: { select: { name: true } },
+    },
+    orderBy: { executionDate: 'asc' },
   })
 }

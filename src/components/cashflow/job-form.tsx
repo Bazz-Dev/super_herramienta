@@ -9,6 +9,7 @@ import {
   COLLECTION_LABELS,
 } from '@/lib/cashflow/labels'
 import { toDateInput } from '@/lib/cashflow/dates'
+import { ClientSelector } from '@/components/cashflow/client-selector'
 
 type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -43,12 +44,14 @@ export function JobForm({
   action,
   branches,
   technicians,
+  clients = [],
   clientId,
   initial,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>
   branches: { id: string; name: string }[]
   technicians: { id: string; name: string }[]
+  clients?: { id: string; name: string }[]
   clientId: string
   initial?: JobInitial
 }) {
@@ -66,6 +69,12 @@ export function JobForm({
           Identificación
         </h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {clients.length > 1 && (
+            <Field label="Cliente *">
+              <ClientSelector clients={clients} currentId={clientId} />
+            </Field>
+          )}
+
           <Field label="Sucursal *" hint={err('branchId')}>
             <Select name="branchId" defaultValue={initial?.branchId ?? ''} required>
               <option value="">Seleccionar sucursal…</option>
