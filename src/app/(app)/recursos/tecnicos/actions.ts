@@ -18,7 +18,21 @@ function parse(formData: FormData) {
     phone: formData.get('phone'),
     active: formData.get('active') === 'on',
     notes: formData.get('notes'),
+    contractType: formData.get('contractType'),
+    contractEndDate: formData.get('contractEndDate'),
+    dailyRate: formData.get('dailyRate'),
+    birthDate: formData.get('birthDate'),
+    emergencyContact: formData.get('emergencyContact'),
+    emergencyPhone: formData.get('emergencyPhone'),
   })
+}
+
+function techData(p: ReturnType<typeof technicianInputSchema.parse>) {
+  return {
+    ...p,
+    contractEndDate: p.contractEndDate ? new Date(p.contractEndDate) : null,
+    birthDate: p.birthDate ? new Date(p.birthDate) : null,
+  }
 }
 
 export async function createTechnician(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -27,7 +41,7 @@ export async function createTechnician(_prev: FormState, formData: FormData): Pr
   if (!parsed.success) {
     return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   }
-  await prisma.technician.create({ data: { ...parsed.data, tenantId: actor.tenantId } })
+  await prisma.technician.create({ data: { ...techData(parsed.data), tenantId: actor.tenantId } })
   revalidatePath('/recursos/tecnicos')
   redirect('/recursos/tecnicos')
 }
@@ -46,9 +60,21 @@ export async function updateTechnician(
   if (!parsed.success) {
     return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   }
-  await prisma.technician.update({ where: { id }, data: parsed.data })
+  await prisma.technician.update({ where: { id }, data: techData(parsed.data) })
   revalidatePath('/recursos/tecnicos')
-  redirect('/recursos/tecnicos')
+  revalidatePath(`/recursos/tecnicos/${id}`)
+  redirect(`/recursos/tecnicos/${id}`)
+}
+
+export async function deleteDocument(docId: string, techId: string): Promise<void> {
+  const actor = await requireActor()
+  const doc = await prisma.technicianDocument.findFirst({
+    where: { id: docId, technician: { tenantId: actor.tenantId } },
+    select: { id: true },
+  })
+  if (!doc) return
+  await prisma.technicianDocument.delete({ where: { id: docId } })
+  revalidatePath(`/recursos/tecnicos/${techId}`)
 }
 
 export async function deleteTechnician(id: string): Promise<void> {

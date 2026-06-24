@@ -1,9 +1,42 @@
 import Link from 'next/link'
 import { PlusIcon } from '@/components/quotes/icons'
-import { DeleteButton } from '@/components/resources/delete-button'
 import { requireActor } from '@/lib/resources/actor'
 import { listTechnicians } from '@/lib/resources/technicians'
-import { deleteTechnician } from './actions'
+import {
+  CONTRACT_TYPE_BADGE,
+  CONTRACT_TYPE_CARD,
+  CONTRACT_TYPE_DOT,
+  CONTRACT_TYPE_LABELS,
+  type ContractTypeId,
+} from '@/lib/resources/labels'
+
+function calcAge(birthDate: Date | null | undefined): number | null {
+  if (!birthDate) return null
+  const d = new Date(birthDate)
+  const now = new Date()
+  let age = now.getFullYear() - d.getFullYear()
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--
+  return age
+}
+
+function daysUntil(d: Date | null | undefined): number | null {
+  if (!d) return null
+  return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+}
+
+function formatDate(d: Date | null | undefined): string {
+  if (!d) return ''
+  return new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function isBirthdaySoon(birthDate: Date | null | undefined): boolean {
+  if (!birthDate) return false
+  const d = new Date(birthDate)
+  const now = new Date()
+  const nextBday = new Date(now.getFullYear(), d.getMonth(), d.getDate())
+  if (nextBday < now) nextBday.setFullYear(now.getFullYear() + 1)
+  return (nextBday.getTime() - now.getTime()) / (1000 * 60 * 60 * 24) <= 7
+}
 
 export default async function TecnicosPage({
   searchParams,
@@ -13,10 +46,12 @@ export default async function TecnicosPage({
   const actor = await requireActor()
   const { q } = await searchParams
   const technicians = await listTechnicians(actor, q)
-  const isSuper = actor.role === 'super'
+
+  const active = technicians.filter((t) => t.active)
+  const inactive = technicians.filter((t) => !t.active)
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href="/recursos" className="text-xs text-gray-400 hover:text-gray-600">
@@ -41,59 +76,146 @@ export default async function TecnicosPage({
         />
       </form>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        {technicians.length === 0 ? (
-          <p className="px-4 py-10 text-center text-sm text-gray-400">
-            {q ? 'Sin resultados para tu búsqueda.' : 'Aún no hay técnicos. Crea el primero.'}
-          </p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-2.5 font-medium">Nombre</th>
-                <th className="px-4 py-2.5 font-medium">Especialidad</th>
-                <th className="px-4 py-2.5 font-medium">Contacto</th>
-                {isSuper && <th className="px-4 py-2.5 font-medium">Tenant</th>}
-                <th className="px-4 py-2.5 font-medium">Estado</th>
-                <th className="px-4 py-2.5"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {technicians.map((t) => (
-                <tr key={t.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
-                  <td className="px-4 py-2.5 font-medium text-ink">{t.name}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{t.specialty ?? '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">
-                    {t.email ?? t.phone ?? '—'}
-                  </td>
-                  {isSuper && <td className="px-4 py-2.5 uppercase text-gray-500">{t.tenant.slug}</td>}
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${t.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}
-                    >
-                      {t.active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center justify-end gap-2">
+      {/* Legend */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-gray-500">
+        {(['indefinido', 'plazo_fijo', 'ayudante'] as ContractTypeId[]).map((t) => (
+          <span key={t} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${CONTRACT_TYPE_DOT[t]}`} />
+            {CONTRACT_TYPE_LABELS[t]}
+          </span>
+        ))}
+      </div>
+
+      {technicians.length === 0 ? (
+        <p className="mt-8 text-center text-sm text-gray-400">
+          {q ? 'Sin resultados.' : 'Aún no hay técnicos. Crea el primero.'}
+        </p>
+      ) : (
+        <>
+          {/* Active */}
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {active.map((t) => {
+              const contractType = (t.contractType ?? 'indefinido') as ContractTypeId
+              const age = calcAge(t.birthDate)
+              const contractDays = daysUntil(t.contractEndDate)
+              const contractExpired = contractDays != null && contractDays < 0
+              const contractWarn = contractDays != null && contractDays >= 0 && contractDays <= 30
+              const bdSoon = isBirthdaySoon(t.birthDate)
+
+              return (
+                <div
+                  key={t.id}
+                  className={`relative overflow-hidden rounded-xl border bg-white shadow-sm transition-shadow hover:shadow-md ${CONTRACT_TYPE_CARD[contractType]}`}
+                >
+                  {/* Top accent bar */}
+                  <div className={`h-1 w-full ${CONTRACT_TYPE_DOT[contractType]}`} />
+
+                  <div className="p-4">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      {/* Avatar */}
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${CONTRACT_TYPE_BADGE[contractType]}`}>
+                        {t.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={`/recursos/tecnicos/${t.id}`}
+                          className="block truncate font-semibold text-ink hover:text-brand-700 hover:underline"
+                        >
+                          {t.name}
+                          {bdSoon && <span className="ml-1" title="Cumpleaños próximo">🎂</span>}
+                        </Link>
+                        <p className="truncate text-xs text-gray-500">{t.specialty ?? 'Sin especialidad'}</p>
+                      </div>
+                    </div>
+
+                    {/* Tags */}
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${CONTRACT_TYPE_BADGE[contractType]}`}>
+                        {CONTRACT_TYPE_LABELS[contractType]}
+                      </span>
+                      {age != null && (
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                          {age} años
+                        </span>
+                      )}
+                      {t.vehicle && (
+                        <Link
+                          href={`/recursos/vehiculos/${t.vehicle.id}`}
+                          className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 hover:bg-gray-200"
+                        >
+                          🚗 {t.vehicle.plate}
+                        </Link>
+                      )}
+                    </div>
+
+                    {/* Contract expiry warning */}
+                    {(contractExpired || contractWarn) && (
+                      <p className={`mt-2 rounded-md px-2 py-1 text-xs font-medium ${contractExpired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {contractExpired
+                          ? `⚠ Contrato vencido el ${formatDate(t.contractEndDate)}`
+                          : `⚠ Contrato vence en ${contractDays} días (${formatDate(t.contractEndDate)})`}
+                      </p>
+                    )}
+
+                    {/* Contact */}
+                    {(t.phone || t.email) && (
+                      <div className="mt-3 space-y-0.5 text-xs text-gray-500">
+                        {t.phone && (
+                          <a href={`tel:${t.phone}`} className="flex items-center gap-1 hover:text-ink">
+                            <span>📞</span> {t.phone}
+                          </a>
+                        )}
+                        {t.email && (
+                          <p className="truncate">✉ {t.email}</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Footer */}
+                    <div className="mt-4 flex items-center justify-between border-t border-gray-200/60 pt-3">
+                      <span className="text-xs text-gray-400">
+                        {t._count.crews} cuadrilla{t._count.crews !== 1 ? 's' : ''}
+                      </span>
                       <Link
                         href={`/recursos/tecnicos/${t.id}`}
                         className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
                       >
-                        Editar
+                        Ver ficha →
                       </Link>
-                      <DeleteButton
-                        action={deleteTechnician.bind(null, t.id)}
-                        confirmText={`¿Eliminar a ${t.name}?`}
-                      />
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Inactive */}
+          {inactive.length > 0 && (
+            <div className="mt-8">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Inactivos ({inactive.length})
+              </h2>
+              <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white">
+                {inactive.map((t) => (
+                  <div key={t.id} className="flex items-center justify-between px-4 py-2.5">
+                    <div>
+                      <span className="text-sm text-gray-500 line-through">{t.name}</span>
+                      {t.specialty && <span className="ml-2 text-xs text-gray-400">{t.specialty}</span>}
+                    </div>
+                    <Link
+                      href={`/recursos/tecnicos/${t.id}`}
+                      className="text-xs text-gray-400 hover:text-gray-700 hover:underline"
+                    >
+                      Editar
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

@@ -63,7 +63,49 @@ export const ASSIGNEE_ROLE_BADGE: Record<AssigneeRoleId, string> = {
   ayudante: 'bg-gray-100 text-gray-600',
 }
 
-// Color del evento en el calendario según el permiso de sucursal.
+// --- Tipo de contrato de técnico ---
+export const CONTRACT_TYPE = ['indefinido', 'plazo_fijo', 'ayudante'] as const
+export type ContractTypeId = (typeof CONTRACT_TYPE)[number]
+
+export const CONTRACT_TYPE_LABELS: Record<ContractTypeId, string> = {
+  indefinido: 'Contrato indefinido',
+  plazo_fijo: 'Plazo fijo',
+  ayudante: 'Ayudante / eventual',
+}
+
+// Card header + badge color por tipo de contrato
+export const CONTRACT_TYPE_CARD: Record<ContractTypeId, string> = {
+  indefinido: 'border-blue-200 bg-blue-50',
+  plazo_fijo: 'border-amber-200 bg-amber-50',
+  ayudante: 'border-purple-200 bg-purple-50',
+}
+
+export const CONTRACT_TYPE_BADGE: Record<ContractTypeId, string> = {
+  indefinido: 'bg-blue-100 text-blue-700',
+  plazo_fijo: 'bg-amber-100 text-amber-700',
+  ayudante: 'bg-purple-100 text-purple-700',
+}
+
+export const CONTRACT_TYPE_DOT: Record<ContractTypeId, string> = {
+  indefinido: 'bg-blue-500',
+  plazo_fijo: 'bg-amber-500',
+  ayudante: 'bg-purple-500',
+}
+
+// --- Tipo de documento de técnico ---
+export const DOC_TYPE = ['contrato', 'epp', 'altura', 'antecedentes', 'licencia', 'otro'] as const
+export type DocTypeId = (typeof DOC_TYPE)[number]
+
+export const DOC_TYPE_LABELS: Record<DocTypeId, string> = {
+  contrato: 'Contrato de trabajo',
+  epp: 'Certificado EPP',
+  altura: 'Examen altura geográfica',
+  antecedentes: 'Certificado de antecedentes',
+  licencia: 'Licencia de conducir',
+  otro: 'Otro documento',
+}
+
+// --- Color del evento en el calendario según el permiso de sucursal.
 // Verde = permiso solicitado/concedido · Amarillo = pendiente. Cancelada gana en gris.
 export function permissionEventColor(permissionRequested: boolean, status: AssignmentStatusId): string {
   if (status === 'cancelled') return 'bg-gray-100 text-gray-500 border-gray-200 line-through'

@@ -35,8 +35,10 @@ export async function getTechnician(actor: TenantActor, id: string) {
           assets: { select: { id: true, name: true, code: true, status: true }, orderBy: { name: 'asc' } },
         },
       },
+      documents: { orderBy: { uploadedAt: 'desc' } },
     },
   })
 }
 
 export type TechnicianListItem = Awaited<ReturnType<typeof listTechnicians>>[number]
+export type TechnicianDetail = NonNullable<Awaited<ReturnType<typeof getTechnician>>>

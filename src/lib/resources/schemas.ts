@@ -19,6 +19,17 @@ export const technicianInputSchema = z.object({
   phone: optionalText,
   active: z.boolean().default(true),
   notes: optionalText,
+  contractType: z.enum(['indefinido', 'plazo_fijo', 'ayudante']).default('indefinido'),
+  contractEndDate: optionalText,
+  dailyRate: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => (v === '' || v === undefined ? undefined : Number(v)))
+    .refine((v) => v === undefined || (Number.isFinite(v) && v >= 0), 'Tarifa inválida.'),
+  birthDate: optionalText,
+  emergencyContact: optionalText,
+  emergencyPhone: optionalText,
 })
 
 export type TechnicianInput = z.infer<typeof technicianInputSchema>
@@ -34,8 +45,13 @@ export const vehicleInputSchema = z.object({
     .transform((v) => (v === '' || v === undefined ? undefined : Number(v)))
     .refine((v) => v === undefined || (Number.isInteger(v) && v >= 1950 && v <= 2100), 'Año inválido.'),
   status: z.enum(['active', 'maintenance', 'retired']).default('active'),
-  technicianId: optionalText, // técnico asignado (1:1)
+  technicianId: optionalText,
   notes: optionalText,
+  revTecnicaExpiry: optionalText,
+  soapExpiry: optionalText,
+  permisoCirculacionExpiry: optionalText,
+  lastServiceDate: optionalText,
+  nextServiceDate: optionalText,
 })
 export type VehicleInput = z.infer<typeof vehicleInputSchema>
 

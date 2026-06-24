@@ -28,6 +28,11 @@ export default async function EditVehiculoPage({ params }: { params: Promise<{ i
           status: vehicle.status,
           technicianId: vehicle.technicianId,
           notes: vehicle.notes,
+          revTecnicaExpiry: vehicle.revTecnicaExpiry,
+          soapExpiry: vehicle.soapExpiry,
+          permisoCirculacionExpiry: vehicle.permisoCirculacionExpiry,
+          lastServiceDate: vehicle.lastServiceDate,
+          nextServiceDate: vehicle.nextServiceDate,
         }}
         submitLabel="Guardar cambios"
       />
