@@ -9,6 +9,21 @@ import {
   normalizeBranchName,
 } from '../src/lib/cashflow/normalize.js'
 
+async function withRetry<T>(fn: () => Promise<T>, retries = 6, delayMs = 800): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try { return await fn() }
+    catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('SQLITE_BUSY') && i < retries - 1) {
+        await new Promise(r => setTimeout(r, delayMs * (i + 1)))
+        continue
+      }
+      throw e
+    }
+  }
+  throw new Error('Max retries exceeded')
+}
+
 const TENANT_SLUG = 'ingegar'
 
 const SOURCES = [
@@ -63,11 +78,11 @@ async function importClient(
   const branchCache = new Map<string, string>()
   async function getBranchId(name: string): Promise<string> {
     if (branchCache.has(name)) return branchCache.get(name)!
-    const b = await prisma.branch.upsert({
+    const b = await withRetry(() => prisma.branch.upsert({
       where: { clientId_name: { clientId: client!.id, name } },
       update: {},
       create: { tenantId, clientId: client!.id, name },
-    })
+    }))
     branchCache.set(name, b.id)
     return b.id
   }
@@ -124,11 +139,11 @@ async function importClient(
         paymentDate: asDate(cell(row, 25)),
       }
 
-      await prisma.job.upsert({
+      await withRetry(() => prisma.job.upsert({
         where: { importRef },
         update: data,
         create: { ...data, importRef },
-      })
+      }))
       count++
       netSum += netAmount ?? 0
 
