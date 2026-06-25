@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
+import { notify } from '@/lib/push'
 
 const createSchema = z.object({
   ticketCode: z.string().min(1),
@@ -82,7 +83,7 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId },
-    select: { id: true, status: true },
+    select: { id: true, status: true, title: true, createdById: true, showToClient: true },
   })
   if (!ticket) return { success: false }
 
@@ -106,6 +107,26 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
       isInternal: false,
     },
   })
+
+  // Notify client if ticket is visible to them
+  const STATUS_ES: Record<string, string> = {
+    en_revision: 'En revisión', en_ejecucion: 'En ejecución',
+    resuelto: 'Resuelto ✅', cancelado: 'Cancelado',
+  }
+  if (ticket.showToClient && ticket.createdById && STATUS_ES[newStatus]) {
+    const creator = await prisma.user.findUnique({
+      where: { id: ticket.createdById },
+      select: { id: true, role: true, tenantId: true },
+    })
+    if (creator?.role === 'client') {
+      notify(creator.id, creator.tenantId, {
+        type: 'ticket_update',
+        title: `Tu solicitud fue actualizada`,
+        body: `${STATUS_ES[newStatus]}: ${ticket.title}`,
+        href: `/portal/tickets`,
+      }).catch(() => {})
+    }
+  }
 
   revalidatePath('/tickets')
   revalidatePath(`/tickets/${ticketId}`)

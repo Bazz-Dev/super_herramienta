@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
+import { notifyTenantStaff } from '@/lib/push'
 
 function buildTicketCode(urgency: string, branchName: string, clientPrefix: string): string {
   const now = new Date()
@@ -69,6 +70,15 @@ export async function createPortalTicket(fd: FormData) {
       isInternal: false,
     },
   })
+
+  // Notify all INGEGAR staff about the new portal ticket
+  const urgencyLabel: Record<string, string> = { emergencia: '🚨 EMERGENCIA', urgencia: '⚠️ Urgente', no_urgente: 'Normal', preventivo: 'Preventivo' }
+  await notifyTenantStaff(client.tenantId, {
+    type: 'ticket_new',
+    title: `Nuevo ticket — ${client.name}`,
+    body: `${urgencyLabel[urgency] ?? urgency}: ${title}${branch ? ` · ${branch.name}` : ''}`,
+    href: `/tickets/${ticket.id}`,
+  }).catch(() => {}) // Non-blocking — don't fail the ticket creation if push fails
 
   return { success: true, id: ticket.id }
 }

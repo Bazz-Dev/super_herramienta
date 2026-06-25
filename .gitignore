@@ -40,3 +40,5 @@ justburger-ingegar/*.xlsx
 justburger-ingegar/*.gs
 justburger-ingegar/*.html
 justburger-ingegar/
+
+.vercel

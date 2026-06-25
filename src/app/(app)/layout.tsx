@@ -3,6 +3,7 @@ import { auth, signOut } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { Sidebar } from '@/components/ui/sidebar'
+import { NotificationBell } from '@/components/ui/notification-bell'
 
 const ROLE_LABELS: Record<string, string> = {
   super: 'Super',
@@ -60,6 +61,10 @@ export default async function AppLayout({
         portalClients={portalClients}
       />
       <main className="md:pl-60">
+        {/* Topbar with notification bell */}
+        <div className="sticky top-0 z-30 hidden items-center justify-end border-b border-gray-200 bg-white/90 px-6 py-2 backdrop-blur md:flex">
+          <NotificationBell />
+        </div>
         <div className="p-6">{children}</div>
       </main>
     </div>

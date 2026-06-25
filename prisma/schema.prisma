@@ -91,13 +91,47 @@ model User {
 
   clientId String? // set when role = client, scopes portal access
 
-  ticketsCreated  Ticket[]        @relation("TicketCreatedBy")
-  ticketsAssigned Ticket[]        @relation("TicketAssignedTo")
-  ticketHistory   TicketHistory[]
-  ticketDocuments TicketDocument[]
+  ticketsCreated    Ticket[]          @relation("TicketCreatedBy")
+  ticketsAssigned   Ticket[]          @relation("TicketAssignedTo")
+  ticketHistory     TicketHistory[]
+  ticketDocuments   TicketDocument[]
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
 
   @@index([tenantId])
   @@map("users")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  type      String   // ticket_new | ticket_update | vehicle_alert | permission_approved
+  title     String
+  body      String
+  href      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([tenantId])
+  @@map("notifications")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // --- Recursos: técnicos, cuadrillas, activos, asignaciones (cronograma) ---
