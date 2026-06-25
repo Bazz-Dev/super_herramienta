@@ -127,6 +127,18 @@ Tenant ──< User (role: super|supervisor|client)
 
 ---
 
+## Flujo de trabajo — deploy
+
+```
+# Desarrollo normal
+npm run dev               # dev server localhost:3000
+npm run typecheck         # verificar tipos (corre automático en pre-push hook)
+git add . && git commit   # conventional commit
+git push origin main      # → Vercel auto-deploy (1-2 min)
+```
+
+El hook `.git/hooks/pre-push` corre `typecheck` antes de cada push y bloquea si hay errores — evita builds fallidos en Vercel.
+
 ## Scripts de utilidad
 
 | Script | Qué hace |
@@ -136,16 +148,19 @@ Tenant ──< User (role: super|supervisor|client)
 | `npm run setup:jb:prod` | Crea cliente JB con portal + usuario Carolina en Turso |
 | `npm run import:jb:prod` | Importa tickets históricos JB desde Excel (idempotente) |
 | `npm run import:flujo:prod` | Importa jobs de flujo de caja (JB + Decathlon + Unity) desde Excel (idempotente) |
+| `npm run cleanup:branches:prod` | Elimina sucursales huérfanas (sin trabajos asociados) |
+| `npm run check:branches:prod` | Lista sucursales por cliente para auditoría |
 | `npm run db:fix:prod` | Crea tablas faltantes en Turso (recovery) |
 
 ---
 
 ## Pendientes prioritarios
 
-1. **Flujo de Caja JB**: borrar 771 jobs incorrectos importados del archivo de tickets, reimportar desde el Excel correcto (`Flujo de Caja Just Burger General 2026.xlsx`) — **requiere autorización explícita para borrar**.
+1. **Notificaciones**: modelo `Notification` en Prisma + API + badge en sidebar — no iniciado.
 2. **Persistencia Cotizador**: guardar/listar/editar cotizaciones en BD (modelo `Quote` pendiente).
 3. **Pipeline**: módulo de seguimiento de cotizaciones enviadas — no iniciado.
-4. **Historial JB**: solo 67 de 781 entradas históricas importadas. El import saltó entradas cuando ya había historial. Revisar.
+4. **Historial JB**: solo 67 de 781 entradas históricas importadas (guard existingHist > 0 saltó entradas). Revisar.
+5. **Datos vehículos**: en producción no hay vehículos ni técnicos cargados — correr seed de recursos cuando estén disponibles.
 
 ---
 
