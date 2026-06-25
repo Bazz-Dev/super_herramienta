@@ -1,10 +1,14 @@
 import type { NextAuthConfig } from 'next-auth'
 import type { Role } from '@/generated/prisma/enums'
 
-// Edge-safe config: NO database / bcrypt imports here so it can be used by
-// middleware (which runs on the Edge runtime). The Credentials provider with
-// its Node-only `authorize` lives in auth.ts.
-const PROTECTED_PREFIXES = ['/dashboard']
+// Edge-safe config: NO database / bcrypt imports here.
+// Internal app routes — require authentication AND role !== 'client'
+const INTERNAL_PREFIXES = [
+  '/dashboard', '/tickets', '/flujo', '/cronograma',
+  '/recursos', '/cotizador', '/informe',
+]
+// Portal routes — require authentication AND role === 'client'
+const PORTAL_PREFIX = '/portal'
 
 export const authConfig = {
   pages: {
@@ -16,14 +20,33 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
-      const isProtected = PROTECTED_PREFIXES.some((p) => nextUrl.pathname.startsWith(p))
+      const role = auth?.user?.role as string | undefined
+      const path = nextUrl.pathname
 
-      if (isProtected) return isLoggedIn
+      const isInternal = INTERNAL_PREFIXES.some((p) => path.startsWith(p))
+      const isPortal   = path.startsWith(PORTAL_PREFIX)
 
-      // Already logged in and visiting /login → bounce to dashboard.
-      if (isLoggedIn && nextUrl.pathname === '/login') {
+      // Internal routes: must be logged in + not a client
+      if (isInternal) {
+        if (!isLoggedIn) return Response.redirect(new URL('/login', nextUrl))
+        if (role === 'client') {
+          // Redirect clients to their portal; clientId not available in edge
+          // so we send them to /login which will redirect appropriately
+          return Response.redirect(new URL('/login', nextUrl))
+        }
+        return true
+      }
+
+      // Portal login page: if already logged in as client, let through
+      // (portal sub-pages handle their own auth)
+      if (isPortal) return true
+
+      // /login: logged-in internal users → dashboard; clients → login (portal)
+      if (isLoggedIn && path === '/login') {
+        if (role === 'client') return true // portal login handles it
         return Response.redirect(new URL('/dashboard', nextUrl))
       }
+
       return true
     },
     jwt({ token, user }) {

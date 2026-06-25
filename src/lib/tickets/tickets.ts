@@ -37,10 +37,11 @@ export async function getTickets(actor: TenantActor, filters?: {
   return prisma.ticket.findMany({
     where: {
       ...tenantScope(actor),
-      ...(filters?.clientId    ? { clientId: filters.clientId }       : {}),
-      ...(filters?.status      ? { status: filters.status as never }  : {}),
-      ...(filters?.assignedToId? { assignedToId: filters.assignedToId }: {}),
-      status: { notIn: ['fusionado', 'cancelado'] as never[] },
+      ...(filters?.clientId     ? { clientId: filters.clientId }        : {}),
+      ...(filters?.assignedToId ? { assignedToId: filters.assignedToId }: {}),
+      status: filters?.status
+        ? (filters.status as never)
+        : { notIn: ['fusionado', 'cancelado'] as never[] },
     },
     select: ticketSelect,
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],

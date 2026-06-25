@@ -18,6 +18,14 @@ export default async function AppLayout({
 
   const { user } = session
 
+  // Clients belong in the portal, not the internal app
+  if (user.role === 'client') {
+    const clientRecord = user.clientId
+      ? await prisma.client.findUnique({ where: { id: user.clientId }, select: { portalSlug: true } })
+      : null
+    redirect(clientRecord?.portalSlug ? `/portal/${clientRecord.portalSlug}/tickets` : '/login')
+  }
+
   const portalClients = await prisma.client.findMany({
     where: { ...tenantScope(user), portalSlug: { not: null } },
     select: { name: true, portalSlug: true },
