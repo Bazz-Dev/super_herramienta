@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getClientTickets } from '@/lib/tickets/tickets'
+import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import {
   PORTAL_STATUS_BADGE as SB,
@@ -21,10 +22,9 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
     select: { id: true, name: true, portalTheme: true },
   })
   if (!client) notFound()
-  if (!session?.user || session.user.role !== 'client' || session.user.clientId !== client.id) {
-    redirect(`/portal/${slug}`)
-  }
+  if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
+  const isStaff = isStaffViewing(session)
   const tickets = await getClientTickets(client.id)
   let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
   if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
@@ -33,14 +33,19 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
   const closed = tickets.filter(t => ['resuelto', 'cancelado'].includes(t.status))
   const bySt   = tickets.reduce<Record<string, number>>((a, t) => { a[t.status] = (a[t.status] ?? 0) + 1; return a }, {})
 
-  const btn = (
+  const btn = isStaff ? (
+    <Link href="/tickets" style={{ textDecoration: 'none', fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'rgba(255,255,255,0.12)', color: '#fff', fontWeight: '600' }}>
+      ← Volver a INGEGAR
+    </Link>
+  ) : (
     <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration: 'none', fontSize: '13px', padding: '8px 16px' }}>
       + Nueva solicitud
     </Link>
   )
 
   return (
-    <PortalShell slug={slug} clientName={client.name} userName={session.user.name ?? 'Usuario'} primary={theme.primary}
+    <PortalShell slug={slug} clientName={client.name}
+      userName={session?.user?.name ?? 'Usuario'} primary={theme.primary}
       activeHref={`/portal/${slug}/tickets`} topbarTitle="Mis solicitudes"
       topbarSub={`${tickets.length} solicitudes · ${open.length} activas`} topbarRight={btn}>
       <div style={{ padding: '24px 28px' }}>

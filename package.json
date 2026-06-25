@@ -27,7 +27,8 @@
     "setup:jb:prod": "npx tsx --env-file=.env.production.local scripts/setup-justburger-portal.ts",
     "import:jb:prod": "npx tsx --env-file=.env.production.local scripts/import-jb-tickets.ts",
     "db:seed:prod": "npx tsx --env-file=.env.production.local scripts/seed-prod.ts",
-    "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts"
+    "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
+    "cleanup:jb:prod": "npx tsx --env-file=.env.production.local scripts/cleanup-jb-flujo.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

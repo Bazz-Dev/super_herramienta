@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalNewTicketForm } from '@/components/tickets/portal-new-ticket-form'
 
@@ -14,9 +15,9 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
     select: { id: true, name: true, portalTheme: true, branches: { where: { active: true }, select: { id: true, name: true, city: true }, orderBy: { name: 'asc' } } },
   })
   if (!client) notFound()
-  if (!session?.user || session.user.role !== 'client' || session.user.clientId !== client.id) {
-    redirect(`/portal/${slug}`)
-  }
+  if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
+  // Staff can preview the portal but cannot create tickets on behalf of the client
+  if (isStaffViewing(session)) redirect(`/portal/${slug}/tickets`)
 
   let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
   if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
@@ -29,14 +30,14 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
   )
 
   return (
-    <PortalShell slug={slug} clientName={client.name} userName={session.user.name ?? 'Usuario'} primary={theme.primary}
+    <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'} primary={theme.primary}
       activeHref={`/portal/${slug}/tickets/new`} topbarTitle="Nueva solicitud" topbarSub="Completa el formulario para crear un requerimiento" topbarRight={backLink}>
       <div style={{ padding: '24px 28px', maxWidth: '680px' }}>
         <div className="pcard" style={{ padding: '24px 26px' }}>
           <PortalNewTicketForm
             slug={slug}
             clientId={client.id}
-            createdById={session.user.id}
+            createdById={session!.user.id}
             branches={client.branches}
             primary={theme.primary}
           />

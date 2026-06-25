@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getClientTicket } from '@/lib/tickets/tickets'
+import { canViewPortal } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import {
   PORTAL_STATUS_BADGE as SB,
@@ -22,9 +23,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
     select: { id: true, name: true, portalTheme: true },
   })
   if (!client) notFound()
-  if (!session?.user || session.user.role !== 'client' || session.user.clientId !== client.id) {
-    redirect(`/portal/${slug}`)
-  }
+  if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
   const ticket = await getClientTicket(client.id, id)
   if (!ticket) notFound()
@@ -43,7 +42,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   )
 
   return (
-    <PortalShell slug={slug} clientName={client.name} userName={session.user.name ?? 'Usuario'} primary={theme.primary}
+    <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'} primary={theme.primary}
       activeHref={`/portal/${slug}/tickets`} topbarTitle={ticket.title} topbarSub={ticket.ticketCode} topbarRight={backLink}>
       <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px', alignItems: 'start' }}>
 

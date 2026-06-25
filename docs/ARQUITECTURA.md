@@ -28,10 +28,14 @@ Herramienta interna de gestión de INGEGAR. Centraliza operaciones, recursos, fa
 ### 1. App interna (`/`) — staff INGEGAR
 Ruta base protegida. Solo `super` y `supervisor`.
 
-### 2. Portal cliente (`/portal/{slug}`) — clientes
+### 2. Portal cliente (`/portal/{slug}`) — clientes + staff
 Cada cliente tiene su portal propio con tema visual personalizado (colors desde `Client.portalTheme`).
 - JB: `/portal/justburger` — tema rojo oscuro
 - Futuro cliente: crear `Client` con `portalSlug` + usuario `role=client` con `clientId`
+
+**Acceso desde app interna**: el staff (`super`/`supervisor`) puede navegar al portal directamente desde el sidebar de INGEGAR sin re-autenticarse. El helper `canViewPortal()` (`src/lib/portal-auth.ts`) acepta ambos roles. Staff no puede crear tickets — solo ver lo que ve el cliente.
+
+**Sesión**: JWT con `maxAge: 30 días`. Aplica igual para clientes y staff.
 
 ---
 
@@ -65,7 +69,7 @@ Cada cliente tiene su portal propio con tema visual personalizado (colors desde 
   - `design-reference/FLUJO DE CAJA DECATHLON GENERAL 20262.xlsx` → Decathlon
   - `design-reference/FLUJO DE CAJA GENERAL UNITY 2026.xlsx` → Unity
 **Flujo normal**: después del import histórico, nuevos trabajos se crean desde la plataforma (`/flujo` → Nuevo trabajo).
-**Estado BD actual** (jun-2026): Decathlon 1 job, Unity 1 job. JB tiene datos incorrectos pendientes de corrección (ver abajo).
+**Estado BD actual** (jun-2026): JB 205 trabajos ($73M neto), Decathlon 1 trabajo ($980K), Unity 1 trabajo ($700K). Total $74.8M.
 
 ### Propuestas / Cotizador (`/cotizador`)
 **Para qué**: Generar cotizaciones técnico-comerciales en PDF. Editor online con plantillas A4.

@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
+import { canViewPortal } from '@/lib/portal-auth'
 import { PortalLoginForm } from '@/components/tickets/portal-login-form'
 
 export default async function PortalLoginPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -13,7 +14,8 @@ export default async function PortalLoginPage({ params }: { params: Promise<{ sl
   if (!client) notFound()
 
   const session = await auth()
-  if (session?.user?.role === 'client' && session.user.clientId === client.id) {
+  // Staff and authenticated clients go straight to tickets
+  if (canViewPortal(session, client.id)) {
     redirect(`/portal/${slug}/tickets`)
   }
 
