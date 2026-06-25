@@ -138,6 +138,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               workSummary: ticket.workSummary,
               internalNotes: ticket.internalNotes,
               driveFolderUrl: ticket.driveFolderUrl,
+              showToClient: ticket.showToClient,
               items: ticket.items,
               documents: ticket.documents,
             }}

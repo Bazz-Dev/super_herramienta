@@ -17,6 +17,7 @@ interface Props {
     workSummary: string | null
     internalNotes: string | null
     driveFolderUrl: string | null
+    showToClient: boolean
     items: Item[]
     documents: Doc[]
   }
@@ -32,6 +33,7 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
   const [assignedToId, setAssignedToId] = useState(ticket.assignedToId ?? '')
   const [estimatedDate, setEstimatedDate] = useState(ticket.estimatedDate ?? '')
   const [workSummary, setWorkSummary] = useState(ticket.workSummary ?? '')
+  const [showToClient, setShowToClient] = useState(ticket.showToClient)
   const [saved, setSaved] = useState(false)
 
   function handleSaveFields() {
@@ -41,6 +43,7 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
         assignedToId: assignedToId || null,
         estimatedDate: estimatedDate || undefined,
         workSummary: workSummary || undefined,
+        showToClient,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -126,16 +129,32 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
           />
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSaveFields}
-            disabled={isPending}
-            className="rounded-md bg-brand px-4 py-1.5 text-sm font-semibold text-ink shadow-sm transition hover:opacity-90 disabled:opacity-50"
-          >
-            {isPending ? 'Guardando…' : 'Guardar cambios'}
-          </button>
-          {saved && <span className="text-xs text-green-600">✓ Guardado</span>}
+        <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showToClient}
+              onClick={() => setShowToClient(v => !v)}
+              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showToClient ? 'bg-green-500' : 'bg-gray-300'}`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${showToClient ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+            <span className="text-xs text-gray-600">
+              {showToClient ? 'Visible en portal cliente' : 'Oculto al cliente'}
+            </span>
+          </label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSaveFields}
+              disabled={isPending}
+              className="rounded-md bg-brand px-4 py-1.5 text-sm font-semibold text-ink shadow-sm transition hover:opacity-90 disabled:opacity-50"
+            >
+              {isPending ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+            {saved && <span className="text-xs text-green-600">✓ Guardado</span>}
+          </div>
         </div>
       </div>
 

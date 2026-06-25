@@ -31,6 +31,7 @@ const updateSchema = z.object({
   internalNotes: z.string().optional(),
   driveFolderUrl: z.string().optional(),
   branchId: z.string().nullable().optional(),
+  showToClient: z.boolean().optional(),
 })
 
 export async function createTicket(_: unknown, fd: FormData) {
