@@ -36,3 +36,7 @@ npm-debug.log*
 .vscode/
 design-reference/flujo-consolidado.csv
 design-reference/*.xlsx
+justburger-ingegar/*.xlsx
+justburger-ingegar/*.gs
+justburger-ingegar/*.html
+justburger-ingegar/
