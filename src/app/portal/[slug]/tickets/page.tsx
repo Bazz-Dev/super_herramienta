@@ -123,9 +123,8 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
                 <div key={t.id}>
                   {i > 0 && <div className="pdivider" />}
                   <Link href={`/portal/${slug}/tickets/${t.id}`}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', textDecoration: 'none', gap: '12px', transition: 'background 0.1s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--p-bg)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                    className="prow-link"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', textDecoration: 'none', gap: '12px' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span className="mono" style={{ fontSize: '10px', color: 'var(--p-t3)' }}>{t.ticketCode} · </span>
                       <span style={{ fontSize: '13px', color: 'var(--p-text)' }}>{t.title}</span>

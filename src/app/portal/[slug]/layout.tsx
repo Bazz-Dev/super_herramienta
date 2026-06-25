@@ -277,6 +277,9 @@ export default async function PortalLayout({ children, params }: { children: Rea
         /* Divider */
         .pdivider { height: 1px; background: var(--p-bd); margin: 0; }
 
+        /* History row hover */
+        .prow-link:hover { background: var(--p-bg) !important; }
+
         /* Responsive: hide sidebar on mobile, show topbar hamburger */
         @media (max-width: 768px) {
           .psb { transform: translateX(-100%); }
