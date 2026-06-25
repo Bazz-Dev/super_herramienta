@@ -7,7 +7,31 @@
       "Bash(find . -type f \\\\\\( -iname \"design*\" -o -iname \"*design-system*\" -o -path \"*design-reference*\" -o -iname \"cotizacion*\" \\\\\\) -not -path './node_modules/*' -not -path './.next/*')",
       "Bash(ls -la *.MD *.md)",
       "Bash(ls -la design-reference/)",
-      "Bash(py -3 scripts/search.py \"internal admin dashboard productivity tool professional\" --design-system -f markdown)"
+      "Bash(py -3 scripts/search.py \"internal admin dashboard productivity tool professional\" --design-system -f markdown)",
+      "Bash(vercel --version)",
+      "Read(//c/Users/sehci/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.2/skills/subagent-driven-development/**)",
+      "Bash(cd \"C:\\\\Users\\\\sehci\\\\OneDrive\\\\Desktop\\\\SuperHerramienta_ingegar\")",
+      "Bash(bash __TRACKED_VAR__/scripts/task-brief docs/superpowers/plans/2026-06-19-flujo-de-caja.md 1)",
+      "Bash(mkdir -p /c/tmp/sdd)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 9c794ab HEAD /c/tmp/sdd/review-task1.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 88753df HEAD /c/tmp/sdd/review-task2.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/task-brief docs/superpowers/plans/2026-06-19-flujo-de-caja.md 3)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 396a067 HEAD /c/tmp/sdd/review-task3.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 58ae6cc HEAD /c/tmp/sdd/review-task4.diff)",
+      "Read(//c/Users/sehci/repos/personal/**)",
+      "Read(//mnt/c/Users/sehci/repos/personal/**)",
+      "Read(//c/Users/sehci/OneDrive/Desktop/**)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package c2d47cf HEAD /c/tmp/sdd/review-task5.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 05d2993 HEAD /c/tmp/sdd/review-task6.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 2755fed HEAD /c/tmp/sdd/review-task7.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 30d6214 HEAD /c/tmp/sdd/review-task8.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 7bb1428 HEAD /c/tmp/sdd/review-task9.diff)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 76f284e HEAD /c/tmp/sdd/review-task10.diff)",
+      "Bash(ls \"src/app/\\(app\\)/flujo/sucursales\")",
+      "Bash(ls src/components/cashflow/branch-form.tsx)",
+      "Bash(bash __TRACKED_VAR__/scripts/review-package 9a82527 HEAD /c/tmp/sdd/review-task11.diff)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)"
     ]
   }
 }

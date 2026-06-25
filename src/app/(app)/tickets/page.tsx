@@ -1,14 +1,15 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { getTickets } from '@/lib/tickets/tickets'
+import { TicketFilters } from '@/components/tickets/ticket-filters'
 import {
   KANBAN_COLUMNS,
-  STATUS_LABEL,
   STATUS_COLOR,
-  STATUS_DOT,
+  STATUS_LABEL,
   URGENCY_LABEL,
   URGENCY_COLOR,
   type TicketStatusId,
@@ -77,47 +78,9 @@ export default async function TicketsPage({
       </div>
 
       {/* Filters */}
-      <form className="flex flex-wrap gap-3">
-        <select
-          name="clientId"
-          defaultValue={clientId ?? ''}
-          onChange={(e) => {
-            const url = new URL(window.location.href)
-            if (e.target.value) url.searchParams.set('clientId', e.target.value)
-            else url.searchParams.delete('clientId')
-            window.location.href = url.toString()
-          }}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40"
-        >
-          <option value="">Todos los clientes</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-
-        <select
-          name="assignedToId"
-          defaultValue={assignedToId ?? ''}
-          onChange={(e) => {
-            const url = new URL(window.location.href)
-            if (e.target.value) url.searchParams.set('assignedToId', e.target.value)
-            else url.searchParams.delete('assignedToId')
-            window.location.href = url.toString()
-          }}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40"
-        >
-          <option value="">Todos los técnicos</option>
-          {users.map((u) => (
-            <option key={u.id} value={u.id}>{u.name}</option>
-          ))}
-        </select>
-
-        {(clientId || assignedToId) && (
-          <a href="/tickets" className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-50 transition">
-            Limpiar filtros
-          </a>
-        )}
-      </form>
+      <Suspense>
+        <TicketFilters clients={clients} users={users} />
+      </Suspense>
 
       {/* Kanban */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

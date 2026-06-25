@@ -38,6 +38,30 @@ export async function updateClient(id: string, _prev: FormState, formData: FormD
   redirect('/recursos/clientes')
 }
 
+export async function createBranch(clientId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireActor()
+  const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { tenantId: true } })
+  if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
+  const name = (formData.get('name') as string)?.trim()
+  const city = (formData.get('city') as string)?.trim() || null
+  if (!name) return { error: 'El nombre de la sucursal es obligatorio.' }
+  try {
+    await prisma.branch.create({ data: { tenantId: existing.tenantId, clientId, name, city: city ?? undefined } })
+  } catch {
+    return { error: 'Ya existe una sucursal con ese nombre para este cliente.' }
+  }
+  revalidatePath(`/recursos/clientes/${clientId}`)
+  return {}
+}
+
+export async function toggleBranch(branchId: string, active: boolean): Promise<void> {
+  const actor = await requireActor()
+  const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { tenantId: true, clientId: true } })
+  if (!branch || !canAccessTenant(actor, branch.tenantId)) return
+  await prisma.branch.update({ where: { id: branchId }, data: { active } })
+  revalidatePath(`/recursos/clientes/${branch.clientId}`)
+}
+
 export async function deleteClient(id: string): Promise<void> {
   const actor = await requireActor()
   const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })

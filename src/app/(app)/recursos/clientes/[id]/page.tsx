@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '@/components/resources/client-form'
+import { BranchManager } from '@/components/resources/branch-manager'
 import { requireActor } from '@/lib/resources/actor'
 import { getClientWithStats } from '@/lib/resources/clients'
 import { updateClient } from '../actions'
@@ -114,26 +115,7 @@ export default async function EditClientePage({
             )}
           </div>
 
-          {/* Branches */}
-          {client.branches.length > 0 && (
-            <div className="mt-4 border-t border-gray-100 pt-3">
-              <p className="mb-2 text-xs font-medium text-gray-500">Sucursales</p>
-              <div className="flex flex-wrap gap-1.5">
-                {client.branches.map((b) => (
-                  <span
-                    key={b.id}
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      b.active
-                        ? 'bg-gray-100 text-gray-700'
-                        : 'bg-gray-50 text-gray-400 line-through'
-                    }`}
-                  >
-                    {b.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
+          <BranchManager clientId={client.id} branches={client.branches} />
 
           <div className="mt-3 flex gap-3 border-t border-gray-100 pt-3">
             <Link
