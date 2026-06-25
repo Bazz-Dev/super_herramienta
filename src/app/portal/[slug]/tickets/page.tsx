@@ -4,25 +4,14 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getClientTickets } from '@/lib/tickets/tickets'
 import { PortalShell } from '@/components/tickets/portal-shell'
-
-const SL: Record<string, string> = {
-  nuevo: 'Nuevo', en_revision: 'En revisión', en_ejecucion: 'En ejecución',
-  esperando_aprobacion: 'Esp. aprobación', resuelto: 'Resuelto', cancelado: 'Cancelado',
-}
-const UL: Record<string, string> = {
-  emergencia: 'Emergencia', urgencia: 'Urgente', no_urgente: 'Normal', preventivo: 'Preventivo',
-}
-const SB: Record<string, string> = {
-  nuevo: 'badge badge-nuevo', en_revision: 'badge badge-revision',
-  en_ejecucion: 'badge badge-ejecucion', esperando_aprobacion: 'badge badge-espera',
-  resuelto: 'badge badge-resuelto', cancelado: 'badge badge-cancelado',
-}
-const UB: Record<string, string> = {
-  emergencia: 'badge badge-em', urgencia: 'badge badge-ur',
-  no_urgente: 'badge badge-rq', preventivo: 'badge badge-pr',
-}
-const STEPS = ['nuevo', 'en_revision', 'en_ejecucion', 'resuelto']
-const SLBL  = ['Nuevo', 'En revisión', 'En ejecución', 'Resuelto']
+import {
+  PORTAL_STATUS_BADGE as SB,
+  PORTAL_STATUS_SHORT as SL,
+  PORTAL_URGENCY_BADGE as UB,
+  PORTAL_URGENCY_SHORT as UL,
+  PROGRESS_STEPS as STEPS,
+  PROGRESS_STEPS_LABEL as SLBL,
+} from '@/lib/tickets/labels'
 
 export default async function PortalTicketsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params

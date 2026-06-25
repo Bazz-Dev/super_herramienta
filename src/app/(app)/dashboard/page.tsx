@@ -2,9 +2,11 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 
 const MODULES = [
-  { name: 'Generador de Propuesta Técnico Comercial', desc: 'Plantillas, formularios y exportación PDF', status: 'Disponible', href: '/cotizador' },
-  { name: 'Recursos', desc: 'Técnicos, vehículos, activos, cuadrillas y clientes', status: 'Disponible', href: '/recursos' },
   { name: 'Cronograma', desc: 'Calendario de trabajos: equipos, clientes y permisos', status: 'Disponible', href: '/cronograma' },
+  { name: 'Tickets', desc: 'Requerimientos de clientes: seguimiento, historial y portal', status: 'Disponible', href: '/tickets' },
+  { name: 'Flujo de Caja', desc: 'Trabajos facturados, cobranza y márgenes por cliente', status: 'Disponible', href: '/flujo' },
+  { name: 'Propuestas', desc: 'Plantillas, formularios y exportación PDF', status: 'Disponible', href: '/cotizador' },
+  { name: 'Recursos', desc: 'Técnicos, vehículos, activos, cuadrillas y clientes', status: 'Disponible', href: '/recursos' },
   { name: 'Pipeline', desc: 'Cotizaciones enviadas, estados y seguimiento', status: 'Próximamente', href: null },
 ]
 

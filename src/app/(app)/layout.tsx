@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth, signOut } from '@/auth'
+import { prisma } from '@/lib/prisma'
+import { tenantScope } from '@/lib/tenant'
 import { Sidebar } from '@/components/ui/sidebar'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -15,6 +17,12 @@ export default async function AppLayout({
   if (!session?.user) redirect('/login')
 
   const { user } = session
+
+  const portalClients = await prisma.client.findMany({
+    where: { ...tenantScope(user), portalSlug: { not: null } },
+    select: { name: true, portalSlug: true },
+    orderBy: { name: 'asc' },
+  }) as { name: string; portalSlug: string }[]
 
   const logout = (
     <form
@@ -41,6 +49,7 @@ export default async function AppLayout({
           roleLabel: ROLE_LABELS[user.role] ?? user.role,
         }}
         logout={logout}
+        portalClients={portalClients}
       />
       <main className="md:pl-60">
         <div className="p-6">{children}</div>

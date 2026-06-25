@@ -54,3 +54,41 @@ export const KANBAN_COLUMNS: { status: TicketStatusId; label: string; color: str
 
 export const ALL_STATUSES = Object.keys(STATUS_LABEL) as TicketStatusId[]
 export const ALL_URGENCIES = Object.keys(URGENCY_LABEL) as TicketUrgencyId[]
+
+// Portal CSS badge classes (used with the portal design system in layout.tsx)
+export const PORTAL_STATUS_BADGE: Record<string, string> = {
+  nuevo: 'badge badge-nuevo',
+  en_revision: 'badge badge-revision',
+  en_ejecucion: 'badge badge-ejecucion',
+  esperando_aprobacion: 'badge badge-espera',
+  resuelto: 'badge badge-resuelto',
+  cancelado: 'badge badge-cancelado',
+  fusionado: 'badge badge-cancelado',
+}
+
+export const PORTAL_URGENCY_BADGE: Record<string, string> = {
+  emergencia: 'badge badge-em',
+  urgencia: 'badge badge-ur',
+  no_urgente: 'badge badge-rq',
+  preventivo: 'badge badge-pr',
+}
+
+export const PORTAL_URGENCY_SHORT: Record<string, string> = {
+  emergencia: 'Emergencia',
+  urgencia: 'Urgente',
+  no_urgente: 'Normal',
+  preventivo: 'Preventivo',
+}
+
+export const PORTAL_STATUS_SHORT: Record<string, string> = {
+  nuevo: 'Nuevo',
+  en_revision: 'En revisión',
+  en_ejecucion: 'En ejecución',
+  esperando_aprobacion: 'Esp. aprobación',
+  resuelto: 'Resuelto',
+  cancelado: 'Cancelado',
+  fusionado: 'Fusionado',
+}
+
+export const PROGRESS_STEPS: string[] = ['nuevo', 'en_revision', 'en_ejecucion', 'resuelto']
+export const PROGRESS_STEPS_LABEL: string[] = ['Nuevo', 'En revisión', 'En ejecución', 'Resuelto']

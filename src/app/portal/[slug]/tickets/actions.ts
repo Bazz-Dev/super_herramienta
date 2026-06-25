@@ -3,15 +3,16 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 
-function buildTicketCode(urgency: string, branchName: string): string {
+function buildTicketCode(urgency: string, branchName: string, clientPrefix: string): string {
   const now = new Date()
   const yy = String(now.getFullYear()).slice(2)
   const mm = String(now.getMonth() + 1).padStart(2, '0')
   const dd = String(now.getDate()).padStart(2, '0')
   const urgMap: Record<string, string> = { emergencia: 'EM', urgencia: 'UR', no_urgente: 'RQ', preventivo: 'PR' }
   const code = urgMap[urgency] ?? 'RQ'
-  const suc  = branchName.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
-  return `${yy}${mm}${dd}-JB-${code}1-${suc}`
+  const suc    = branchName.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
+  const prefix = clientPrefix.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4)
+  return `${yy}${mm}${dd}-${prefix}-${code}1-${suc}`
 }
 
 export async function createPortalTicket(fd: FormData) {
@@ -31,15 +32,18 @@ export async function createPortalTicket(fd: FormData) {
   // Verify clientId matches session
   if (session.user.clientId !== clientId) return { success: false }
 
-  const branch = branchId ? await prisma.branch.findUnique({ where: { id: branchId }, select: { name: true } }) : null
-  const ticketCode = buildTicketCode(urgency, branch?.name ?? 'SUCURSAL')
+  const [branch, client] = await Promise.all([
+    branchId ? prisma.branch.findUnique({ where: { id: branchId }, select: { name: true } }) : Promise.resolve(null),
+    prisma.client.findUnique({ where: { id: clientId }, select: { tenantId: true, portalSlug: true, name: true } }),
+  ])
+  if (!client) return { success: false }
+
+  const clientPrefix = client.portalSlug ?? client.name.split(' ')[0]
+  const ticketCode = buildTicketCode(urgency, branch?.name ?? 'SUCURSAL', clientPrefix)
 
   // Ensure unique code
   const existing = await prisma.ticket.findUnique({ where: { ticketCode }, select: { id: true } })
   const finalCode = existing ? `${ticketCode}-${Date.now().toString(36).slice(-4)}` : ticketCode
-
-  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { tenantId: true } })
-  if (!client) return { success: false }
 
   const ticket = await prisma.ticket.create({
     data: {
