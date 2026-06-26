@@ -16,7 +16,7 @@ export default async function PortalLoginPage({ params }: { params: Promise<{ sl
   const session = await auth()
   // Staff and authenticated clients go straight to tickets
   if (canViewPortal(session, client.id)) {
-    redirect(`/portal/${slug}/tickets`)
+    redirect(`/portal/${slug}/dashboard`)
   }
 
   let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }

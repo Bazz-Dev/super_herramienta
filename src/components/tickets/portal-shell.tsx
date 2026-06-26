@@ -16,46 +16,33 @@ interface Props {
   topbarRight?: React.ReactNode
 }
 
+function IconDashboard() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+}
 function IconTickets() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="12" height="10" rx="2"/>
-      <path d="M5 7h6M5 10h4"/>
-    </svg>
-  )
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="10" rx="2"/><path d="M5 7h6M5 10h4"/></svg>
 }
 function IconPlus() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-      <path d="M8 3v10M3 8h10"/>
-    </svg>
-  )
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M8 3v10M3 8h10"/></svg>
+}
+function IconReports() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12V5M6 12V8M10 12V3M14 12V7"/></svg>
 }
 function IconLogout() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2M9 10l3-3-3-3M12 7H5"/>
-    </svg>
-  )
+  return <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2M9 10l3-3-3-3M12 7H5"/></svg>
 }
 function IconMenu() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-      <path d="M3 5h14M3 10h14M3 15h14"/>
-    </svg>
-  )
+  return <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
 }
 function IconX() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-      <path d="M4 4l10 10M14 4L4 14"/>
-    </svg>
-  )
+  return <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 4l10 10M14 4L4 14"/></svg>
 }
 
 const NAV = [
-  { href: (s: string) => `/portal/${s}/tickets`,     label: 'Mis solicitudes', Icon: IconTickets },
-  { href: (s: string) => `/portal/${s}/tickets/new`, label: 'Nueva solicitud', Icon: IconPlus },
+  { href: (s: string) => `/portal/${s}/dashboard`,    label: 'Panel',           Icon: IconDashboard },
+  { href: (s: string) => `/portal/${s}/tickets`,      label: 'Requerimientos',  Icon: IconTickets },
+  { href: (s: string) => `/portal/${s}/tickets/new`,  label: 'Nueva solicitud', Icon: IconPlus },
+  { href: (s: string) => `/portal/${s}/reportes`,     label: 'Reportes',        Icon: IconReports },
 ]
 
 export function PortalShell({ slug, clientName, userName, primary, activeHref, children, topbarTitle, topbarSub, topbarRight }: Props) {
@@ -95,7 +82,7 @@ export function PortalShell({ slug, clientName, userName, primary, activeHref, c
 
         {/* Nav */}
         <nav className="psb-nav">
-          <div className="psb-section-label">Solicitudes</div>
+          <div className="psb-section-label">Menu</div>
           {NAV.map(({ href, label, Icon }) => {
             const to = href(slug)
             const active = activeHref === to
