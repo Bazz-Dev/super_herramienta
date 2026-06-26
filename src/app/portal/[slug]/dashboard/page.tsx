@@ -27,7 +27,10 @@ function localYearMonth() {
 
 type Ticket = Awaited<ReturnType<typeof getClientTickets>>[number]
 
-function BarChart({ months }: { months: { key:string; label:string; active:number; resolved:number; total:number }[] }) {
+function BarChart({ months, acc, t2, t3, bd }: {
+  months: { key:string; label:string; active:number; resolved:number; total:number }[]
+  acc: string; t2: string; t3: string; bd: string
+}) {
   const W=480, H=100, PL=24, PR=8, PT=12, PB=22, GH=H-PT-PB
   const maxV = Math.max(...months.map(m=>m.total), 1)
   const bW = Math.floor((W-PL-PR)/months.length)
@@ -36,8 +39,8 @@ function BarChart({ months }: { months: { key:string; label:string; active:numbe
       {[0,1,2,3,4].map(g => {
         const y = PT+GH*(1-g/4)
         return <g key={g}>
-          <line x1={PL} x2={W-PR} y1={y} y2={y} stroke="var(--bd)" strokeWidth="1" strokeDasharray={g?'3,3':''} />
-          {g>0 && <text x={PL-4} y={y+3} textAnchor="end" fontSize="8" fill="var(--t3)" fontFamily="Inter,sans-serif">{Math.round(maxV*g/4)}</text>}
+          <line x1={PL} x2={W-PR} y1={y} y2={y} stroke={bd} strokeWidth="1" strokeDasharray={g?'3,3':''} />
+          {g>0 && <text x={PL-4} y={y+3} textAnchor="end" fontSize="8" fill={t3} fontFamily="Inter,sans-serif">{Math.round(maxV*g/4)}</text>}
         </g>
       })}
       {months.map((m,i) => {
@@ -46,10 +49,10 @@ function BarChart({ months }: { months: { key:string; label:string; active:numbe
         const ah=m.active?Math.max((m.active/maxV)*GH,2):0
         return <g key={m.key}>
           {rh>0 && <rect x={x} y={H-PB-rh-ah} width={bw} height={rh} fill="#22c55e" rx="2" opacity=".75"/>}
-          {ah>0 && <rect x={x} y={H-PB-ah} width={bw} height={ah} fill="var(--acc)" rx="2"/>}
-          {m.total===0 && <rect x={x} y={H-PB-2} width={bw} height={2} fill="var(--bd)" rx="1"/>}
-          {m.total>0 && <text x={x+bw/2} y={H-PB-(m.total/maxV)*GH-3} textAnchor="middle" fontSize="8.5" fontWeight="700" fill="var(--t2)" fontFamily="Inter,sans-serif">{m.total}</text>}
-          <text x={x+bw/2} y={H-PB+13} textAnchor="middle" fontSize="9" fill="var(--t3)" fontFamily="Inter,sans-serif">{m.label}</text>
+          {ah>0 && <rect x={x} y={H-PB-ah} width={bw} height={ah} fill={acc} rx="2"/>}
+          {m.total===0 && <rect x={x} y={H-PB-2} width={bw} height={2} fill={bd} rx="1"/>}
+          {m.total>0 && <text x={x+bw/2} y={H-PB-(m.total/maxV)*GH-3} textAnchor="middle" fontSize="8.5" fontWeight="700" fill={t2} fontFamily="Inter,sans-serif">{m.total}</text>}
+          <text x={x+bw/2} y={H-PB+13} textAnchor="middle" fontSize="9" fill={t3} fontFamily="Inter,sans-serif">{m.label}</text>
         </g>
       })}
     </svg>
@@ -70,6 +73,8 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
   if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
   const acc = theme.primary
+  // Hardcoded palette — never use var(--*) in JSX (CSS vars may not resolve on Vercel SSR)
+  const T = { tx: theme.text, t2: '#4b4540', t3: '#8c857e', t4: '#beb7b0', bd: '#e0ddd8', s2: '#f8f7f5', s3: '#efedea' }
 
   const act = tickets.filter(t => OPEN.includes(t.status))
   const inProc = act.filter(t => t.status !== 'nuevo')
@@ -107,15 +112,15 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
 
         {/* Greeting */}
         <div style={{ marginBottom:'16px' }}>
-          <div style={{ fontSize:'17px', fontWeight:'800', color:'var(--tx)', letterSpacing:'-0.3px' }}>Hola, {nombre} 👋</div>
-          <div style={{ fontSize:'12px', color:'var(--t3)', marginTop:'3px', textTransform:'capitalize' }}>{hoy}</div>
+          <div style={{ fontSize:'17px', fontWeight:'800', color:T.tx, letterSpacing:'-0.3px' }}>Hola, {nombre} 👋</div>
+          <div style={{ fontSize:'12px', color:T.t3, marginTop:'3px', textTransform:'capitalize' }}>{hoy}</div>
         </div>
 
         {/* Alert */}
         {vnc.length > 0 && (
-          <div className="alert-red" style={{ marginBottom:'14px' }}>
+          <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:'8px', padding:'10px 16px', display:'flex', alignItems:'center', gap:'10px', marginBottom:'14px' }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L14.5 13H1.5L8 1.5z" fill="#ef4444"/><path d="M8 6v3.5M8 11.5v.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            <strong>{vnc.length} requerimiento{vnc.length>1?'s':''} fuera de plazo.</strong>
+            <strong style={{ color:'#b91c1c', fontSize:'13px' }}>{vnc.length} requerimiento{vnc.length>1?'s':''} fuera de plazo.</strong>
             <Link href={`/portal/${slug}/tickets`} style={{ marginLeft:'auto', fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none', flexShrink:0 }}>Ver →</Link>
           </div>
         )}
@@ -128,10 +133,10 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
             { l:'Resueltos mes', n:resMes.length, c:'#22c55e', s:'este mes' },
             { l:'Vencidos',      n:vnc.length,    c:vnc.length?'#ef4444':'#22c55e', s:vnc.length?'Atención':'Al día' },
           ].map(({l,n,c,s}) => (
-            <div key={l} className="kpi-card">
-              <div className="kpi-val" style={{ color:c }}>{n}</div>
-              <div className="kpi-lbl">{l}</div>
-              <div className="kpi-sub">{s}</div>
+            <div key={l} style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'16px 18px' }}>
+              <div style={{ fontSize:'28px', fontWeight:'800', color:c, lineHeight:1, marginBottom:'4px', fontVariantNumeric:'tabular-nums' }}>{n}</div>
+              <div style={{ fontSize:'11px', fontWeight:'700', color:T.tx, marginBottom:'2px' }}>{l}</div>
+              <div style={{ fontSize:'10px', color:T.t3 }}>{s}</div>
             </div>
           ))}
         </div>
@@ -143,13 +148,13 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
           <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
 
             {/* Bar chart */}
-            <div className="pcard" style={{ padding:'16px 18px' }}>
+            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'16px 18px' }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px', flexWrap:'wrap', gap:'8px' }}>
                 <div>
-                  <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--tx)' }}>Solicitudes por mes</div>
-                  <div style={{ fontSize:'11px', color:'var(--t3)' }}>Últimos 6 meses</div>
+                  <div style={{ fontSize:'13px', fontWeight:'700', color:T.tx }}>Solicitudes por mes</div>
+                  <div style={{ fontSize:'11px', color:T.t3 }}>Últimos 6 meses</div>
                 </div>
-                <div style={{ display:'flex', gap:'12px', fontSize:'11px', color:'var(--t3)' }}>
+                <div style={{ display:'flex', gap:'12px', fontSize:'11px', color:T.t3 }}>
                   <span style={{ display:'flex', alignItems:'center', gap:'4px' }}>
                     <span style={{ width:'8px', height:'8px', borderRadius:'2px', background:acc, display:'inline-block' }}/>Activos
                   </span>
@@ -158,39 +163,39 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
                   </span>
                 </div>
               </div>
-              <BarChart months={months} />
+              <BarChart months={months} acc={acc} t2={T.t2} t3={T.t3} bd={T.bd} />
             </div>
 
             {/* Active tickets list */}
-            <div className="pcard" style={{ overflow:'hidden' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px 11px', borderBottom:'1px solid var(--bd)' }}>
-                <div style={{ fontSize:'13px', fontWeight:'700', color:'var(--tx)' }}>Requerimientos activos</div>
+            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', overflow:'hidden' }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px 11px', borderBottom:`1px solid ${T.bd}` }}>
+                <div style={{ fontSize:'13px', fontWeight:'700', color:T.tx }}>Requerimientos activos</div>
                 <Link href={`/portal/${slug}/tickets`} style={{ fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none' }}>Ver todos →</Link>
               </div>
               {act.length === 0 ? (
-                <div style={{ padding:'32px 16px', textAlign:'center', color:'var(--t3)', fontSize:'13px' }}>
+                <div style={{ padding:'32px 16px', textAlign:'center', color:T.t3, fontSize:'13px' }}>
                   Sin activos. <Link href={`/portal/${slug}/tickets/new`} style={{ color:acc, fontWeight:'600' }}>Crear uno →</Link>
                 </div>
               ) : act.map((t, i) => (
                 <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
                   style={{
                     display:'grid', gridTemplateColumns:'3px 1fr auto', alignItems:'center', gap:'12px',
-                    padding:'11px 16px', borderBottom: i<act.length-1?'1px solid var(--bd)':'none',
-                    textDecoration:'none', transition:'background 0.1s',
+                    padding:'11px 16px', borderBottom: i<act.length-1?`1px solid ${T.bd}`:'none',
+                    textDecoration:'none', transition:'background 0.1s', background: theme.card,
                   }}
-                  className="prow-link">
+                  onMouseEnter={undefined} className="prow-link">
                   <div style={{ height:'36px', borderRadius:'2px', background:URG_COLOR[t.urgency]??'#ccc', flexShrink:0 }} />
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:'13px', fontWeight:'600', color:'var(--tx)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</div>
-                    <div style={{ fontSize:'11px', color:'var(--t3)', marginTop:'2px' }}>
-                      <span className="mono" style={{ fontSize:'10px' }}>{t.ticketCode}</span>
-                      {t.branch && <> · {t.branch.name}</>}
+                    <div style={{ fontSize:'13px', fontWeight:'600', color:T.tx, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</div>
+                    <div style={{ fontSize:'11px', color:T.t3, marginTop:'2px', fontFamily:"'JetBrains Mono', monospace" }}>
+                      <span style={{ fontSize:'10px' }}>{t.ticketCode}</span>
+                      {t.branch && <span style={{ fontFamily:'Inter, sans-serif' }}> · {t.branch.name}</span>}
                     </div>
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
                     <span className={SB[t.status]??'badge'} style={{ fontSize:'10px' }}>{SL[t.status]??t.status}</span>
                     {t.estimatedDate && (
-                      <div style={{ fontSize:'10px', color:daysBetween(String(t.estimatedDate))<0?'#ef4444':'var(--t3)', marginTop:'3px' }}>
+                      <div style={{ fontSize:'10px', color:daysBetween(String(t.estimatedDate))<0?'#ef4444':T.t3, marginTop:'3px' }}>
                         {daysBetween(String(t.estimatedDate))<0
                           ? `${Math.abs(daysBetween(String(t.estimatedDate)))}d vencido`
                           : `${daysBetween(String(t.estimatedDate))}d restantes`}
@@ -207,17 +212,17 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
 
             {/* Branch distribution */}
             {branchList.length > 0 && (
-              <div className="pcard" style={{ padding:'14px 16px' }}>
-                <div style={{ fontSize:'10px', fontWeight:'700', color:'var(--t3)', marginBottom:'14px', textTransform:'uppercase', letterSpacing:'1px' }}>
-                  Distribución sucursales <span style={{ float:'right', color:'var(--t4)' }}>activos</span>
+              <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'14px 16px' }}>
+                <div style={{ fontSize:'10px', fontWeight:'700', color:T.t3, marginBottom:'14px', textTransform:'uppercase', letterSpacing:'1px' }}>
+                  Distribución sucursales <span style={{ float:'right', color:T.t4 }}>activos</span>
                 </div>
                 {branchList.map(([name, count]) => (
                   <div key={name} style={{ marginBottom:'10px' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'4px' }}>
-                      <span style={{ color:'var(--tx)', fontWeight:'500', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'160px' }}>{name}</span>
-                      <span style={{ color:'var(--t3)', fontWeight:'600', flexShrink:0 }}>{count}</span>
+                      <span style={{ color:T.tx, fontWeight:'500', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'160px' }}>{name}</span>
+                      <span style={{ color:T.t3, fontWeight:'600', flexShrink:0 }}>{count}</span>
                     </div>
-                    <div style={{ height:'4px', background:'var(--s3)', borderRadius:'4px', overflow:'hidden' }}>
+                    <div style={{ height:'4px', background:T.s3, borderRadius:'4px', overflow:'hidden' }}>
                       <div style={{ height:'100%', background:acc, borderRadius:'4px', width:`${(count/maxBranch)*100}%` }} />
                     </div>
                   </div>
@@ -226,27 +231,27 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
             )}
 
             {/* Quick actions */}
-            <div className="pcard" style={{ padding:'14px 16px' }}>
-              <div style={{ fontSize:'10px', fontWeight:'700', color:'var(--t3)', marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1px' }}>Acciones</div>
+            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'14px 16px' }}>
+              <div style={{ fontSize:'10px', fontWeight:'700', color:T.t3, marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1px' }}>Acciones</div>
               <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration:'none', justifyContent:'center' }}>+ Nueva solicitud</Link>
-                <Link href={`/portal/${slug}/tickets`} className="pbtn pbtn-ghost" style={{ textDecoration:'none', justifyContent:'center' }}>Todos los tickets</Link>
-                <Link href={`/portal/${slug}/reportes`} className="pbtn pbtn-ghost" style={{ textDecoration:'none', justifyContent:'center' }}>Ver reportes</Link>
+                <Link href={`/portal/${slug}/tickets/new`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:acc, color:'#fff', textDecoration:'none', fontSize:'13px', fontWeight:'700' }}>+ Nueva solicitud</Link>
+                <Link href={`/portal/${slug}/tickets`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Todos los tickets</Link>
+                <Link href={`/portal/${slug}/reportes`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Ver reportes</Link>
               </div>
             </div>
 
             {/* Stats */}
-            <div className="pcard" style={{ padding:'14px 16px' }}>
-              <div style={{ fontSize:'10px', fontWeight:'700', color:'var(--t3)', marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1px' }}>Resumen</div>
+            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'14px 16px' }}>
+              <div style={{ fontSize:'10px', fontWeight:'700', color:T.t3, marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1px' }}>Resumen</div>
               {[
                 { l:'Total solicitudes', v: tickets.length },
                 { l:'Activas',           v: act.length },
                 { l:'Resueltas',         v: tickets.filter(t=>t.status==='resuelto').length },
                 { l:'Cerradas este mes', v: resMes.length },
               ].map(({l,v}) => (
-                <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid var(--bd)', fontSize:'12px' }}>
-                  <span style={{ color:'var(--t3)' }}>{l}</span>
-                  <span style={{ fontWeight:'700', color:'var(--tx)', fontVariantNumeric:'tabular-nums' }}>{v}</span>
+                <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:`1px solid ${T.bd}`, fontSize:'12px' }}>
+                  <span style={{ color:T.t3 }}>{l}</span>
+                  <span style={{ fontWeight:'700', color:T.tx, fontVariantNumeric:'tabular-nums' }}>{v}</span>
                 </div>
               ))}
             </div>

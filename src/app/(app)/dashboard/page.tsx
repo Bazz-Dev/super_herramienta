@@ -5,30 +5,38 @@ import { tenantScope } from '@/lib/tenant'
 
 export const metadata = { title: 'Inicio — INGEGAR' }
 
+const APP_VERSION = 'v1.6.0'
+
 const NOVEDADES = [
   {
     date: 'Jun 2026',
     type: 'nuevo' as const,
-    title: 'Portal cliente multi-tenant',
-    desc: 'Acceso SSO: staff entra al portal JB sin re-login. Sesiones de 30 días.',
+    title: 'Portal cliente v1.6 — tema claro garantizado',
+    desc: 'Modo claro forzado en todos los dispositivos. CSS vars inyectados inline para máxima compatibilidad. Versión visible en portal y dashboard.',
+  },
+  {
+    date: 'Jun 2026',
+    type: 'nuevo' as const,
+    title: 'Módulo Clientes — contadores cross-módulo',
+    desc: 'Perfil de cliente con contadores de trabajos, sucursales, cronograma y tickets. Panel de actividad reciente.',
   },
   {
     date: 'Jun 2026',
     type: 'nuevo' as const,
     title: 'Flujo de Caja con datos históricos',
-    desc: '$74.8M registrados: Just Burger (205 trabajos), Decathlon, Unity.',
+    desc: '$74.8M registrados: Just Burger (205 trabajos), Decathlon, Unity. KPIs de cobranza, aging y margen.',
   },
   {
     date: 'Jun 2026',
-    type: 'mejora' as const,
-    title: 'Tickets — filtros corregidos y más datos',
-    desc: 'Filtros por cliente y técnico funcionan correctamente. Kanban mejorado.',
+    type: 'nuevo' as const,
+    title: 'Portal cliente — PWA + notificaciones push',
+    desc: 'Instalable en iPhone y Android. Notificaciones push cuando cambia el estado de un ticket.',
   },
   {
-    date: 'Próximo',
-    type: 'pronto' as const,
-    title: 'Notificaciones por rol',
-    desc: 'Alertas de mantención de vehículos, tickets sin asignar y vencimientos.',
+    date: 'Jun 2026',
+    type: 'nuevo' as const,
+    title: 'Cronograma — Día/Semana/Mes con equipos',
+    desc: 'Calendario de trabajos con roles técnico/ayudante, color por permiso de sucursal, filtro por técnico.',
   },
   {
     date: 'Próximo',
@@ -108,11 +116,16 @@ export default async function DashboardPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       {/* Hero */}
-      <div>
-        <h1 className="text-2xl font-bold text-ink">{greeting}, {firstName}</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-ink">{greeting}, {firstName}</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+        <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-mono font-semibold text-gray-400 shadow-sm self-center">
+          INGEGAR Platform {APP_VERSION}
+        </span>
       </div>
 
       {/* KPI row */}

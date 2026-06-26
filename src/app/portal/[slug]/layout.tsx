@@ -36,9 +36,11 @@ export default async function PortalLayout({ children, params }: { children: Rea
 
   return (
     <>
+      {/* Google Fonts as <link> — @import inside <style> may be ignored in body */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
       <style>{`
-        /* ── Portal Design System — forced light mode, scoped to .pw ── */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&family=JetBrains+Mono:wght@400;600&display=swap');
 
         /* ── Light mode hard-lock — three layers of enforcement ── */
         /* 1. Document root: "only light" tells browser+extensions to never go dark */
@@ -340,7 +342,29 @@ export default async function PortalLayout({ children, params }: { children: Rea
         }
       ` }} />
 
-      <div className="pw">
+      {/* .pw: CSS vars injected BOTH in <style> and as inline style — belt + suspenders.
+          If the <style> tag fails to load (body injection quirk), inline vars still resolve. */}
+      <div className="pw" style={{
+        '--acc': acc,
+        '--bg':  theme.bg,
+        '--s1':  theme.card,
+        '--s2':  '#f8f7f5',
+        '--s3':  '#efedea',
+        '--bd':  '#e0ddd8',
+        '--bd2': '#ccc8c2',
+        '--tx':  theme.text,
+        '--t2':  '#4b4540',
+        '--t3':  '#8c857e',
+        '--t4':  '#beb7b0',
+        '--r':   '6px',
+        '--r2':  '10px',
+        '--r3':  '14px',
+        '--sh':  '0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04)',
+        '--sh2': '0 4px 16px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05)',
+        '--acc-l': `color-mix(in srgb, ${acc} 12%, #fff)`,
+        background: theme.bg,
+        color:      theme.text,
+      } as React.CSSProperties}>
         {children}
       </div>
     </>
