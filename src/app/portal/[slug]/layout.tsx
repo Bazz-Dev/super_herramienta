@@ -1,19 +1,6 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-
-interface PortalTheme {
-  primary: string
-  bg: string
-  card: string
-  text: string
-}
-
-const DEFAULT_THEME: PortalTheme = {
-  primary: '#d42030',
-  bg: '#f4f3f1',
-  card: '#ffffff',
-  text: '#18130e',
-}
+import { resolvePortalTheme } from '@/lib/portal-theme'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: any }) {
@@ -26,12 +13,8 @@ export default async function PortalLayout({ children, params }: { children: Rea
 
   if (!client) notFound()
 
-  let theme: PortalTheme = DEFAULT_THEME
-  if (client.portalTheme) {
-    try { theme = { ...DEFAULT_THEME, ...JSON.parse(client.portalTheme) } } catch {}
-  }
-
-  // Derive static color values from theme primary for CSS
+  // bg/card/text are always the light palette — only primary comes from DB
+  const theme = resolvePortalTheme(client.portalTheme)
   const acc = theme.primary
 
   return (

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalNewTicketForm } from '@/components/tickets/portal-new-ticket-form'
+import { resolvePortalTheme } from '@/lib/portal-theme'
 
 export default async function PortalNewTicketPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -19,8 +20,7 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
   // Staff can preview the portal but cannot create tickets on behalf of the client
   if (isStaffViewing(session)) redirect(`/portal/${slug}/tickets`)
 
-  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
-  if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
+  const theme = resolvePortalTheme(client.portalTheme)
 
   const backLink = (
     <Link href={`/portal/${slug}/tickets`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--p-t2)', textDecoration: 'none', fontWeight: '500' }}>

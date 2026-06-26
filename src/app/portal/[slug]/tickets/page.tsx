@@ -6,6 +6,7 @@ import { getClientTickets } from '@/lib/tickets/tickets'
 import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalTicketList } from '@/components/tickets/portal-ticket-list'
+import { resolvePortalTheme } from '@/lib/portal-theme'
 
 export default async function PortalTicketsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -19,8 +20,7 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
 
   const isStaff = isStaffViewing(session)
   const raw = await getClientTickets(client.id)
-  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
-  if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
+  const theme = resolvePortalTheme(client.portalTheme)
 
   // Serialize dates to strings for client component
   const tickets = raw.map(t => ({

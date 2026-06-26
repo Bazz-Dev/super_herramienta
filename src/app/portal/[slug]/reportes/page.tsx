@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getClientTickets } from '@/lib/tickets/tickets'
 import { canViewPortal } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
+import { resolvePortalTheme } from '@/lib/portal-theme'
 
 const OPEN = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -44,8 +45,7 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
   const tickets: Ticket[] = await getClientTickets(client.id)
-  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
-  if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
+  const theme = resolvePortalTheme(client.portalTheme)
 
   const act = tickets.filter(t => OPEN.includes(t.status))
   const res = tickets.filter(t => t.status === 'resuelto')

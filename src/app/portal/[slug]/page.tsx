@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { canViewPortal } from '@/lib/portal-auth'
 import { PortalLoginForm } from '@/components/tickets/portal-login-form'
+import { resolvePortalTheme } from '@/lib/portal-theme'
 
 export default async function PortalLoginPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -16,9 +17,7 @@ export default async function PortalLoginPage({ params }: { params: Promise<{ sl
   const session = await auth()
   if (canViewPortal(session, client.id)) redirect(`/portal/${slug}/dashboard`)
 
-  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
-  if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
-
+  const theme = resolvePortalTheme(client.portalTheme)
   const initials = client.name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (

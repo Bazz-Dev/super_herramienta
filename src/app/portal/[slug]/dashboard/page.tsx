@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { getClientTickets } from '@/lib/tickets/tickets'
 import { canViewPortal } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
+import { resolvePortalTheme } from '@/lib/portal-theme'
 import {
   PORTAL_STATUS_BADGE as SB,
   PORTAL_STATUS_SHORT as SL,
@@ -70,8 +71,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
   const tickets = await getClientTickets(client.id)
-  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
-  if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
+  const theme = resolvePortalTheme(client.portalTheme)
   const acc = theme.primary
   // Hardcoded palette — never use var(--*) in JSX (CSS vars may not resolve on Vercel SSR)
   const T = { tx: theme.text, t2: '#4b4540', t3: '#8c857e', t4: '#beb7b0', bd: '#e0ddd8', s2: '#f8f7f5', s3: '#efedea' }

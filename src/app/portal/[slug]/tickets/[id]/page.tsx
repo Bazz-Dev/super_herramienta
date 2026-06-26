@@ -6,6 +6,7 @@ import { getClientTicket } from '@/lib/tickets/tickets'
 import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalCommentForm } from '@/components/tickets/portal-comment-form'
+import { resolvePortalTheme } from '@/lib/portal-theme'
 import {
   PORTAL_STATUS_BADGE as SB,
   PORTAL_STATUS_SHORT as SL,
@@ -57,8 +58,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   const ticket = await getClientTicket(client.id, id)
   if (!ticket) notFound()
 
-  let theme = { primary: '#d42030', bg: '#f4f3f1', card: '#ffffff', text: '#18130e' }
-  if (client.portalTheme) { try { theme = { ...theme, ...JSON.parse(client.portalTheme) } } catch {} }
+  const theme = resolvePortalTheme(client.portalTheme)
 
   const si = STEPS.indexOf(ticket.status)
   const isResolved = ['resuelto', 'cancelado'].includes(ticket.status)
