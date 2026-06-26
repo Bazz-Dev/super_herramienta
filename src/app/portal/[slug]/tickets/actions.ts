@@ -82,3 +82,28 @@ export async function createPortalTicket(fd: FormData) {
 
   return { success: true, id: ticket.id }
 }
+
+export async function addPortalComment(ticketId: string, note: string) {
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'client') return { success: false }
+  const trimmed = note.trim()
+  if (!trimmed) return { success: false }
+
+  // Verify this user's client owns the ticket
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId, clientId: session.user.clientId ?? '' },
+    select: { id: true },
+  })
+  if (!ticket) return { success: false }
+
+  await prisma.ticketHistory.create({
+    data: {
+      ticketId,
+      userId: session.user.id,
+      note: trimmed,
+      isInternal: false,
+    },
+  })
+
+  return { success: true }
+}

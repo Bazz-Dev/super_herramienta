@@ -65,9 +65,10 @@ export default async function PortalLayout({ children, params }: { children: Rea
           font-size: 14px;
           line-height: 1.5;
         }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--p-bd2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(24,19,14,0.30); }
 
         .portal-wrap { display: flex; min-height: 100vh; flex-direction: column; }
         .portal-main { flex: 1; }
@@ -214,20 +215,41 @@ export default async function PortalLayout({ children, params }: { children: Rea
         .tl-dot-green { background: #22c55e; box-shadow: 0 0 0 1px #22c55e; }
         .tl-dot-blue  { background: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
 
-        /* Status progress bar */
-        .psteps { display: flex; gap: 0; }
-        .pstep {
-          flex: 1; padding: 10px 12px;
-          background: var(--p-bg); border: 1px solid var(--p-bd);
-          font-size: 11px; font-weight: 500; color: var(--p-t3);
-          text-align: center;
-          transition: all 0.15s;
+        /* Status progress stepper — visual circles */
+        .psteps {
+          display: flex; align-items: flex-start; gap: 0;
+          position: relative; padding: 8px 0;
         }
-        .pstep:first-child { border-radius: var(--p-r) 0 0 var(--p-r); }
-        .pstep:last-child  { border-radius: 0 var(--p-r) var(--p-r) 0; border-left: none; }
-        .pstep + .pstep    { border-left: none; }
-        .pstep-done { background: color-mix(in srgb, var(--p-acc) 10%, white); color: var(--p-acc); font-weight: 600; border-color: color-mix(in srgb, var(--p-acc) 20%, transparent); }
-        .pstep-current { background: var(--p-acc); color: #fff; font-weight: 700; border-color: var(--p-acc); }
+        .pstep-wrap {
+          flex: 1; display: flex; flex-direction: column; align-items: center;
+          position: relative; gap: 8px;
+        }
+        .pstep-wrap:not(:last-child)::after {
+          content: ''; position: absolute;
+          top: 14px; left: calc(50% + 14px);
+          width: calc(100% - 28px); height: 2px;
+          background: var(--p-bd); z-index: 0;
+        }
+        .pstep-wrap.done::after { background: var(--p-acc); }
+        .pstep-wrap.current::after { background: var(--p-bd); }
+        .pstep-circle {
+          width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+          display: grid; place-items: center; position: relative; z-index: 1;
+          font-size: 11px; font-weight: 700;
+          background: var(--p-bg); border: 2px solid var(--p-bd); color: var(--p-t3);
+          transition: all 0.2s;
+        }
+        .pstep-wrap.done .pstep-circle { background: var(--p-acc); border-color: var(--p-acc); color: #fff; }
+        .pstep-wrap.current .pstep-circle {
+          background: var(--p-acc); border-color: var(--p-acc); color: #fff;
+          box-shadow: 0 0 0 4px color-mix(in srgb, var(--p-acc) 20%, transparent);
+        }
+        .pstep-label {
+          font-size: 10px; font-weight: 500; color: var(--p-t3); text-align: center;
+          line-height: 1.3; max-width: 70px; white-space: pre-wrap;
+        }
+        .pstep-wrap.done .pstep-label { color: var(--p-acc); font-weight: 600; }
+        .pstep-wrap.current .pstep-label { color: var(--p-text); font-weight: 700; }
 
         /* Form inputs */
         .pinput {
@@ -269,7 +291,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
         .pempty-icon {
           width: 56px; height: 56px; border-radius: var(--p-r2);
           background: var(--p-bd); display: grid; place-items: center;
-          font-size: 22px;
+          color: var(--p-t3);
         }
         .pempty-title { font-size: 15px; font-weight: 700; color: var(--p-text); }
         .pempty-sub { font-size: 13px; color: var(--p-t3); max-width: 280px; }
@@ -280,13 +302,43 @@ export default async function PortalLayout({ children, params }: { children: Rea
         /* History row hover */
         .prow-link:hover { background: var(--p-bg) !important; }
 
+        /* Comment input */
+        .pcomment-form { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+        .pcomment-input {
+          width: 100%; border-radius: var(--p-r2);
+          border: 1.5px solid var(--p-bd2); background: var(--p-bg);
+          padding: 10px 14px; font-size: 13px; color: var(--p-text);
+          font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s;
+          outline: none; resize: vertical; min-height: 80px;
+        }
+        .pcomment-input:focus { border-color: var(--p-acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-acc) 15%, transparent); }
+        .pcomment-input::placeholder { color: var(--p-t3); }
+        .psb-overlay {
+          display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+          z-index: 39; backdrop-filter: blur(2px);
+        }
+        .psb-hamburger {
+          display: none; background: none; border: none; cursor: pointer;
+          color: var(--p-t2); padding: 6px; border-radius: var(--p-r);
+          transition: background 0.12s;
+        }
+        .psb-hamburger:hover { background: var(--p-bd); }
+
         /* Responsive: hide sidebar on mobile, show topbar hamburger */
         @media (max-width: 768px) {
-          .psb { transform: translateX(-100%); }
+          .psb { transform: translateX(-100%); transition: transform 0.25s ease; }
           .psb.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,0.4); }
+          .psb-overlay.open { display: block; }
+          .psb-hamburger { display: flex; align-items: center; justify-content: center; }
           .portal-content { margin-left: 0; }
           .ptopbar { padding: 0 16px; }
         }
+
+        /* Urgency left-border on cards */
+        .ticket-card-em { border-left: 3px solid #ef4444 !important; }
+        .ticket-card-ur { border-left: 3px solid #f59e0b !important; }
+        .ticket-card-rq { border-left: 3px solid #22c55e !important; }
+        .ticket-card-pr { border-left: 3px solid #3b82f6 !important; }
       `}</style>
       <div className="portal-wrap">
         {children}

@@ -74,17 +74,17 @@ export default async function PortalLoginPage({ params }: { params: Promise<{ sl
           </p>
 
           <div style={{ marginTop: '40px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {[
-              ['📋', 'Seguimiento en tiempo real'],
-              ['🔔', 'Notificaciones de estado'],
-              ['📁', 'Documentos y fotos adjuntas'],
-              ['💬', 'Comunicación con el equipo'],
-            ].map(([icon, text]) => (
+            {([
+              [<svg key="a" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="rgba(255,255,255,0.60)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1.5" y="2" width="11" height="10" rx="1.5"/><path d="M4 6h6M4 8.5h4"/></svg>, 'Seguimiento en tiempo real'],
+              [<svg key="b" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="rgba(255,255,255,0.60)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 1.5A3.5 3.5 0 003.5 5v3l-1 2h9l-1-2V5A3.5 3.5 0 007 1.5z"/><path d="M5.5 10a1.5 1.5 0 003 0"/></svg>, 'Notificaciones de estado'],
+              [<svg key="c" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="rgba(255,255,255,0.60)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3a1 1 0 011-1h3.5l2 2H11a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1V3z"/></svg>, 'Documentos y fotos adjuntas'],
+              [<svg key="d" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="rgba(255,255,255,0.60)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 2.5a1 1 0 011-1h9a1 1 0 011 1v6a1 1 0 01-1 1H8L5 11.5V9.5H2.5a1 1 0 01-1-1v-6z"/></svg>, 'Comunicación con el equipo'],
+            ] as [React.ReactNode, string][]).map(([icon, text]) => (
               <div key={String(text)} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{
                   width: '30px', height: '30px', borderRadius: '7px',
                   background: 'rgba(255,255,255,0.06)', display: 'grid', placeItems: 'center',
-                  fontSize: '13px', flexShrink: 0,
+                  flexShrink: 0,
                 }}>{icon}</div>
                 <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.45)' }}>{text}</span>
               </div>
