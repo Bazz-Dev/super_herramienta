@@ -31,6 +31,7 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
 
   return (
     <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'} primary={theme.primary}
+      bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/tickets/new`} topbarTitle="Nueva solicitud" topbarSub="Completa el formulario para crear un requerimiento" topbarRight={backLink}>
       <div style={{ padding: '24px 28px', maxWidth: '680px' }}>
         <div className="pcard" style={{ padding: '24px 26px' }}>

@@ -83,7 +83,7 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId },
-    select: { id: true, status: true, title: true, createdById: true, showToClient: true },
+    select: { id: true, status: true, title: true, ticketCode: true, createdById: true, showToClient: true, client: { select: { portalSlug: true } } },
   })
   if (!ticket) return { success: false }
 
@@ -119,11 +119,15 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
       select: { id: true, role: true, tenantId: true },
     })
     if (creator?.role === 'client') {
+      const portalSlug = ticket.client?.portalSlug
+      const href = portalSlug
+        ? `/portal/${portalSlug}/tickets/${ticketId}`
+        : `/portal/tickets`
       notify(creator.id, creator.tenantId, {
         type: 'ticket_update',
-        title: `Tu solicitud fue actualizada`,
+        title: `Solicitud ${ticket.ticketCode} actualizada`,
         body: `${STATUS_ES[newStatus]}: ${ticket.title}`,
-        href: `/portal/tickets`,
+        href,
       }).catch(() => {})
     }
   }

@@ -103,7 +103,8 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
 
   return (
     <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'}
-      primary={theme.primary} activeHref={`/portal/${slug}/reportes`}
+      primary={theme.primary} bg={theme.bg} cardBg={theme.card} textColor={theme.text}
+      activeHref={`/portal/${slug}/reportes`}
       topbarTitle="Reportes" topbarSub="Resumen estadístico de solicitudes">
       <div style={{ padding: '20px 28px' }}>
 

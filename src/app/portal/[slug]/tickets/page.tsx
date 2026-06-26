@@ -52,6 +52,7 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
   return (
     <PortalShell slug={slug} clientName={client.name}
       userName={session?.user?.name ?? 'Usuario'} primary={theme.primary}
+      bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/tickets`}
       topbarTitle="Todos los requerimientos"
       topbarSub={`${raw.length} solicitudes · ${open.length} activas`}

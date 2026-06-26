@@ -31,6 +31,8 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
   const url = new URL(event.request.url)
+  // Only cache http/https — extensions and other schemes crash the Cache API
+  if (!url.protocol.startsWith('http')) return
   // Skip API and auth routes — always network
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/login')) return
 
@@ -51,7 +53,7 @@ self.addEventListener('fetch', (event) => {
 
 // Push notification received
 self.addEventListener('push', (event) => {
-  let data = { title: 'INGEGAR', body: 'Nueva notificación', icon: '/icons/icon-192.png', href: '/dashboard' }
+  let data = { title: 'INGEGAR', body: 'Nueva notificación', icon: '/icons/icon-192.png', badge: '/icons/badge-72.png', href: '/dashboard', tag: 'default' }
   if (event.data) {
     try { data = { ...data, ...event.data.json() } } catch {}
   }
@@ -60,11 +62,13 @@ self.addEventListener('push', (event) => {
     self.registration.showNotification(data.title, {
       body: data.body,
       icon: data.icon,
-      badge: '/icons/badge-72.png',
+      badge: data.badge,
       data: { href: data.href },
       vibrate: [100, 50, 100],
       requireInteraction: false,
-      tag: data.href, // group by destination — replaces older same-route notification
+      tag: data.tag ?? data.href,
+      // Silent on iOS (vibrate is desktop-only) — iOS shows notification natively
+      silent: false,
     })
   )
 })

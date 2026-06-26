@@ -16,6 +16,13 @@ body {
   color: var(--color-ink);
 }
 
+/* Portal pages: override any dark-mode defaults at document level.
+   The inline colorScheme script runs first, this is the CSS fallback. */
+html[style*="color-scheme: light"] body {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

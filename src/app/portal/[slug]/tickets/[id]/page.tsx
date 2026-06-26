@@ -78,8 +78,9 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
 
   return (
     <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'} primary={theme.primary}
+      bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/tickets`} topbarTitle={ticket.title} topbarSub={ticket.ticketCode} topbarRight={backLink}>
-      <div style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: '20px', alignItems: 'start' }}>
+      <div className="pg" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '20px', alignItems: 'start' }} data-ticket-detail="1">
 
         {/* ── Main column ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
