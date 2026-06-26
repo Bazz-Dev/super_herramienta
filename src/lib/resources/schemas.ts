@@ -55,9 +55,18 @@ export const vehicleInputSchema = z.object({
 })
 export type VehicleInput = z.infer<typeof vehicleInputSchema>
 
+export const CLIENT_LABELS = [
+  { value: 'principal', label: 'Principal', color: 'bg-blue-100 text-blue-800' },
+  { value: 'ocasional', label: 'Ocasional', color: 'bg-gray-100 text-gray-700' },
+  { value: 'prospecto', label: 'Prospecto', color: 'bg-purple-100 text-purple-800' },
+  { value: 'inactivo',  label: 'Inactivo',  color: 'bg-red-100 text-red-700' },
+  { value: 'proyecto',  label: 'Proyecto',  color: 'bg-green-100 text-green-800' },
+] as const
+
 export const clientInputSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es obligatorio.'),
   rut: optionalText,
+  label: z.enum(['principal', 'ocasional', 'prospecto', 'inactivo', 'proyecto']).optional(),
   contact: optionalText,
   email: z
     .string()
@@ -65,6 +74,9 @@ export const clientInputSchema = z.object({
     .optional()
     .transform((v) => (v === '' ? undefined : v))
     .refine((v) => v === undefined || z.email().safeParse(v).success, 'Email inválido.'),
+  ruts: z
+    .array(z.object({ rut: z.string().trim().min(1), label: z.string().trim().optional() }))
+    .default([]),
 })
 export type ClientInput = z.infer<typeof clientInputSchema>
 

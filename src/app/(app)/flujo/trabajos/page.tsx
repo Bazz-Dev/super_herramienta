@@ -1,34 +1,50 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { requireActor } from '@/lib/resources/actor'
-import { listJobs, listClientsForCashflow } from '@/lib/cashflow/queries'
-import { JOB_TYPE_LABELS } from '@/lib/cashflow/labels'
+import { listJobs, listClientsForCashflow, listBranchesForClient } from '@/lib/cashflow/queries'
 import { clp } from '@/lib/cashflow/format'
-import { toDateInput } from '@/lib/cashflow/dates'
-import { CollectionChip } from '@/components/cashflow/collection-chip'
-import { ClientFilter } from '@/components/cashflow/client-filter'
-
-const STATUS_OPTS = [
-  { value: '', label: 'Todos' },
-  { value: 'sin_oc', label: 'Sin OC' },
-  { value: 'pendiente_pago', label: 'Pendiente pago' },
-  { value: 'pagado', label: 'Pagado' },
-]
+import { JobFilters } from '@/components/cashflow/job-filters'
+import { JobRow } from '@/components/cashflow/job-row'
 
 export default async function TrabajosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cliente?: string; estado?: string }>
+  searchParams: Promise<{
+    cliente?: string
+    estado?: string
+    tipo?: string
+    sucursal?: string
+    desde?: string
+    hasta?: string
+  }>
 }) {
   const actor = await requireActor()
-  const { cliente, estado } = await searchParams
+  const { cliente, estado, tipo, sucursal, desde, hasta } = await searchParams
 
-  const [clients, jobs] = await Promise.all([
+  const [clients, branches, jobs] = await Promise.all([
     listClientsForCashflow(actor),
-    listJobs(actor, { clientId: cliente, collectionStatus: estado }),
+    cliente ? listBranchesForClient(actor, cliente) : Promise.resolve([]),
+    listJobs(actor, {
+      clientId: cliente,
+      collectionStatus: estado,
+      tipo,
+      branchId: sucursal,
+      from: desde ? new Date(desde) : undefined,
+      to: hasta ? new Date(hasta) : undefined,
+    }),
   ])
 
   const totalNeto = jobs.reduce((s, j) => s + (j.netAmount ?? 0), 0)
   const showClientCol = !cliente && clients.length > 1
+
+  // Build export URL with current filters
+  const exportParams = new URLSearchParams()
+  if (cliente) exportParams.set('cliente', cliente)
+  if (estado) exportParams.set('estado', estado)
+  if (tipo) exportParams.set('tipo', tipo)
+  if (sucursal) exportParams.set('sucursal', sucursal)
+  if (desde) exportParams.set('desde', desde)
+  if (hasta) exportParams.set('hasta', hasta)
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -39,38 +55,30 @@ export default async function TrabajosPage({
           </Link>
           <h1 className="text-2xl font-bold">Trabajos</h1>
         </div>
-        <Link
-          href="/flujo/trabajos/new"
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-brand-600"
-        >
-          + Nuevo trabajo
-        </Link>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/flujo/export?${exportParams.toString()}`}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            download
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Excel
+          </a>
+          <Link
+            href="/flujo/trabajos/new"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-brand-600"
+          >
+            + Nuevo trabajo
+          </Link>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <ClientFilter clients={clients} basePath="/flujo/trabajos" />
-        {STATUS_OPTS.map((o) => {
-          const params = new URLSearchParams()
-          if (cliente) params.set('cliente', cliente)
-          if (o.value) params.set('estado', o.value)
-          const href = `/flujo/trabajos?${params.toString()}`
-          const active = (estado ?? '') === o.value
-          return (
-            <Link
-              key={o.value}
-              href={href}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? 'bg-ink text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {o.label}
-            </Link>
-          )
-        })}
-      </div>
+      <Suspense>
+        <JobFilters clients={clients} branches={branches} />
+      </Suspense>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         {jobs.length === 0 ? (
@@ -88,39 +96,12 @@ export default async function TrabajosPage({
                 <th className="px-4 py-2.5 font-medium">Tipo</th>
                 <th className="px-4 py-2.5 font-medium text-right">Neto</th>
                 <th className="px-4 py-2.5 font-medium">Estado pago</th>
+                <th className="px-2 py-2.5 font-medium" title="Expandir costos" />
               </tr>
             </thead>
             <tbody>
               {jobs.map((j) => (
-                <tr
-                  key={j.id}
-                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60"
-                >
-                  <td className="px-4 py-2.5 text-gray-500">
-                    {j.executionDate ? toDateInput(j.executionDate) : '—'}
-                  </td>
-                  {showClientCol && (
-                    <td className="px-4 py-2.5 text-gray-600">{j.client.name}</td>
-                  )}
-                  <td className="px-4 py-2.5 text-gray-600">{j.branch.name}</td>
-                  <td className="px-4 py-2.5 font-medium text-ink">
-                    <Link
-                      href={`/flujo/trabajos/${j.id}`}
-                      className="hover:text-brand-600 hover:underline"
-                    >
-                      {j.description}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-600">
-                    {JOB_TYPE_LABELS[j.type] ?? j.type}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums text-gray-700">
-                    {clp(j.netAmount)}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <CollectionChip status={j.collectionStatus} />
-                  </td>
-                </tr>
+                <JobRow key={j.id} job={j} showClient={showClientCol} />
               ))}
             </tbody>
             <tfoot>
@@ -134,7 +115,7 @@ export default async function TrabajosPage({
                 <td className="px-4 py-2.5 text-right text-sm font-bold tabular-nums text-ink">
                   {clp(totalNeto)}
                 </td>
-                <td />
+                <td colSpan={2} />
               </tr>
             </tfoot>
           </table>

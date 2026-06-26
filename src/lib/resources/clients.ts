@@ -19,6 +19,7 @@ export async function listClients(actor: TenantActor, search?: string) {
     include: {
       tenant: { select: { slug: true } },
       _count: { select: { jobs: true, branches: true, assignments: true } },
+      ruts: { orderBy: { createdAt: 'asc' } },
     },
     orderBy: [{ name: 'asc' }],
   })
@@ -34,6 +35,7 @@ export async function getClientWithStats(actor: TenantActor, id: string) {
     include: {
       _count: { select: { jobs: true, branches: true, assignments: true } },
       branches: { orderBy: { name: 'asc' }, select: { id: true, name: true, city: true, active: true } },
+      ruts: { orderBy: { createdAt: 'asc' } },
     },
   })
   if (!client) return null

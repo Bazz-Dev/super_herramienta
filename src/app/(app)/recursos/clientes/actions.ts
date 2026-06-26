@@ -10,11 +10,15 @@ import { canAccessTenant } from '@/lib/tenant'
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
 function parse(formData: FormData) {
+  let ruts: { rut: string; label?: string }[] = []
+  try { ruts = JSON.parse(formData.get('ruts') as string ?? '[]') } catch { ruts = [] }
   return clientInputSchema.safeParse({
     name: formData.get('name'),
     rut: formData.get('rut'),
+    label: formData.get('label') || undefined,
     contact: formData.get('contact'),
     email: formData.get('email'),
+    ruts,
   })
 }
 
@@ -22,7 +26,13 @@ export async function createClient(_prev: FormState, formData: FormData): Promis
   const actor = await requireActor()
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  await prisma.client.create({ data: { ...parsed.data, tenantId: actor.tenantId } })
+  const { ruts, ...clientData } = parsed.data
+  const client = await prisma.client.create({ data: { ...clientData, tenantId: actor.tenantId } })
+  if (ruts.length) {
+    await prisma.clientRut.createMany({
+      data: ruts.map((r) => ({ clientId: client.id, rut: r.rut, label: r.label ?? null })),
+    })
+  }
   revalidatePath('/recursos/clientes')
   redirect('/recursos/clientes')
 }
@@ -33,7 +43,15 @@ export async function updateClient(id: string, _prev: FormState, formData: FormD
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  await prisma.client.update({ where: { id }, data: parsed.data })
+  const { ruts, ...clientData } = parsed.data
+  await prisma.client.update({ where: { id }, data: clientData })
+  // Replace all RUTs (delete old, insert new)
+  await prisma.clientRut.deleteMany({ where: { clientId: id } })
+  if (ruts.length) {
+    await prisma.clientRut.createMany({
+      data: ruts.map((r) => ({ clientId: id, rut: r.rut, label: r.label ?? null })),
+    })
+  }
   revalidatePath('/recursos/clientes')
   redirect('/recursos/clientes')
 }

@@ -32,6 +32,7 @@
     "check:branches:prod": "npx tsx --env-file=.env.production.local scripts/check-branches.ts",
     "cleanup:branches:prod": "npx tsx --env-file=.env.production.local scripts/cleanup-jb-branches.ts",
     "db:notifications:prod": "npx tsx --env-file=.env.production.local scripts/turso-add-notifications.ts",
+    "db:client-ruts:prod": "npx tsx --env-file=.env.production.local scripts/turso-add-client-ruts.ts",
     "icons:generate": "node scripts/generate-icons.mjs"
   },
   "prisma": {

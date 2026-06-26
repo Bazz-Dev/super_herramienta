@@ -14,13 +14,22 @@ export async function listClientsForCashflow(actor: Actor) {
 
 export async function listJobs(
   actor: Actor,
-  opts: { clientId?: string; collectionStatus?: string; from?: Date; to?: Date } = {},
+  opts: {
+    clientId?: string
+    collectionStatus?: string
+    from?: Date
+    to?: Date
+    tipo?: string
+    branchId?: string
+  } = {},
 ) {
   return prisma.job.findMany({
     where: {
       ...tenantScope(actor),
       ...(opts.clientId ? { clientId: opts.clientId } : {}),
       ...(opts.collectionStatus ? { collectionStatus: opts.collectionStatus as never } : {}),
+      ...(opts.tipo ? { type: opts.tipo as never } : {}),
+      ...(opts.branchId ? { branchId: opts.branchId } : {}),
       ...(opts.from || opts.to
         ? {
             executionDate: {
@@ -32,6 +41,14 @@ export async function listJobs(
     },
     include: { branch: true, client: { select: { id: true, name: true } }, costs: true },
     orderBy: [{ executionDate: 'desc' }, { createdAt: 'desc' }],
+  })
+}
+
+export async function listBranchesForClient(actor: Actor, clientId: string) {
+  return prisma.branch.findMany({
+    where: { ...tenantScope(actor), clientId },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
   })
 }
 

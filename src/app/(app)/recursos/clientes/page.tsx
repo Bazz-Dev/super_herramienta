@@ -3,7 +3,19 @@ import { PlusIcon } from '@/components/quotes/icons'
 import { DeleteButton } from '@/components/resources/delete-button'
 import { requireActor } from '@/lib/resources/actor'
 import { listClients } from '@/lib/resources/clients'
+import { CLIENT_LABELS } from '@/lib/resources/schemas'
 import { deleteClient } from './actions'
+
+function LabelBadge({ label }: { label: string | null }) {
+  if (!label) return null
+  const cfg = CLIENT_LABELS.find((l) => l.value === label)
+  if (!cfg) return null
+  return (
+    <span className={`ml-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${cfg.color}`}>
+      {cfg.label}
+    </span>
+  )
+}
 
 export default async function ClientesPage({
   searchParams,
@@ -73,6 +85,7 @@ export default async function ClientesPage({
                     >
                       {c.name}
                     </Link>
+                    <LabelBadge label={c.label ?? null} />
                   </td>
                   <td className="px-4 py-2.5 text-gray-600">{c.rut ?? '—'}</td>
                   <td className="px-4 py-2.5 text-gray-600">{c.contact ?? c.email ?? '—'}</td>

@@ -200,21 +200,31 @@ model Vehicle {
   @@map("vehicles")
 }
 
+enum ClientLabel {
+  principal
+  ocasional
+  prospecto
+  inactivo
+  proyecto
+}
+
 model Client {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
   rut          String?
   contact      String?
   email        String?
-  portalSlug   String?  @unique // URL slug del portal: /portal/[portalSlug]
-  portalTheme  String?  // JSON: { primary, secondary, bg, card, text }
-  driveFolderId String? // ID raíz en Google Drive para este cliente
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  label        ClientLabel?
+  portalSlug   String?      @unique
+  portalTheme  String?
+  driveFolderId String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  ruts        ClientRut[]
   assignments Assignment[]
   branches    Branch[]
   jobs        Job[]
@@ -222,6 +232,19 @@ model Client {
 
   @@index([tenantId])
   @@map("clients")
+}
+
+model ClientRut {
+  id        String   @id @default(cuid())
+  rut       String
+  label     String?  // ej: "facturación", "casa matriz"
+  createdAt DateTime @default(now())
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@map("client_ruts")
 }
 
 model Crew {
