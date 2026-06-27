@@ -46,6 +46,8 @@ enum ContractType {
   indefinido
   plazo_fijo
   ayudante
+  no_renovado   // contrato no renovado al vencimiento
+  despedido     // desvinculación por decisión de la empresa
 }
 
 enum DocType {

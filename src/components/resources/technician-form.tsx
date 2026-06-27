@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { useActionState } from 'react'
 import type { FormState } from '@/app/(app)/recursos/tecnicos/actions'
 import { Button, Field, TextArea, TextInput } from '@/components/quotes/ui'
-import { CONTRACT_TYPE, CONTRACT_TYPE_LABELS } from '@/lib/resources/labels'
+import { CONTRACT_TYPE, CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, CONTRACT_TYPE_TERMINATED } from '@/lib/resources/labels'
 
 type Values = {
   name?: string
@@ -38,6 +39,9 @@ export function TechnicianForm({
 }) {
   const [state, formAction, pending] = useActionState(action, {})
   const err = (f: string) => state.fieldErrors?.[f]?.[0]
+
+  const [contractType, setContractType] = useState(initial.contractType ?? 'indefinido')
+  const isTerminated = CONTRACT_TYPE_TERMINATED.includes(contractType as never)
 
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-6">
@@ -80,15 +84,24 @@ export function TechnicianForm({
           Contrato
         </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Active employment */}
           <Field label="Tipo de contrato">
             <select
               name="contractType"
-              defaultValue={initial.contractType ?? 'indefinido'}
+              value={contractType}
+              onChange={e => setContractType(e.target.value)}
               className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand/30"
             >
-              {CONTRACT_TYPE.map((t) => (
-                <option key={t} value={t}>{CONTRACT_TYPE_LABELS[t]}</option>
-              ))}
+              <optgroup label="Activo">
+                {CONTRACT_TYPE_ACTIVE.map(t => (
+                  <option key={t} value={t}>{CONTRACT_TYPE_LABELS[t]}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Desvinculado">
+                {CONTRACT_TYPE_TERMINATED.map(t => (
+                  <option key={t} value={t}>{CONTRACT_TYPE_LABELS[t]}</option>
+                ))}
+              </optgroup>
             </select>
           </Field>
           <Field label="Término contrato" hint="Solo para plazo fijo">
@@ -97,15 +110,28 @@ export function TechnicianForm({
           <Field label="Tarifa diaria (CLP)" hint="Para ayudantes eventuales">
             <TextInput name="dailyRate" type="number" min={0} defaultValue={initial.dailyRate ?? ''} placeholder="0" />
           </Field>
-          <label className="flex items-center gap-2 self-end pb-2">
-            <input
-              type="checkbox"
-              name="active"
-              defaultChecked={initial.active ?? true}
-              className="h-4 w-4 cursor-pointer accent-brand"
-            />
-            <span className="text-sm text-gray-700">Activo</span>
-          </label>
+          {/* Active toggle — auto-off when terminated */}
+          <div className="self-end pb-2">
+            {isTerminated ? (
+              <div className="flex items-center gap-2">
+                <input type="hidden" name="active" value="false" />
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1.5 text-xs font-medium text-red-700 border border-red-200">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-500 inline-block" />
+                  Inactivo — desvinculado
+                </span>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="active"
+                  defaultChecked={initial.active ?? true}
+                  className="h-4 w-4 cursor-pointer accent-brand"
+                />
+                <span className="text-sm text-gray-700">Activo</span>
+              </label>
+            )}
+          </div>
         </div>
       </section>
 

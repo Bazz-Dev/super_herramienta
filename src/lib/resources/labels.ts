@@ -64,32 +64,44 @@ export const ASSIGNEE_ROLE_BADGE: Record<AssigneeRoleId, string> = {
 }
 
 // --- Tipo de contrato de técnico ---
-export const CONTRACT_TYPE = ['indefinido', 'plazo_fijo', 'ayudante'] as const
+export const CONTRACT_TYPE = ['indefinido', 'plazo_fijo', 'ayudante', 'no_renovado', 'despedido'] as const
 export type ContractTypeId = (typeof CONTRACT_TYPE)[number]
 
+/** States that represent active employment */
+export const CONTRACT_TYPE_ACTIVE: ContractTypeId[] = ['indefinido', 'plazo_fijo', 'ayudante']
+/** States that represent terminated employment */
+export const CONTRACT_TYPE_TERMINATED: ContractTypeId[] = ['no_renovado', 'despedido']
+
 export const CONTRACT_TYPE_LABELS: Record<ContractTypeId, string> = {
-  indefinido: 'Contrato indefinido',
-  plazo_fijo: 'Plazo fijo',
-  ayudante: 'Ayudante / eventual',
+  indefinido:  'Contrato indefinido',
+  plazo_fijo:  'Plazo fijo',
+  ayudante:    'Ayudante / eventual',
+  no_renovado: 'No renovado',
+  despedido:   'Despedido',
 }
 
-// Card header + badge color por tipo de contrato
 export const CONTRACT_TYPE_CARD: Record<ContractTypeId, string> = {
-  indefinido: 'border-blue-200 bg-blue-50',
-  plazo_fijo: 'border-amber-200 bg-amber-50',
-  ayudante: 'border-purple-200 bg-purple-50',
+  indefinido:  'border-blue-200 bg-blue-50',
+  plazo_fijo:  'border-amber-200 bg-amber-50',
+  ayudante:    'border-purple-200 bg-purple-50',
+  no_renovado: 'border-gray-200 bg-gray-50',
+  despedido:   'border-red-200 bg-red-50',
 }
 
 export const CONTRACT_TYPE_BADGE: Record<ContractTypeId, string> = {
-  indefinido: 'bg-blue-100 text-blue-700',
-  plazo_fijo: 'bg-amber-100 text-amber-700',
-  ayudante: 'bg-purple-100 text-purple-700',
+  indefinido:  'bg-blue-100 text-blue-700',
+  plazo_fijo:  'bg-amber-100 text-amber-700',
+  ayudante:    'bg-purple-100 text-purple-700',
+  no_renovado: 'bg-gray-100 text-gray-500',
+  despedido:   'bg-red-100 text-red-700',
 }
 
 export const CONTRACT_TYPE_DOT: Record<ContractTypeId, string> = {
-  indefinido: 'bg-blue-500',
-  plazo_fijo: 'bg-amber-500',
-  ayudante: 'bg-purple-500',
+  indefinido:  'bg-blue-500',
+  plazo_fijo:  'bg-amber-500',
+  ayudante:    'bg-purple-500',
+  no_renovado: 'bg-gray-400',
+  despedido:   'bg-red-500',
 }
 
 // --- Tipo de documento de técnico ---

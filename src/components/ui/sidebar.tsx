@@ -117,6 +117,7 @@ export function Sidebar({
           <span className="uppercase">{user.tenantSlug}</span> · {user.roleLabel}
         </p>
         <div className="mt-3">{logout}</div>
+        <p className="mt-3 text-[10px] font-mono text-gray-300 text-center">INGEGAR Platform v1.6.0</p>
       </div>
     </div>
   )

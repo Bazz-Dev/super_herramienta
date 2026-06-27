@@ -7,6 +7,8 @@ import {
   CONTRACT_TYPE_CARD,
   CONTRACT_TYPE_DOT,
   CONTRACT_TYPE_LABELS,
+  CONTRACT_TYPE_ACTIVE,
+  CONTRACT_TYPE_TERMINATED,
   type ContractTypeId,
 } from '@/lib/resources/labels'
 
@@ -47,8 +49,9 @@ export default async function TecnicosPage({
   const { q } = await searchParams
   const technicians = await listTechnicians(actor, q)
 
-  const active = technicians.filter((t) => t.active)
-  const inactive = technicians.filter((t) => !t.active)
+  const active     = technicians.filter((t) => t.active)
+  const terminated = technicians.filter((t) => !t.active && CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as never))
+  const inactive   = technicians.filter((t) => !t.active && !CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as never))
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -77,11 +80,19 @@ export default async function TecnicosPage({
       </form>
 
       {/* Legend */}
-      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-gray-500">
-        {(['indefinido', 'plazo_fijo', 'ayudante'] as ContractTypeId[]).map((t) => (
+      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Activos:</span>
+        {CONTRACT_TYPE_ACTIVE.map((t) => (
           <span key={t} className="flex items-center gap-1.5">
             <span className={`h-2.5 w-2.5 rounded-full ${CONTRACT_TYPE_DOT[t]}`} />
             {CONTRACT_TYPE_LABELS[t]}
+          </span>
+        ))}
+        <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Desvinculados:</span>
+        {CONTRACT_TYPE_TERMINATED.map((t) => (
+          <span key={t} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-full ${CONTRACT_TYPE_DOT[t as ContractTypeId]}`} />
+            {CONTRACT_TYPE_LABELS[t as ContractTypeId]}
           </span>
         ))}
       </div>
@@ -190,9 +201,43 @@ export default async function TecnicosPage({
             })}
           </div>
 
-          {/* Inactive */}
-          {inactive.length > 0 && (
+          {/* Terminated — no_renovado / despedido */}
+          {terminated.length > 0 && (
             <div className="mt-8">
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Desvinculados ({terminated.length})
+              </h2>
+              <div className="divide-y divide-gray-100 rounded-xl border border-red-100 bg-white">
+                {terminated.map((t) => {
+                  const ct = (t.contractType ?? 'despedido') as ContractTypeId
+                  return (
+                    <div key={t.id} className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`h-2 w-2 rounded-full shrink-0 ${CONTRACT_TYPE_DOT[ct]}`} />
+                        <div className="min-w-0">
+                          <span className="text-sm font-medium text-gray-500">{t.name}</span>
+                          {t.specialty && <span className="ml-2 text-xs text-gray-400">{t.specialty}</span>}
+                        </div>
+                        <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium shrink-0 ${CONTRACT_TYPE_BADGE[ct]}`}>
+                          {CONTRACT_TYPE_LABELS[ct]}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/recursos/tecnicos/${t.id}`}
+                        className="text-xs text-gray-400 hover:text-gray-700 hover:underline shrink-0 ml-4"
+                      >
+                        Ver ficha →
+                      </Link>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Inactive — other reasons */}
+          {inactive.length > 0 && (
+            <div className="mt-6">
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Inactivos ({inactive.length})
               </h2>
@@ -207,7 +252,7 @@ export default async function TecnicosPage({
                       href={`/recursos/tecnicos/${t.id}`}
                       className="text-xs text-gray-400 hover:text-gray-700 hover:underline"
                     >
-                      Editar
+                      Ver ficha →
                     </Link>
                   </div>
                 ))}

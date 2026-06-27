@@ -19,7 +19,7 @@ export const technicianInputSchema = z.object({
   phone: optionalText,
   active: z.boolean().default(true),
   notes: optionalText,
-  contractType: z.enum(['indefinido', 'plazo_fijo', 'ayudante']).default('indefinido'),
+  contractType: z.enum(['indefinido', 'plazo_fijo', 'ayudante', 'no_renovado', 'despedido']).default('indefinido'),
   contractEndDate: optionalText,
   dailyRate: z
     .string()
