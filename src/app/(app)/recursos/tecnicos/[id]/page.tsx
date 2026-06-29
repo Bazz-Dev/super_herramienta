@@ -4,6 +4,7 @@ import { TechnicianForm } from '@/components/resources/technician-form'
 import { DocSection } from '@/components/resources/doc-section'
 import { requireActor } from '@/lib/resources/actor'
 import { getTechnician } from '@/lib/resources/technicians'
+import { prisma } from '@/lib/prisma'
 import {
   ASSET_STATUS_LABELS,
   CONTRACT_TYPE_BADGE,
@@ -35,7 +36,39 @@ function calcAge(birthDate: Date | null | undefined): number | null {
 export default async function EditTecnicoPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor()
   const { id } = await params
-  const tech = await getTechnician(actor, id)
+  const [tech, assignmentStats, ticketStats] = await Promise.all([
+    getTechnician(actor, id),
+    prisma.assignmentAssignee.groupBy({
+      by: ['assignmentId'],
+      where: { technicianId: id, assignment: { tenantId: actor.tenantId } },
+      _count: true,
+    }).then(async (rows) => {
+      if (!rows.length) return { total: 0, scheduled: 0, in_progress: 0, done: 0, cancelled: 0 }
+      const ids = rows.map(r => r.assignmentId)
+      const counts = await prisma.assignment.groupBy({
+        by: ['status'],
+        where: { id: { in: ids } },
+        _count: { id: true },
+      })
+      const byStatus = Object.fromEntries(counts.map(c => [c.status, c._count.id]))
+      return {
+        total: rows.length,
+        scheduled: byStatus['scheduled'] ?? 0,
+        in_progress: byStatus['in_progress'] ?? 0,
+        done: byStatus['done'] ?? 0,
+        cancelled: byStatus['cancelled'] ?? 0,
+      }
+    }),
+    prisma.ticket.groupBy({
+      by: ['status'],
+      where: { assignedToId: id, tenantId: actor.tenantId },
+      _count: { id: true },
+    }).then((rows) => {
+      const byStatus = Object.fromEntries(rows.map(r => [r.status, r._count.id]))
+      const total = rows.reduce((s, r) => s + r._count.id, 0)
+      return { total, byStatus }
+    }),
+  ])
   if (!tech) notFound()
 
   const contractType = (tech.contractType ?? 'indefinido') as ContractTypeId
@@ -77,6 +110,35 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+
+      {/* Estadísticas */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Trabajos asignados', value: assignmentStats.total, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'En agenda', value: assignmentStats.scheduled + assignmentStats.in_progress, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Completados', value: assignmentStats.done, color: 'text-green-600', bg: 'bg-green-50' },
+          { label: 'Tickets asignados', value: ticketStats.total, color: 'text-purple-600', bg: 'bg-purple-50' },
+        ].map((stat) => (
+          <div key={stat.label} className={`rounded-xl border border-gray-200 ${stat.bg} p-3 text-center`}>
+            <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+            <p className="mt-0.5 text-xs text-gray-500">{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Desglose tickets por estado */}
+      {ticketStats.total > 0 && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Tickets por estado</h2>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(ticketStats.byStatus).map(([status, count]) => (
+              <span key={status} className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700">
+                {status.replace(/_/g, ' ')} · <strong>{count}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Camioneta asignada + inventario */}
       <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

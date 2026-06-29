@@ -1,8 +1,8 @@
 {
   "id": "/dashboard",
-  "name": "INGEGAR Platform",
-  "short_name": "INGEGAR",
-  "description": "Herramienta interna de gestión INGEGAR",
+  "name": "INGEGAR One",
+  "short_name": "ONE",
+  "description": "INGEGAR One — Gestión integrada de operaciones",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#ffffff",

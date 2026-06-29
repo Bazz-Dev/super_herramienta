@@ -127,12 +127,79 @@ async function main() {
     }
   }
 
+  // --- Portales cliente (Just Burger + Decathlon) ---
+  // portalTheme solo guarda "primary"; bg/card/text son siempre hardcoded claros en resolvePortalTheme()
+  const jbPassword = process.env.SEED_JB_PASSWORD ?? 'JustBurger@2026'
+  const jbHash = await bcrypt.hash(jbPassword, 10)
+
+  const jbClient = await prisma.client.upsert({
+    where: { portalSlug: 'justburger' },
+    update: { name: 'Just Burger', portalTheme: JSON.stringify({ primary: '#d42030' }) },
+    create: {
+      name: 'Just Burger',
+      tenantId: ingegar.id,
+      portalSlug: 'justburger',
+      portalTheme: JSON.stringify({ primary: '#d42030' }),
+      label: 'principal',
+    },
+  })
+
+  await prisma.user.upsert({
+    where: { email: 'portal@justburger.cl' },
+    update: { passwordHash: jbHash, role: 'client', name: 'Portal Just Burger', clientId: jbClient.id },
+    create: {
+      email: 'portal@justburger.cl',
+      name: 'Portal Just Burger',
+      passwordHash: jbHash,
+      role: 'client',
+      tenantId: ingegar.id,
+      clientId: jbClient.id,
+    },
+  })
+
+  const decPassword = process.env.SEED_DEC_PASSWORD ?? 'Decathlon@2026'
+  const decHash = await bcrypt.hash(decPassword, 10)
+
+  const decClient = await prisma.client.upsert({
+    where: { portalSlug: 'decathlon' },
+    update: { name: 'Decathlon Chile', portalTheme: JSON.stringify({ primary: '#0082C3' }) },
+    create: {
+      name: 'Decathlon Chile',
+      tenantId: ingegar.id,
+      portalSlug: 'decathlon',
+      portalTheme: JSON.stringify({ primary: '#0082C3' }),
+      label: 'principal',
+    },
+  })
+
+  await prisma.user.upsert({
+    where: { email: 'portal@decathlon.cl' },
+    update: { passwordHash: decHash, role: 'client', name: 'Portal Decathlon', clientId: decClient.id },
+    create: {
+      email: 'portal@decathlon.cl',
+      name: 'Portal Decathlon',
+      passwordHash: decHash,
+      role: 'client',
+      tenantId: ingegar.id,
+      clientId: decClient.id,
+    },
+  })
+
+  // Demo branch for Decathlon
+  await prisma.branch.upsert({
+    where: { clientId_name: { clientId: decClient.id, name: 'Las Condes' } },
+    update: {},
+    create: { name: 'Las Condes', city: 'Santiago', clientId: decClient.id, tenantId: ingegar.id },
+  })
+
   console.log('\nSeed completo.')
   console.log('  Tenant único: ingegar')
   console.log('  admin@ingegarchile.cl         /', adminPassword, '(super)')
   console.log('  sgarrido@ingegarchile.cl      /', sebastianPassword, '(super — Gerente Operaciones)')
   console.log('  cristian@ingegarchile.cl      /', cristianPassword, '(supervisor — Analista Comercial)')
-  console.log('\n  Para cargar Just Burger / Decathlon / Unity: npm run import:flujo:prod')
+  console.log('\n  Portales cliente:')
+  console.log('  portal@justburger.cl          /', jbPassword, '(client) → /portal/justburger')
+  console.log('  portal@decathlon.cl           /', decPassword, '(client) → /portal/decathlon')
 }
 
 main()

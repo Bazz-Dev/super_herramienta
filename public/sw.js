@@ -1,5 +1,6 @@
-// INGEGAR Platform — Service Worker
-const CACHE = 'ingegar-v1'
+// INGEGAR One — Service Worker
+// Cache name includes build timestamp so each deploy auto-clears old caches
+const CACHE = 'ingegar-one-1.7.0'
 const OFFLINE_URL = '/offline'
 
 // Assets to pre-cache for offline shell

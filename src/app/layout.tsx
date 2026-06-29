@@ -6,8 +6,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'INGEGAR. Platform',
-  description: 'Herramienta interna de gestión — INGEGAR',
+  title: 'INGEGAR One',
+  description: 'INGEGAR One — Gestión integrada de operaciones',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,

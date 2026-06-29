@@ -59,6 +59,21 @@ enum DocType {
   otro
 }
 
+enum ExpenseCategory {
+  combustible
+  estacionamiento
+  materiales
+  viatico
+  herramienta
+  otro
+}
+
+enum ExpenseStatus {
+  pendiente
+  aprobado
+  rechazado
+}
+
 model Tenant {
   id        String   @id @default(cuid())
   slug      String   @unique // ingegar | justburger | loficoffee
@@ -99,6 +114,7 @@ model User {
   ticketDocuments   TicketDocument[]
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
+  expensesApproved  Expense[]
 
   @@index([tenantId])
   @@map("users")
@@ -165,6 +181,7 @@ model Technician {
   assignees     AssignmentAssignee[] // participaciones en asignaciones (técnico/ayudante)
   documents     TechnicianDocument[]
   ticketCollab  TicketCollaborator[]
+  expenses      Expense[]
 
   @@index([tenantId])
   @@map("technicians")
@@ -495,6 +512,7 @@ model Ticket {
   items         TicketItem[]
   documents     TicketDocument[]
   collaborators TicketCollaborator[]
+  expenses      Expense[]
 
   @@index([tenantId])
   @@index([clientId])
@@ -560,6 +578,34 @@ model TicketCollaborator {
 
   @@unique([ticketId, technicianId])
   @@map("ticket_collaborators")
+}
+
+// Gastos de terreno por técnico: combustible, estacionamiento, boletas, viáticos
+model Expense {
+  id            String          @id @default(cuid())
+  tenantId      String
+  technicianId  String
+  ticketId      String?         // trabajo asociado (opcional)
+  assignmentId  String?         // asignación de cronograma asociada (opcional)
+  category      ExpenseCategory @default(otro)
+  amount        Int             // monto en CLP enteros
+  description   String?
+  receiptUrl    String?         // URL o data URI del comprobante
+  date          DateTime
+  status        ExpenseStatus   @default(pendiente)
+  approvedById  String?         // usuario que aprobó/rechazó
+  rejectedReason String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  technician  Technician  @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  ticket      Ticket?     @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  approvedBy  User?       @relation(fields: [approvedById], references: [id])
+
+  @@index([technicianId])
+  @@index([tenantId, status])
+  @@index([ticketId])
+  @@map("expenses")
 }
 
 model JobCost {

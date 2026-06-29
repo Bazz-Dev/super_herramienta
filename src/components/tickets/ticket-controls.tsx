@@ -29,6 +29,9 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
   const [isPending, startTransition] = useTransition()
   const [comment, setComment] = useState('')
   const [isInternal, setIsInternal] = useState(false)
+  const [docs, setDocs] = useState<Doc[]>(ticket.documents)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const [otNumber, setOtNumber] = useState(ticket.otNumber ?? '')
   const [assignedToId, setAssignedToId] = useState(ticket.assignedToId ?? '')
   const [estimatedDate, setEstimatedDate] = useState(ticket.estimatedDate ?? '')
@@ -183,26 +186,60 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
       )}
 
       {/* Documents */}
-      {ticket.documents.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-gray-700">Documentos en Drive</h3>
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">Documentos adjuntos</h3>
+          <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            {uploading ? 'Subiendo…' : 'Adjuntar archivo'}
+            <input
+              type="file"
+              className="sr-only"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.zip"
+              disabled={uploading}
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                setUploading(true)
+                setUploadError('')
+                const fd = new FormData()
+                fd.append('file', file)
+                try {
+                  const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
+                  if (!res.ok) { const j = await res.json(); setUploadError(j.error ?? 'Error al subir'); return }
+                  const doc: Doc = await res.json()
+                  setDocs((prev) => [...prev, doc])
+                } catch { setUploadError('Error de red') }
+                finally { setUploading(false); e.target.value = '' }
+              }}
+            />
+          </label>
+        </div>
+        {uploadError && <p className="mb-2 text-xs text-red-600">{uploadError}</p>}
+        {docs.length === 0 ? (
+          <p className="text-xs text-gray-400">Sin documentos adjuntos aún.</p>
+        ) : (
           <ul className="space-y-2">
-            {ticket.documents.map((doc) => (
-              <li key={doc.id} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700 truncate max-w-[60%]">📎 {doc.name}</span>
-                <a
-                  href={doc.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-brand hover:underline"
-                >
-                  Abrir ↗
-                </a>
+            {docs.map((doc) => (
+              <li key={doc.id} className="flex items-center justify-between text-sm gap-2">
+                <span className="text-gray-700 truncate flex-1">📎 {doc.name}</span>
+                <div className="flex items-center gap-3 shrink-0">
+                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-brand hover:underline">Abrir ↗</a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm(`Eliminar "${doc.name}"?`)) return
+                      const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${doc.id}`, { method: 'DELETE' })
+                      if (res.ok) setDocs((prev) => prev.filter((d) => d.id !== doc.id))
+                    }}
+                    className="text-xs text-red-400 hover:text-red-600"
+                  >✕</button>
+                </div>
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Add comment */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
