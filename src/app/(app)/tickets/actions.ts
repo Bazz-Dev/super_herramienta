@@ -74,6 +74,19 @@ export async function createTicket(_: unknown, fd: FormData) {
     },
   })
 
+  // Notify assigned user if staff assigned on creation
+  if (assignedToId) {
+    const assignee = await prisma.user.findUnique({ where: { id: assignedToId }, select: { id: true, tenantId: true } })
+    if (assignee) {
+      notify(assignee.id, assignee.tenantId, {
+        type: 'ticket_assigned',
+        title: `Ticket asignado: ${ticket.ticketCode}`,
+        body: ticket.title,
+        href: `/tickets/${ticket.id}`,
+      }).catch(() => {})
+    }
+  }
+
   revalidatePath('/tickets')
   return { success: true, id: ticket.id }
 }
@@ -150,9 +163,12 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
 
   // Auto-advance status: assigning technician → en_revision
   let autoStatus: string | undefined
-  if (parsed.assignedToId && parsed.assignedToId !== ticket.assignedToId && ticket.status === 'nuevo') {
+  const assigneeChanged = parsed.assignedToId !== undefined && parsed.assignedToId !== ticket.assignedToId
+  if (parsed.assignedToId && assigneeChanged && ticket.status === 'nuevo') {
     autoStatus = 'en_revision'
   }
+
+  const updatedTicket = await prisma.ticket.findFirst({ where: { id: ticketId }, select: { ticketCode: true, title: true } })
 
   await prisma.ticket.update({
     where: { id: ticketId },
@@ -180,6 +196,19 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
     await prisma.ticketHistory.create({
       data: { ticketId, userId: actor.id, note: internalNote, isInternal: true },
     })
+  }
+
+  // Notify newly assigned user
+  if (parsed.assignedToId && assigneeChanged) {
+    const assignee = await prisma.user.findUnique({ where: { id: parsed.assignedToId }, select: { id: true, tenantId: true } })
+    if (assignee && updatedTicket) {
+      notify(assignee.id, assignee.tenantId, {
+        type: 'ticket_assigned',
+        title: `Ticket asignado: ${updatedTicket.ticketCode}`,
+        body: updatedTicket.title,
+        href: `/tickets/${ticketId}`,
+      }).catch(() => {})
+    }
   }
 
   revalidatePath('/tickets')

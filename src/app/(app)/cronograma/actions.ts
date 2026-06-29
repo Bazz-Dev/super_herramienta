@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/resources/actor'
 import { assignmentInputSchema, type AssigneeInput } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
+import { notify } from '@/lib/push'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -55,13 +56,31 @@ export async function createAssignment(_prev: FormState, formData: FormData): Pr
   const actor = await requireActor()
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  await prisma.assignment.create({
+  const assignment = await prisma.assignment.create({
     data: {
       ...scalarData(parsed.data),
       tenantId: actor.tenantId,
       assignees: { create: parsed.data.assignees.map((a) => ({ technicianId: a.technicianId, role: a.role })) },
     },
   })
+
+  // Notify assigned technicians (those with a linked User account)
+  if (parsed.data.assignees.length > 0) {
+    const techUsers = await prisma.user.findMany({
+      where: { technicianId: { in: parsed.data.assignees.map((a) => a.technicianId) }, role: 'tecnico' },
+      select: { id: true, tenantId: true },
+    })
+    const startStr = new Date(parsed.data.start).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+    for (const u of techUsers) {
+      notify(u.id, u.tenantId, {
+        type: 'assignment_created',
+        title: `Nueva asignación: ${parsed.data.title}`,
+        body: `Programado para el ${startStr}`,
+        href: '/mi-panel',
+      }).catch(() => {})
+    }
+  }
+
   revalidatePath('/cronograma')
   redirect('/cronograma')
 }

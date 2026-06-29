@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
+import { notify } from '@/lib/push'
 import type { ExpenseStatus } from '@/generated/prisma/enums'
 
 const CreateExpenseSchema = z.object({
@@ -86,14 +87,30 @@ export async function updateExpenseStatus(
     return { error: 'Sin permiso' }
   }
 
-  await prisma.expense.update({
+  const updated = await prisma.expense.update({
     where: { id },
     data: {
       status: status as ExpenseStatus,
       approvedById: actor.id,
       rejectedReason: status === 'rechazado' ? (reason ?? null) : null,
     },
+    include: { technician: { include: { user: { select: { id: true, tenantId: true } } } } },
   })
+
+  // Notify technician
+  const techUser = updated.technician?.user
+  if (techUser) {
+    const CATEGORY_ES: Record<string, string> = { combustible: 'Combustible', estacionamiento: 'Estacionamiento', materiales: 'Materiales', viatico: 'Viático', herramienta: 'Herramienta', otro: 'Gasto' }
+    const cat = CATEGORY_ES[updated.category] ?? 'Gasto'
+    notify(techUser.id, techUser.tenantId, {
+      type: status === 'aprobado' ? 'expense_approved' : 'expense_rejected',
+      title: status === 'aprobado' ? `${cat} aprobado ✅` : `${cat} rechazado`,
+      body: status === 'aprobado'
+        ? `Tu gasto de $${updated.amount.toLocaleString('es-CL')} fue aprobado`
+        : `Tu gasto de $${updated.amount.toLocaleString('es-CL')} fue rechazado${reason ? ': ' + reason : ''}`,
+      href: '/mi-panel',
+    }).catch(() => {})
+  }
 
   revalidatePath('/gastos')
   revalidatePath('/mi-panel')
