@@ -15,6 +15,7 @@ enum Role {
   super
   supervisor
   client
+  tecnico
 }
 
 enum AssetStatus {
@@ -106,7 +107,10 @@ model User {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  clientId String? // set when role = client, scopes portal access
+  clientId     String? // set when role = client, scopes portal access
+  technicianId String? @unique // set when role = tecnico
+
+  technician        Technician?       @relation(fields: [technicianId], references: [id], onDelete: SetNull)
 
   ticketsCreated    Ticket[]          @relation("TicketCreatedBy")
   ticketsAssigned   Ticket[]          @relation("TicketAssignedTo")
@@ -176,6 +180,7 @@ model Technician {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  user          User?    // back-relation: User.technicianId → this technician
   crews         Crew[] // M:N implícito
   vehicle       Vehicle? // 1:1 — camioneta asignada (back-relation de Vehicle.technicianId)
   assignees     AssignmentAssignee[] // participaciones en asignaciones (técnico/ayudante)

@@ -7,5 +7,5 @@ export async function requireActor(): Promise<TenantActor & { name: string; tena
   const session = await auth()
   if (!session?.user) redirect('/login')
   const u = session.user
-  return { id: u.id, role: u.role, tenantId: u.tenantId, tenantSlug: u.tenantSlug, name: u.name ?? 'Usuario' }
+  return { id: u.id, role: u.role, tenantId: u.tenantId, tenantSlug: u.tenantSlug, name: u.name ?? 'Usuario', technicianId: u.technicianId ?? null }
 }

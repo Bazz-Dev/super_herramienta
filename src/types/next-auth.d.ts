@@ -7,6 +7,7 @@ declare module 'next-auth' {
     tenantId: string
     tenantSlug: string
     clientId?: string | null
+    technicianId?: string | null
   }
 
   interface Session {
@@ -16,6 +17,7 @@ declare module 'next-auth' {
       tenantId: string
       tenantSlug: string
       clientId?: string | null
+      technicianId?: string | null
     } & DefaultSession['user']
   }
 }
@@ -26,5 +28,6 @@ declare module 'next-auth/jwt' {
     tenantId: string
     tenantSlug: string
     clientId?: string | null
+    technicianId?: string | null
   }
 }

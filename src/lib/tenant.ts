@@ -17,6 +17,7 @@ export type TenantActor = {
   id: string
   role: Role
   tenantId: string
+  technicianId?: string | null
 }
 
 export async function requireActor(): Promise<TenantActor> {
@@ -26,6 +27,7 @@ export async function requireActor(): Promise<TenantActor> {
     id: session.user.id,
     role: session.user.role,
     tenantId: session.user.tenantId,
+    technicianId: session.user.technicianId ?? null,
   }
 }
 

@@ -19,6 +19,9 @@ export default async function AppLayout({
 
   const { user } = session
 
+  // Technicians have their own panel
+  if (user.role === 'tecnico') redirect('/mi-panel')
+
   // Clients belong in the portal, not the internal app
   if (user.role === 'client') {
     const clientRecord = user.clientId

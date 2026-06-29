@@ -2,11 +2,13 @@ import type { NextAuthConfig } from 'next-auth'
 import type { Role } from '@/generated/prisma/enums'
 
 // Edge-safe config: NO database / bcrypt imports here.
-// Internal app routes — require authentication AND role !== 'client'
+// Internal app routes — require authentication AND role !== 'client' AND role !== 'tecnico'
 const INTERNAL_PREFIXES = [
   '/dashboard', '/tickets', '/flujo', '/cronograma',
-  '/recursos', '/cotizador', '/informe',
+  '/recursos', '/cotizador', '/informe', '/gastos',
 ]
+// Tecnico panel — only accessible to tecnico role
+const TECNICO_PREFIX = '/mi-panel'
 // Portal routes — require authentication AND role === 'client'
 const PORTAL_PREFIX = '/portal'
 
@@ -24,16 +26,25 @@ export const authConfig = {
       const path = nextUrl.pathname
 
       const isInternal = INTERNAL_PREFIXES.some((p) => path.startsWith(p))
+      const isTecnicoPanel = path.startsWith(TECNICO_PREFIX)
       const isPortal   = path.startsWith(PORTAL_PREFIX)
 
-      // Internal routes: must be logged in + not a client
+      // Internal routes: must be logged in + not a client + not a tecnico
       if (isInternal) {
         if (!isLoggedIn) return Response.redirect(new URL('/login', nextUrl))
         if (role === 'client') {
-          // Redirect clients to their portal; clientId not available in edge
-          // so we send them to /login which will redirect appropriately
           return Response.redirect(new URL('/login', nextUrl))
         }
+        if (role === 'tecnico') {
+          return Response.redirect(new URL('/mi-panel', nextUrl))
+        }
+        return true
+      }
+
+      // Tecnico panel: must be logged in as tecnico
+      if (isTecnicoPanel) {
+        if (!isLoggedIn) return Response.redirect(new URL('/login', nextUrl))
+        if (role !== 'tecnico') return Response.redirect(new URL('/dashboard', nextUrl))
         return true
       }
 
@@ -41,9 +52,10 @@ export const authConfig = {
       // (portal sub-pages handle their own auth)
       if (isPortal) return true
 
-      // /login: logged-in internal users → dashboard; clients → login (portal)
+      // /login: logged-in users → their home; clients → login (portal)
       if (isLoggedIn && path === '/login') {
         if (role === 'client') return true // portal login handles it
+        if (role === 'tecnico') return Response.redirect(new URL('/mi-panel', nextUrl))
         return Response.redirect(new URL('/dashboard', nextUrl))
       }
 
@@ -55,6 +67,7 @@ export const authConfig = {
         token.tenantId = user.tenantId
         token.tenantSlug = user.tenantSlug
         token.clientId = user.clientId ?? null
+        token.technicianId = user.technicianId ?? null
       }
       return token
     },
@@ -65,6 +78,7 @@ export const authConfig = {
         session.user.tenantId = token.tenantId as string
         session.user.tenantSlug = token.tenantSlug as string
         session.user.clientId = (token.clientId as string | null | undefined) ?? null
+        session.user.technicianId = (token.technicianId as string | null | undefined) ?? null
       }
       return session
     },

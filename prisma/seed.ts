@@ -45,6 +45,7 @@ async function main() {
 
   // --- Recursos demo (solo si la BD está vacía) ---
   const techCount = await prisma.technician.count({ where: { tenantId: ingegar.id } })
+  let firstDemoTech: { id: string } | null = null
   if (techCount === 0) {
     const techs = await Promise.all(
       [
@@ -53,6 +54,7 @@ async function main() {
         { name: 'Diego Soto', specialty: 'Mecánica', phone: '+56 9 3333 3333' },
       ].map((t) => prisma.technician.create({ data: { ...t, tenantId: ingegar.id } })),
     )
+    firstDemoTech = techs[0]
 
     await prisma.crew.create({
       data: {
@@ -125,6 +127,29 @@ async function main() {
         data: teamTechs.map((t, i) => ({ assignmentId: demoAssignment.id, technicianId: t.id, role: i === 0 ? 'tecnico' : 'ayudante' })),
       })
     }
+  }
+
+  // --- Usuario técnico demo (Carlos Fuentes) ---
+  // Use firstDemoTech (new seed) or look up Carlos Fuentes if DB already had technicians
+  const carlosTech = firstDemoTech
+    ?? await prisma.technician.findFirst({ where: { tenantId: ingegar.id, name: 'Carlos Fuentes' } })
+
+  if (carlosTech) {
+    const tecnicoPassword = process.env.SEED_TECNICO_PASSWORD ?? 'Tecnico@2026'
+    const tecnicoHash = await bcrypt.hash(tecnicoPassword, 10)
+    await prisma.user.upsert({
+      where: { email: 'carlos@ingegarchile.cl' },
+      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Carlos Fuentes', technicianId: carlosTech.id },
+      create: {
+        email: 'carlos@ingegarchile.cl',
+        name: 'Carlos Fuentes',
+        passwordHash: tecnicoHash,
+        role: 'tecnico',
+        tenantId: ingegar.id,
+        technicianId: carlosTech.id,
+      },
+    })
+    console.log('  carlos@ingegarchile.cl        /', tecnicoPassword, '(tecnico — Carlos Fuentes)')
   }
 
   // --- Portales cliente (Just Burger + Decathlon) ---
