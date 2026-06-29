@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
+import { assertRole } from '@/lib/policies'
 import { notify } from '@/lib/push'
+import { driveEnabled, createDriveFolder, ticketFolderName } from '@/lib/drive'
 
 const createSchema = z.object({
   ticketCode: z.string().min(1),
@@ -52,6 +54,15 @@ export async function createTicket(_: unknown, fd: FormData) {
   const { assignedToId, internalNotes, ...ticketData } = parsed
   const initialStatus = assignedToId ? 'en_revision' : 'nuevo'
 
+  // Fetch client for Drive folder creation
+  const clientRecord = await prisma.client.findUnique({
+    where: { id: parsed.clientId },
+    select: { name: true, driveFolderId: true },
+  })
+  const branchRecord = parsed.branchId
+    ? await prisma.branch.findUnique({ where: { id: parsed.branchId }, select: { name: true } })
+    : null
+
   const ticket = await prisma.ticket.create({
     data: {
       ...ticketData,
@@ -62,6 +73,23 @@ export async function createTicket(_: unknown, fd: FormData) {
       status: initialStatus,
     },
   })
+
+  // Auto-create Drive folder if client has a root folder configured
+  if (driveEnabled() && clientRecord?.driveFolderId) {
+    const folderName = ticketFolderName({
+      ticketCode: ticket.ticketCode,
+      clientName: clientRecord.name,
+      branchName: branchRecord?.name,
+    })
+    createDriveFolder(folderName, clientRecord.driveFolderId)
+      .then((folder) =>
+        prisma.ticket.update({
+          where: { id: ticket.id },
+          data: { driveFolderUrl: folder.webViewLink },
+        }),
+      )
+      .catch((err) => console.error('[Drive] folder creation failed:', err))
+  }
 
   await prisma.ticketHistory.create({
     data: {
@@ -235,7 +263,11 @@ export async function addTicketComment(ticketId: string, note: string, isInterna
 
 export async function deleteTicket(ticketId: string) {
   const actor = await requireActor()
-  await prisma.ticket.deleteMany({ where: { id: ticketId, tenantId: actor.tenantId } })
+  assertRole(actor, ['super', 'supervisor'])
+  await prisma.ticket.updateMany({
+    where: { id: ticketId, tenantId: actor.tenantId },
+    data: { deletedAt: new Date() },
+  })
   revalidatePath('/tickets')
   return { success: true }
 }

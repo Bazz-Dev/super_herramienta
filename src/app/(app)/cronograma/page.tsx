@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { PlusIcon } from '@/components/quotes/icons'
 import { DeleteButton } from '@/components/resources/delete-button'
 import { ScheduleCalendar } from '@/components/resources/schedule-calendar'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { assignmentOptions, listAssignments } from '@/lib/resources/assignments'
 import { formatDateTime } from '@/lib/resources/dates'
 import {

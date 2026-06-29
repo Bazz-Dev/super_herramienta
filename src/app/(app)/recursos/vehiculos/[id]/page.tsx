@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { VehicleForm } from '@/components/resources/vehicle-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { getVehicle, technicianOptionsForVehicle } from '@/lib/resources/vehicles'
 import { ASSET_STATUS_LABELS, type AssetStatusId } from '@/lib/resources/labels'
 import { updateVehicle } from '../actions'

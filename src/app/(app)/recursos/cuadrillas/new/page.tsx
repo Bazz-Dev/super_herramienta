@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { CrewForm } from '@/components/resources/crew-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { technicianOptions } from '@/lib/resources/crews'
 import { createCrew } from '../actions'
 

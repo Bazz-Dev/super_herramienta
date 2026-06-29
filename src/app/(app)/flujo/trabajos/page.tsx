@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { listJobs, listClientsForCashflow, listBranchesForClient } from '@/lib/cashflow/queries'
 import { clp } from '@/lib/cashflow/format'
 import { JobFilters } from '@/components/cashflow/job-filters'

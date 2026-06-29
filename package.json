@@ -26,6 +26,7 @@
     "db:fix:prod": "npx tsx --env-file=.env.production.local scripts/turso-fix-missing-tables.ts",
     "setup:jb:prod": "npx tsx --env-file=.env.production.local scripts/setup-justburger-portal.ts",
     "import:jb:prod": "npx tsx --env-file=.env.production.local scripts/import-jb-tickets.ts",
+    "fix:portal-slugs:prod": "npx tsx --env-file=.env.production.local scripts/fix-portal-client-slug.ts",
     "db:seed:prod": "npx tsx --env-file=.env.production.local scripts/seed-prod.ts",
     "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
     "cleanup:jb:prod": "npx tsx --env-file=.env.production.local scripts/cleanup-jb-flujo.ts",

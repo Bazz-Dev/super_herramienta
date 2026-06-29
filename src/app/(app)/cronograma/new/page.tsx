@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { AssignmentForm } from '@/components/resources/assignment-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { assignmentOptions } from '@/lib/resources/assignments'
 import { createAssignment } from '../actions'
 

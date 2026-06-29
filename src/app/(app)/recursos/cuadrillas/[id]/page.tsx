@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CrewForm } from '@/components/resources/crew-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { getCrew, technicianOptions } from '@/lib/resources/crews'
 import { updateCrew } from '../actions'
 

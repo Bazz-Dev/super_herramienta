@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { technicianInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
 

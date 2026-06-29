@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { AssetForm } from '@/components/resources/asset-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { vehicleOptions } from '@/lib/resources/vehicles'
 import { createAsset } from '../actions'
 

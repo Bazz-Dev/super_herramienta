@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { listBranches } from '@/lib/cashflow/queries'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'

@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AssignmentForm } from '@/components/resources/assignment-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { assignmentOptions, getAssignment } from '@/lib/resources/assignments'
 import { toDatetimeLocal } from '@/lib/resources/dates'
 import type { AssigneeRoleId } from '@/lib/resources/labels'

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { VehicleForm } from '@/components/resources/vehicle-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { technicianOptionsForVehicle } from '@/lib/resources/vehicles'
 import { createVehicle } from '../actions'
 

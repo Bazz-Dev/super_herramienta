@@ -20,14 +20,22 @@ export type TenantActor = {
   technicianId?: string | null
 }
 
-export async function requireActor(): Promise<TenantActor> {
+export type AuthActor = TenantActor & {
+  name: string
+  tenantSlug: string
+}
+
+export async function requireActor(): Promise<AuthActor> {
   const session = await auth()
   if (!session?.user?.tenantId) redirect('/login')
+  const u = session.user
   return {
-    id: session.user.id,
-    role: session.user.role,
-    tenantId: session.user.tenantId,
-    technicianId: session.user.technicianId ?? null,
+    id: u.id,
+    role: u.role,
+    tenantId: u.tenantId,
+    tenantSlug: u.tenantSlug,
+    name: u.name ?? 'Usuario',
+    technicianId: u.technicianId ?? null,
   }
 }
 

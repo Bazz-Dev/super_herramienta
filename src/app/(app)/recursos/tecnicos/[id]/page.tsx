@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { TechnicianForm } from '@/components/resources/technician-form'
 import { DocSection } from '@/components/resources/doc-section'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { getTechnician } from '@/lib/resources/technicians'
 import { prisma } from '@/lib/prisma'
 import {

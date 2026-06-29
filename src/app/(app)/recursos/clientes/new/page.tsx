@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { ClientForm } from '@/components/resources/client-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { createClient } from '../actions'
 
 export default async function NewClientePage() {

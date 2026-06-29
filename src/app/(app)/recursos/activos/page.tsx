@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { PlusIcon } from '@/components/quotes/icons'
 import { DeleteButton } from '@/components/resources/delete-button'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { listAssets } from '@/lib/resources/assets'
 import { ASSET_STATUS_BADGE, ASSET_STATUS_LABELS, type AssetStatusId } from '@/lib/resources/labels'
 import { deleteAsset } from './actions'

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { TechnicianForm } from '@/components/resources/technician-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { createTechnician } from '../actions'
 
 export default async function NewTecnicoPage() {

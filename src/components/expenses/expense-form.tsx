@@ -39,8 +39,8 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) {
-      setError('El archivo no puede superar 5 MB')
+    if (file.size > 2 * 1024 * 1024) {
+      setError('El archivo no puede superar 2 MB')
       e.target.value = ''
       return
     }

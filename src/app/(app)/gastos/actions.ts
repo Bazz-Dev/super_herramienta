@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
+import { assertOwns, assertRole, assertTechnicianOwns, canApproveExpense } from '@/lib/policies'
 import { notify } from '@/lib/push'
 import type { ExpenseStatus } from '@/generated/prisma/enums'
 
@@ -49,6 +50,13 @@ export async function createExpense(fd: FormData) {
     technicianId = data.technicianId
   }
 
+  // Guard: data URIs are stored in Turso; cap at 2 MB to prevent DB bloat.
+  // When Vercel Blob is set up, replace this with a proper upload URL.
+  const receiptUrl = data.receiptUrl ?? null
+  if (receiptUrl && receiptUrl.length > 2_800_000) {
+    return { error: 'El comprobante supera el límite de 2 MB' }
+  }
+
   await prisma.expense.create({
     data: {
       tenantId: actor.tenantId,
@@ -57,7 +65,7 @@ export async function createExpense(fd: FormData) {
       category: data.category,
       amount: data.amount,
       description: data.description || null,
-      receiptUrl: data.receiptUrl || null,
+      receiptUrl,
       date: new Date(data.date),
       status: 'pendiente',
     },
@@ -76,16 +84,11 @@ export async function updateExpenseStatus(
 ) {
   const actor = await requireActor()
 
-  // Only staff (super/supervisor) can approve/reject
-  if (actor.role !== 'super' && actor.role !== 'supervisor') {
-    return { error: 'Sin permiso' }
-  }
+  if (!canApproveExpense(actor)) return { error: 'Sin permiso' }
 
   const expense = await prisma.expense.findUnique({ where: { id } })
   if (!expense) return { error: 'Gasto no encontrado' }
-  if (expense.tenantId !== actor.tenantId && actor.role !== 'super') {
-    return { error: 'Sin permiso' }
-  }
+  assertOwns(actor, expense.tenantId)
 
   const updated = await prisma.expense.update({
     where: { id },
@@ -124,12 +127,9 @@ export async function deleteExpense(id: string) {
   const expense = await prisma.expense.findUnique({ where: { id }, include: { technician: true } })
   if (!expense) return { error: 'Gasto no encontrado' }
 
-  // Super can delete any; tecnico can delete their own; supervisor cannot delete
-  const isOwner = actor.role === 'tecnico' && actor.technicianId === expense.technicianId
-  const canDelete = actor.role === 'super' || isOwner
-
-  if (!canDelete) return { error: 'Sin permiso para eliminar' }
-  if (expense.tenantId !== actor.tenantId && actor.role !== 'super') return { error: 'Sin permiso' }
+  assertOwns(actor, expense.tenantId)
+  if (actor.role === 'tecnico') assertTechnicianOwns(actor, expense.technicianId)
+  else assertRole(actor, ['super'])
 
   await prisma.expense.delete({ where: { id } })
 

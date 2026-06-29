@@ -508,6 +508,7 @@ model Ticket {
   jobId          String?       @unique
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
 
   client        Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
   branch        Branch?             @relation(fields: [branchId], references: [id])
@@ -523,6 +524,7 @@ model Ticket {
   @@index([tenantId])
   @@index([clientId])
   @@index([status])
+  @@index([deletedAt])
   @@map("tickets")
 }
 

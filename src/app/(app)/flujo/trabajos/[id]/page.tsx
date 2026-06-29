@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { getJob, listBranches } from '@/lib/cashflow/queries'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'

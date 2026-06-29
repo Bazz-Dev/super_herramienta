@@ -35,6 +35,7 @@ const migrations = [
   '20260629162516_expenses_and_technician_role',
   '20260629162705_add_tecnico_role',
   '20260629173303_fix_expense_cascade_and_assignment_relation',
+  '20260629213328_soft_delete_ticket_and_expiry_cron',
 ]
 
 for (const name of migrations) {

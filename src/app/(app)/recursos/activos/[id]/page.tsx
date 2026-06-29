@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AssetForm } from '@/components/resources/asset-form'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { getAsset } from '@/lib/resources/assets'
 import { vehicleOptions } from '@/lib/resources/vehicles'
 import { updateAsset } from '../actions'

@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { PlusIcon } from '@/components/quotes/icons'
-import { requireActor } from '@/lib/resources/actor'
+import { requireActor } from '@/lib/tenant'
 import { listTechnicians } from '@/lib/resources/technicians'
 import {
   CONTRACT_TYPE_BADGE,
