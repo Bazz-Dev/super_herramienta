@@ -5,13 +5,12 @@ import { useActionState } from 'react'
 import { authenticate, type LoginState } from './actions'
 
 const initialState: LoginState = {}
-const REMEMBER_KEY = 'ingegar.login.email'
+const REMEMBER_KEY = 'ingegar.login.credential'
 
 const inputCls =
   'w-full rounded-md border border-gray-300 px-3 py-2 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/30'
 
-// Read the remembered email once, lazily (SSR-safe). We never store the password.
-function rememberedEmail(): string {
+function rememberedLogin(): string {
   if (typeof window === 'undefined') return ''
   return localStorage.getItem(REMEMBER_KEY) ?? ''
 }
@@ -19,26 +18,26 @@ function rememberedEmail(): string {
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(authenticate, initialState)
   const [showPassword, setShowPassword] = useState(false)
-  const [email, setEmail] = useState(rememberedEmail)
-  const [remember, setRemember] = useState(() => rememberedEmail() !== '')
+  const [login, setLogin] = useState(rememberedLogin)
+  const [remember, setRemember] = useState(() => rememberedLogin() !== '')
 
   function onSubmit() {
-    if (remember && email) localStorage.setItem(REMEMBER_KEY, email)
+    if (remember && login) localStorage.setItem(REMEMBER_KEY, login)
     else localStorage.removeItem(REMEMBER_KEY)
   }
 
   return (
     <form action={formAction} onSubmit={onSubmit} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Email</span>
+        <span className="font-medium">Usuario o Email</span>
         <input
-          name="email"
-          type="email"
+          name="login"
+          type="text"
           required
-          autoComplete="email"
-          placeholder="admin@ingegarchile.cl"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="username"
+          placeholder="ingegar / admin@ingegarchile.cl"
+          value={login}
+          onChange={(e) => setLogin(e.target.value)}
           className={inputCls}
         />
       </label>
@@ -73,7 +72,7 @@ export function LoginForm() {
           onChange={(e) => setRemember(e.target.checked)}
           className="h-4 w-4 cursor-pointer accent-brand"
         />
-        Recordar mi correo en este dispositivo
+        Recordar en este dispositivo
       </label>
 
       {state.error && (

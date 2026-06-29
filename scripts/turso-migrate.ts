@@ -36,6 +36,7 @@ const migrations = [
   '20260629162705_add_tecnico_role',
   '20260629173303_fix_expense_cascade_and_assignment_relation',
   '20260629213328_soft_delete_ticket_and_expiry_cron',
+  '20260629220000_username_login_indexes_fk_fixes',
 ]
 
 for (const name of migrations) {
@@ -44,8 +45,11 @@ for (const name of migrations) {
 
   const statements = sql
     .split(/;\s*\n/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith('--'))
+    .map((s) => {
+      // Strip leading comment lines (-- ...) from each statement block
+      return s.split('\n').filter((line) => !line.trimStart().startsWith('--')).join('\n').trim()
+    })
+    .filter((s) => s.length > 0)
 
   process.stdout.write(`⚙️  ${name} … `)
 

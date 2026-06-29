@@ -97,6 +97,7 @@ model Tenant {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
+  username     String?  @unique // short alias for login (e.g. "ingegar", "justburger")
   name         String
   passwordHash String
   role         Role     @default(client)
@@ -395,6 +396,7 @@ model Branch {
 
   @@unique([clientId, name])
   @@index([tenantId])
+  @@index([clientId])
   @@map("branches")
 }
 
@@ -512,8 +514,8 @@ model Ticket {
 
   client        Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
   branch        Branch?             @relation(fields: [branchId], references: [id])
-  createdBy     User                @relation("TicketCreatedBy", fields: [createdById], references: [id])
-  assignedTo    User?               @relation("TicketAssignedTo", fields: [assignedToId], references: [id])
+  createdBy     User                @relation("TicketCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  assignedTo    User?               @relation("TicketAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
   job           Job?                @relation(fields: [jobId], references: [id])
   history       TicketHistory[]
   items         TicketItem[]
@@ -525,6 +527,9 @@ model Ticket {
   @@index([clientId])
   @@index([status])
   @@index([deletedAt])
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([branchId])
   @@map("tickets")
 }
 
@@ -585,6 +590,7 @@ model TicketCollaborator {
   technician   Technician @relation(fields: [technicianId], references: [id])
 
   @@unique([ticketId, technicianId])
+  @@index([technicianId])
   @@map("ticket_collaborators")
 }
 
@@ -614,6 +620,7 @@ model Expense {
   @@index([technicianId])
   @@index([tenantId, status])
   @@index([ticketId])
+  @@index([assignmentId])
   @@map("expenses")
 }
 

@@ -16,31 +16,31 @@ async function main() {
   })
 
   // --- Usuarios ---
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'ingegar123'
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'Ingegar@Super1'
   const adminHash = await bcrypt.hash(adminPassword, 10)
 
   await prisma.user.upsert({
     where: { email: 'admin@ingegarchile.cl' },
-    update: { passwordHash: adminHash, role: 'super', name: 'Admin INGEGAR', active: true },
-    create: { email: 'admin@ingegarchile.cl', name: 'Admin INGEGAR', passwordHash: adminHash, role: 'super', tenantId: ingegar.id },
+    update: { passwordHash: adminHash, role: 'super', name: 'Admin INGEGAR', active: true, username: 'ingegar' },
+    create: { email: 'admin@ingegarchile.cl', username: 'ingegar', name: 'Admin INGEGAR', passwordHash: adminHash, role: 'super', tenantId: ingegar.id },
   })
 
-  // Sebastián Garrido — Gerente de Operaciones (admin normal, no super admin)
-  const sebastianPassword = process.env.SEED_SEBASTIAN_PASSWORD ?? 'Ingegar@2026'
+  // Sebastián Garrido — Gerente de Operaciones
+  const sebastianPassword = process.env.SEED_SEBASTIAN_PASSWORD ?? 'Ingegar@Ops1'
   const sebastianHash = await bcrypt.hash(sebastianPassword, 10)
   await prisma.user.upsert({
     where: { email: 'sgarrido@ingegarchile.cl' },
-    update: { passwordHash: sebastianHash, role: 'supervisor', name: 'Sebastián Garrido', active: true },
-    create: { email: 'sgarrido@ingegarchile.cl', name: 'Sebastián Garrido', passwordHash: sebastianHash, role: 'supervisor', tenantId: ingegar.id },
+    update: { passwordHash: sebastianHash, role: 'supervisor', name: 'Sebastián Garrido', active: true, username: 'sgarrido' },
+    create: { email: 'sgarrido@ingegarchile.cl', username: 'sgarrido', name: 'Sebastián Garrido', passwordHash: sebastianHash, role: 'supervisor', tenantId: ingegar.id },
   })
 
   // Cristian — Analista Comercial
-  const cristianPassword = process.env.SEED_CRISTIAN_PASSWORD ?? 'Ingegar@Comercial1'
+  const cristianPassword = process.env.SEED_CRISTIAN_PASSWORD ?? 'Ingegar@Com1'
   const cristianHash = await bcrypt.hash(cristianPassword, 10)
   await prisma.user.upsert({
     where: { email: 'cristian@ingegarchile.cl' },
-    update: { passwordHash: cristianHash, role: 'supervisor', name: 'Cristian INGEGAR', active: true },
-    create: { email: 'cristian@ingegarchile.cl', name: 'Cristian INGEGAR', passwordHash: cristianHash, role: 'supervisor', tenantId: ingegar.id },
+    update: { passwordHash: cristianHash, role: 'supervisor', name: 'Cristian INGEGAR', active: true, username: 'cristian' },
+    create: { email: 'cristian@ingegarchile.cl', username: 'cristian', name: 'Cristian INGEGAR', passwordHash: cristianHash, role: 'supervisor', tenantId: ingegar.id },
   })
 
   // --- Recursos demo (solo si la BD está vacía) ---
@@ -139,9 +139,10 @@ async function main() {
     const tecnicoHash = await bcrypt.hash(tecnicoPassword, 10)
     await prisma.user.upsert({
       where: { email: 'carlos@ingegarchile.cl' },
-      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Carlos Fuentes', technicianId: carlosTech.id },
+      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Carlos Fuentes', technicianId: carlosTech.id, username: 'carlos' },
       create: {
         email: 'carlos@ingegarchile.cl',
+        username: 'carlos',
         name: 'Carlos Fuentes',
         passwordHash: tecnicoHash,
         role: 'tecnico',
@@ -149,11 +150,10 @@ async function main() {
         technicianId: carlosTech.id,
       },
     })
-    console.log('  carlos@ingegarchile.cl        /', tecnicoPassword, '(tecnico — Carlos Fuentes)')
+    console.log('  carlos / carlos@ingegarchile.cl     /', tecnicoPassword, '(tecnico — Carlos Fuentes)')
   }
 
   // --- Portales cliente (Just Burger + Decathlon) ---
-  // portalTheme solo guarda "primary"; bg/card/text son siempre hardcoded claros en resolvePortalTheme()
   const jbPassword = process.env.SEED_JB_PASSWORD ?? 'JustBurger@2026'
   const jbHash = await bcrypt.hash(jbPassword, 10)
 
@@ -171,9 +171,10 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'portal@justburger.cl' },
-    update: { passwordHash: jbHash, role: 'client', name: 'Portal Just Burger', clientId: jbClient.id },
+    update: { passwordHash: jbHash, role: 'client', name: 'Portal Just Burger', clientId: jbClient.id, username: 'justburger' },
     create: {
       email: 'portal@justburger.cl',
+      username: 'justburger',
       name: 'Portal Just Burger',
       passwordHash: jbHash,
       role: 'client',
@@ -199,9 +200,10 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'portal@decathlon.cl' },
-    update: { passwordHash: decHash, role: 'client', name: 'Portal Decathlon', clientId: decClient.id },
+    update: { passwordHash: decHash, role: 'client', name: 'Portal Decathlon', clientId: decClient.id, username: 'decathlon' },
     create: {
       email: 'portal@decathlon.cl',
+      username: 'decathlon',
       name: 'Portal Decathlon',
       passwordHash: decHash,
       role: 'client',
@@ -217,14 +219,16 @@ async function main() {
     create: { name: 'Las Condes', city: 'Santiago', clientId: decClient.id, tenantId: ingegar.id },
   })
 
-  console.log('\nSeed completo.')
-  console.log('  Tenant único: ingegar')
-  console.log('  admin@ingegarchile.cl         /', adminPassword, '(super)')
-  console.log('  sgarrido@ingegarchile.cl      /', sebastianPassword, '(supervisor — Gerente Operaciones)')
-  console.log('  cristian@ingegarchile.cl      /', cristianPassword, '(supervisor — Analista Comercial)')
+  console.log('\n✅ Seed completo — usuarios y credenciales:')
+  console.log('\n  Usuario (nick / email)                Contraseña          Rol')
+  console.log('  ─────────────────────────────────────────────────────────────────────')
+  console.log(`  ingegar  / admin@ingegarchile.cl       ${adminPassword.padEnd(20)} super`)
+  console.log(`  sgarrido / sgarrido@ingegarchile.cl    ${sebastianPassword.padEnd(20)} supervisor`)
+  console.log(`  cristian / cristian@ingegarchile.cl    ${cristianPassword.padEnd(20)} supervisor`)
+  console.log(`  carlos   / carlos@ingegarchile.cl      Tecnico@2026         tecnico`)
   console.log('\n  Portales cliente:')
-  console.log('  portal@justburger.cl          /', jbPassword, '(client) → /portal/justburger')
-  console.log('  portal@decathlon.cl           /', decPassword, '(client) → /portal/decathlon')
+  console.log(`  justburger / portal@justburger.cl      ${jbPassword.padEnd(20)} → /portal/justburger`)
+  console.log(`  decathlon  / portal@decathlon.cl       ${decPassword.padEnd(20)} → /portal/decathlon`)
 }
 
 main()

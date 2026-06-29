@@ -11,14 +11,14 @@ export async function authenticate(
 ): Promise<LoginState> {
   try {
     await signIn('credentials', {
-      email: formData.get('email'),
+      login: formData.get('login'),
       password: formData.get('password'),
       redirectTo: '/dashboard',
     })
     return {}
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: 'Email o contraseña incorrectos.' }
+      return { error: 'Usuario o contraseña incorrectos.' }
     }
     // Re-throw redirect signals (NEXT_REDIRECT) and anything unexpected.
     throw error

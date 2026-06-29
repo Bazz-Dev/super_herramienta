@@ -113,12 +113,19 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-gray-200 px-5 py-4 text-sm">
-        <p className="font-medium text-ink">{user.name}</p>
-        <p className="mt-0.5 text-xs text-gray-500">
-          <span className="uppercase">{user.tenantSlug}</span> · {user.roleLabel}
-        </p>
+        <a href="/perfil" className="group flex items-center gap-2 hover:opacity-80">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-ink">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-ink group-hover:text-brand">{user.name}</p>
+            <p className="truncate text-xs text-gray-500">
+              <span className="uppercase">{user.tenantSlug}</span> · {user.roleLabel}
+            </p>
+          </div>
+        </a>
         <div className="mt-3">{logout}</div>
-        <p className="mt-3 text-[10px] font-mono text-gray-300 text-center">INGEGAR One · v1.7.0</p>
+        <p className="mt-3 text-center text-[10px] font-mono text-gray-300">INGEGAR One · v1.7.0</p>
       </div>
     </div>
   )
