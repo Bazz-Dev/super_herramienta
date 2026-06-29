@@ -62,10 +62,29 @@ async function subscribe(reg: ServiceWorkerRegistration) {
 export async function requestPushPermission(): Promise<boolean> {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) return false
 
+  // iOS Safari (non-PWA): PushManager exists but push only works from standalone mode
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  const isStandalone = ('standalone' in navigator) && (navigator as { standalone?: boolean }).standalone === true
+  if (isIOS && !isStandalone) {
+    alert('En iPhone/iPad, primero agrega la app a la pantalla de inicio (Compartir → Agregar a inicio) y ábrela desde ahí para activar notificaciones.')
+    return false
+  }
+
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') return false
 
   const reg = await navigator.serviceWorker.ready
   await subscribe(reg)
+  return true
+}
+
+/** Returns whether push is supported and (on iOS) the app is running as installed PWA. */
+export function pushSupported(): boolean {
+  if (typeof window === 'undefined') return false
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return false
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  if (isIOS) {
+    return ('standalone' in navigator) && (navigator as { standalone?: boolean }).standalone === true
+  }
   return true
 }

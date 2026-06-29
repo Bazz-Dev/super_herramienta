@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { requestPushPermission } from './push-provider'
+import { requestPushPermission, pushSupported } from './push-provider'
 
 interface Notification {
   id: string
@@ -42,8 +42,8 @@ export function NotificationBell() {
     load()
     // Poll every 30s when tab is visible
     const id = setInterval(() => { if (!document.hidden) load() }, 30_000)
-    // Check current push permission
-    if ('Notification' in window) setPushEnabled(Notification.permission === 'granted')
+    // Check current push permission (only show button if push is actually supported)
+    if (pushSupported()) setPushEnabled(Notification.permission === 'granted')
     return () => clearInterval(id)
   }, [])
 
