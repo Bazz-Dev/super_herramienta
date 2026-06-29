@@ -36,21 +36,22 @@ function calcAge(birthDate: Date | null | undefined): number | null {
 export default async function EditTecnicoPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor()
   const { id } = await params
+  // Ticket.assignedToId references User.id (not Technician.id) — look up linked user first
+  const linkedUser = await prisma.user.findUnique({ where: { technicianId: id }, select: { id: true } })
+
   const [tech, assignmentStats, ticketStats] = await Promise.all([
     getTechnician(actor, id),
-    prisma.assignmentAssignee.groupBy({
-      by: ['assignmentId'],
+    // Count assignments via AssignmentAssignee (technicianId = Technician.id ✓)
+    prisma.assignmentAssignee.findMany({
       where: { technicianId: id, assignment: { tenantId: actor.tenantId } },
-      _count: true,
-    }).then(async (rows) => {
+      include: { assignment: { select: { status: true } } },
+    }).then((rows) => {
       if (!rows.length) return { total: 0, scheduled: 0, in_progress: 0, done: 0, cancelled: 0 }
-      const ids = rows.map(r => r.assignmentId)
-      const counts = await prisma.assignment.groupBy({
-        by: ['status'],
-        where: { id: { in: ids } },
-        _count: { id: true },
-      })
-      const byStatus = Object.fromEntries(counts.map(c => [c.status, c._count.id]))
+      const byStatus: Record<string, number> = {}
+      for (const r of rows) {
+        const s = r.assignment.status
+        byStatus[s] = (byStatus[s] ?? 0) + 1
+      }
       return {
         total: rows.length,
         scheduled: byStatus['scheduled'] ?? 0,
@@ -59,15 +60,18 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
         cancelled: byStatus['cancelled'] ?? 0,
       }
     }),
-    prisma.ticket.groupBy({
-      by: ['status'],
-      where: { assignedToId: id, tenantId: actor.tenantId },
-      _count: { id: true },
-    }).then((rows) => {
-      const byStatus = Object.fromEntries(rows.map(r => [r.status, r._count.id]))
-      const total = rows.reduce((s, r) => s + r._count.id, 0)
-      return { total, byStatus }
-    }),
+    // Tickets assigned via User account (assignedToId = User.id, not Technician.id)
+    linkedUser
+      ? prisma.ticket.groupBy({
+          by: ['status'],
+          where: { assignedToId: linkedUser.id, tenantId: actor.tenantId },
+          _count: { id: true },
+        }).then((rows) => {
+          const byStatus = Object.fromEntries(rows.map(r => [r.status, r._count.id]))
+          const total = rows.reduce((s, r) => s + r._count.id, 0)
+          return { total, byStatus }
+        })
+      : Promise.resolve({ total: 0, byStatus: {} as Record<string, number> }),
   ])
   if (!tech) notFound()
 

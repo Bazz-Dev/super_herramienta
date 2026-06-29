@@ -10,13 +10,10 @@ import {
   PORTAL_STATUS_BADGE as SB,
   PORTAL_STATUS_SHORT as SL,
 } from '@/lib/tickets/labels'
+import { URGENCY_COLORS as URG_COLOR, C } from '@/lib/portal-colors'
 
 const OPEN = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-
-const URG_COLOR: Record<string, string> = {
-  emergencia: '#ef4444', urgencia: '#f59e0b', no_urgente: '#22c55e', preventivo: '#3b82f6',
-}
 
 function daysBetween(d: string) {
   return Math.floor((new Date(d).getTime() - Date.now()) / 86400000)
@@ -49,7 +46,7 @@ function BarChart({ months, acc, t2, t3, bd }: {
         const rh=m.resolved?Math.max((m.resolved/maxV)*GH,2):0
         const ah=m.active?Math.max((m.active/maxV)*GH,2):0
         return <g key={m.key}>
-          {rh>0 && <rect x={x} y={H-PB-rh-ah} width={bw} height={rh} fill="#22c55e" rx="2" opacity=".75"/>}
+          {rh>0 && <rect x={x} y={H-PB-rh-ah} width={bw} height={rh} fill={C.success} rx="2" opacity=".75"/>}
           {ah>0 && <rect x={x} y={H-PB-ah} width={bw} height={ah} fill={acc} rx="2"/>}
           {m.total===0 && <rect x={x} y={H-PB-2} width={bw} height={2} fill={bd} rx="1"/>}
           {m.total>0 && <text x={x+bw/2} y={H-PB-(m.total/maxV)*GH-3} textAnchor="middle" fontSize="8.5" fontWeight="700" fill={t2} fontFamily="Inter,sans-serif">{m.total}</text>}
@@ -129,9 +126,9 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
         <div className="pw-kpi" style={{ marginBottom:'18px' }}>
           {[
             { l:'Activos',       n:act.length,    c:acc,       s:'en trámite' },
-            { l:'En proceso',    n:inProc.length, c:'#3b82f6', s:'INGEGAR trabajando' },
-            { l:'Resueltos mes', n:resMes.length, c:'#22c55e', s:'este mes' },
-            { l:'Vencidos',      n:vnc.length,    c:vnc.length?'#ef4444':'#22c55e', s:vnc.length?'Atención':'Al día' },
+            { l:'En proceso',    n:inProc.length, c:C.info,                               s:'INGEGAR trabajando' },
+            { l:'Resueltos mes', n:resMes.length, c:C.success,                            s:'este mes' },
+            { l:'Vencidos',      n:vnc.length,    c:vnc.length?C.danger:C.success,         s:vnc.length?'Atención':'Al día' },
           ].map(({l,n,c,s}) => (
             <div key={l} style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'16px 18px' }}>
               <div style={{ fontSize:'28px', fontWeight:'800', color:c, lineHeight:1, marginBottom:'4px', fontVariantNumeric:'tabular-nums' }}>{n}</div>
@@ -159,7 +156,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
                     <span style={{ width:'8px', height:'8px', borderRadius:'2px', background:acc, display:'inline-block' }}/>Activos
                   </span>
                   <span style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-                    <span style={{ width:'8px', height:'8px', borderRadius:'2px', background:'#22c55e', display:'inline-block' }}/>Resueltos
+                    <span style={{ width:'8px', height:'8px', borderRadius:'2px', background:C.success, display:'inline-block' }}/>Resueltos
                   </span>
                 </div>
               </div>

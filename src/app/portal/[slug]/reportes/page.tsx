@@ -6,17 +6,12 @@ import { canViewPortal } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 
+import { URGENCY_COLORS as URG_COLOR, TICKET_STATUS_COLORS as STATUS_COLOR, C } from '@/lib/portal-colors'
+
 const OPEN = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const URG_COLOR: Record<string, string> = {
-  emergencia: '#ef4444', urgencia: '#f59e0b', no_urgente: '#22c55e', preventivo: '#3b82f6',
-}
 const URG_LABEL: Record<string, string> = {
   emergencia: 'Emergencia', urgencia: 'Urgente', no_urgente: 'Normal', preventivo: 'Preventivo',
-}
-const STATUS_COLOR: Record<string, string> = {
-  nuevo: '#3b82f6', en_revision: '#f59e0b', en_ejecucion: '#f97316',
-  esperando_aprobacion: '#8b5cf6', resuelto: '#22c55e', cancelado: '#9ca3af',
 }
 const STATUS_LABEL: Record<string, string> = {
   nuevo: 'Nuevo', en_revision: 'En revisión', en_ejecucion: 'En ejecución',
