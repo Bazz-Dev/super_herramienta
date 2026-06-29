@@ -25,13 +25,13 @@ async function main() {
     create: { email: 'admin@ingegarchile.cl', name: 'Admin INGEGAR', passwordHash: adminHash, role: 'super', tenantId: ingegar.id },
   })
 
-  // Sebastián Garrido — Gerente de Operaciones
+  // Sebastián Garrido — Gerente de Operaciones (admin normal, no super admin)
   const sebastianPassword = process.env.SEED_SEBASTIAN_PASSWORD ?? 'Ingegar@2026'
   const sebastianHash = await bcrypt.hash(sebastianPassword, 10)
   await prisma.user.upsert({
     where: { email: 'sgarrido@ingegarchile.cl' },
-    update: { passwordHash: sebastianHash, role: 'super', name: 'Sebastián Garrido', active: true },
-    create: { email: 'sgarrido@ingegarchile.cl', name: 'Sebastián Garrido', passwordHash: sebastianHash, role: 'super', tenantId: ingegar.id },
+    update: { passwordHash: sebastianHash, role: 'supervisor', name: 'Sebastián Garrido', active: true },
+    create: { email: 'sgarrido@ingegarchile.cl', name: 'Sebastián Garrido', passwordHash: sebastianHash, role: 'supervisor', tenantId: ingegar.id },
   })
 
   // Cristian — Analista Comercial
@@ -220,7 +220,7 @@ async function main() {
   console.log('\nSeed completo.')
   console.log('  Tenant único: ingegar')
   console.log('  admin@ingegarchile.cl         /', adminPassword, '(super)')
-  console.log('  sgarrido@ingegarchile.cl      /', sebastianPassword, '(super — Gerente Operaciones)')
+  console.log('  sgarrido@ingegarchile.cl      /', sebastianPassword, '(supervisor — Gerente Operaciones)')
   console.log('  cristian@ingegarchile.cl      /', cristianPassword, '(supervisor — Analista Comercial)')
   console.log('\n  Portales cliente:')
   console.log('  portal@justburger.cl          /', jbPassword, '(client) → /portal/justburger')

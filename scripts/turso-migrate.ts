@@ -31,6 +31,10 @@ const migrations = [
   '20260623001007_cashflow_table_naming_and_restrict',
   '20260624034801_technicians_contracts_vehicle_expiry_docs',
   '20260624120000_clientops_tickets_portal',
+  '20260627021940_technicians_terminated_status',
+  '20260629162516_expenses_and_technician_role',
+  '20260629162705_add_tecnico_role',
+  '20260629173303_fix_expense_cascade_and_assignment_relation',
 ]
 
 for (const name of migrations) {

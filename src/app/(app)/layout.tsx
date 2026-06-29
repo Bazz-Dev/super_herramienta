@@ -6,9 +6,10 @@ import { Sidebar } from '@/components/ui/sidebar'
 import { NotificationBell } from '@/components/ui/notification-bell'
 
 const ROLE_LABELS: Record<string, string> = {
-  super: 'Super',
-  supervisor: 'Supervisor',
+  super: 'Super Admin',
+  supervisor: 'Administrador',
   client: 'Cliente',
+  tecnico: 'Técnico',
 }
 
 export default async function AppLayout({

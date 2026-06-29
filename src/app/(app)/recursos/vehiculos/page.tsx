@@ -84,49 +84,76 @@ export default async function VehiculosPage({ searchParams }: { searchParams: Pr
               if (!d) return false
               return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) <= 30
             })
+            const expiredDocs = docs.filter(({ d }) => {
+              if (!d) return false
+              return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) < 0
+            })
+            const allDocsOk = docs.every(({ d }) => {
+              if (!d) return true
+              return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) > 30
+            })
+            // Top bar color: red if any expired, amber if any expiring ≤30d, green if all fine
+            const barColor = expiredDocs.length > 0 ? 'bg-red-500' : urgentDocs.length > 0 ? 'bg-amber-400' : 'bg-green-500'
+            const borderColor = expiredDocs.length > 0 ? 'border-red-200' : urgentDocs.length > 0 ? 'border-amber-200' : 'border-gray-200'
 
             return (
-              <div key={v.id} className={`relative rounded-xl border bg-white shadow-sm transition hover:shadow-md ${urgentDocs.length > 0 ? 'border-amber-200' : 'border-gray-200'}`}>
+              <div key={v.id} className={`relative overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${borderColor}`}>
+                {/* Top color bar */}
+                <div className={`h-1.5 w-full ${barColor}`} />
+
                 {/* Card header */}
-                <div className={`flex items-center justify-between rounded-t-xl px-4 py-3 ${urgentDocs.length > 0 ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                  <div>
-                    <p className="text-lg font-bold tracking-wider text-ink">{v.plate}</p>
-                    <p className="text-xs text-gray-500">{[v.brand, v.model, v.year].filter(Boolean).join(' · ') || 'Sin datos'}</p>
+                <div className={`flex items-center justify-between px-4 pt-3 pb-2`}>
+                  <div className="min-w-0">
+                    <p className="text-xl font-bold tracking-wider text-ink">{v.plate}</p>
+                    <p className="truncate text-xs text-gray-500">{[v.brand, v.model, v.year].filter(Boolean).join(' · ') || 'Sin datos'}</p>
                   </div>
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${VEHICLE_STATUS_BADGE[v.status as VehicleStatusId]}`}>
-                    {VEHICLE_STATUS_LABELS[v.status as VehicleStatusId]}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${VEHICLE_STATUS_BADGE[v.status as VehicleStatusId]}`}>
+                      {VEHICLE_STATUS_LABELS[v.status as VehicleStatusId]}
+                    </span>
+                    {/* Asset count pill */}
+                    <span className="flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3 w-3">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+                      </svg>
+                      {v._count.assets}
+                    </span>
+                  </div>
                 </div>
 
+                {/* Divider */}
+                <div className="mx-4 border-t border-gray-100" />
+
                 {/* Card body */}
-                <div className="px-4 py-3 space-y-2.5">
+                <div className="space-y-2.5 px-4 py-3">
                   {/* Técnico */}
                   <div className="flex items-center gap-2 text-sm">
                     <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                     </svg>
                     {v.technician ? (
-                      <Link href={`/recursos/tecnicos/${v.technician.id}`} className="text-gray-700 hover:underline">{v.technician.name}</Link>
+                      <Link href={`/recursos/tecnicos/${v.technician.id}`} className="font-medium text-gray-700 hover:text-brand hover:underline">
+                        {v.technician.name}
+                      </Link>
                     ) : (
-                      <span className="text-gray-400 italic">Sin técnico asignado</span>
+                      <span className="italic text-gray-400">Sin técnico asignado</span>
                     )}
-                  </div>
-
-                  {/* Herramientas */}
-                  <div className="flex items-center gap-2 text-sm">
-                    <svg className="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
-                    </svg>
-                    <span className="text-gray-600">{v._count.assets} herramienta{v._count.assets !== 1 ? 's' : ''}</span>
                   </div>
 
                   {isSuper && (
                     <div className="text-xs text-gray-400 uppercase tracking-wide">{v.tenant.slug}</div>
                   )}
 
-                  {/* Document expiry summary */}
-                  {urgentDocs.length > 0 && (
-                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 space-y-1">
+                  {/* Document status */}
+                  {allDocsOk ? (
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-green-600">
+                      <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                      </svg>
+                      Documentos al día
+                    </div>
+                  ) : (
+                    <div className={`rounded-lg border p-2.5 space-y-1 ${expiredDocs.length > 0 ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50'}`}>
                       {urgentDocs.map(({ label, d }) => {
                         const info = expiryInfo(d)!
                         return (
@@ -141,9 +168,9 @@ export default async function VehiculosPage({ searchParams }: { searchParams: Pr
                 </div>
 
                 {/* Card footer */}
-                <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2.5">
+                <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
                   <Link href={`/recursos/vehiculos/${v.id}`}
-                    className="rounded-md border border-gray-300 px-3 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50">
+                    className="rounded-md border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50">
                     Ver / Editar
                   </Link>
                   <DeleteButton action={deleteVehicle.bind(null, v.id)} confirmText={`¿Eliminar ${v.plate}?`} />

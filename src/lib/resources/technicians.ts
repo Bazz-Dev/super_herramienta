@@ -20,7 +20,7 @@ export async function listTechnicians(actor: TenantActor, search?: string) {
     include: {
       tenant: { select: { slug: true } },
       _count: { select: { crews: true } },
-      vehicle: { select: { id: true, plate: true } },
+      vehicle: { select: { id: true, plate: true, _count: { select: { assets: true } } } },
     },
     orderBy: [{ active: 'desc' }, { name: 'asc' }],
   })
