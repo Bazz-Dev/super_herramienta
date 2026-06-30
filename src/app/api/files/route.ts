@@ -34,11 +34,14 @@ export async function GET(req: NextRequest) {
 
   // Verify the requesting user actually owns a document with this key
   if (type === 'ticket') {
+    const clientId = session.user.clientId
+    const ticketFilter =
+      role === 'super'  ? undefined :
+      role === 'client' && clientId ? { tenantId, clientId } :
+      role === 'client' ? { tenantId, clientId: '' } : // no clientId → deny by impossible match
+                          { tenantId }
     const doc = await prisma.ticketDocument.findFirst({
-      where: {
-        fileUrl: key,
-        ticket: role === 'super' ? undefined : { tenantId },
-      },
+      where: { fileUrl: key, ticket: ticketFilter },
       select: { id: true },
     })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
