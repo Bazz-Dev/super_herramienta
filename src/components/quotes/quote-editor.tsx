@@ -12,6 +12,7 @@ import { formatMoney } from '@/lib/quotes/format'
 import { buildQuoteId } from '@/lib/quotes/quote-id'
 import { renderQuoteHTML } from '@/lib/quotes/template'
 import { DownloadPdfButton } from './download-pdf-button'
+import { SaveDocumentButton } from './save-document-button'
 import { ExternalLinkIcon, ImageIcon, RefreshIcon, ZoomInIcon, ZoomOutIcon } from './icons'
 import { ImagesEditor } from './images-editor'
 import { ItemsEditor } from './items-editor'
@@ -20,7 +21,9 @@ import { ScopeEditor } from './scope-editor'
 import { StringListEditor } from './string-list-editor'
 import { Field, IconButton, NumberInput, SectionCard, Select, TextArea, TextInput } from './ui'
 
-export function QuoteEditor({ initial }: { initial: QuoteData }) {
+interface ClientOption { id: string; name: string }
+
+export function QuoteEditor({ initial, clients = [], docId }: { initial: QuoteData; clients?: ClientOption[]; docId?: string }) {
   const [data, setData] = useState<QuoteData>(initial)
   const set = (patch: Partial<QuoteData>) => setData((d) => ({ ...d, ...patch }))
 
@@ -226,6 +229,15 @@ export function QuoteEditor({ initial }: { initial: QuoteData }) {
               <ExternalLinkIcon />
             </IconButton>
             <DownloadPdfButton data={data} />
+            {clients.length > 0 && (
+              <SaveDocumentButton
+                clients={clients}
+                dataJson={() => data}
+                defaultTitle={data.client?.name ? `Propuesta ${data.client.name}` : 'Propuesta'}
+                documentType="propuesta"
+                existingDocId={docId}
+              />
+            )}
           </div>
         </div>
         <div className="max-h-[82vh] overflow-auto rounded-lg bg-gray-100 p-3">

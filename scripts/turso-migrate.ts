@@ -39,6 +39,9 @@ const migrations = [
   '20260629220000_username_login_indexes_fk_fixes',
   '20260630033400_rename_drive_folder_url_to_folder_key',
   '20260630122118_assignment_ticket_link',
+  '20260630214131_client_documents_and_fes',
+  '20260630222439_add_data_json_to_client_documents',
+  '20260630223147_rrhh_module',
 ]
 
 for (const name of migrations) {

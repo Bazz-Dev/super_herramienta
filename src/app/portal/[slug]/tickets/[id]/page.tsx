@@ -7,6 +7,7 @@ import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { getPresignedUrl, isR2Key } from '@/lib/r2'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalCommentForm } from '@/components/tickets/portal-comment-form'
+import { PortalTicketActions } from '@/components/tickets/portal-ticket-actions'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import {
   PORTAL_STATUS_BADGE as SB,
@@ -72,6 +73,9 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   const si = STEPS.indexOf(ticket.status)
   const isResolved = ['resuelto', 'cancelado'].includes(ticket.status)
   const canComment = !isStaffViewing(session) && !isResolved
+  const isClientViewing = !isStaffViewing(session) && session?.user?.role === 'client'
+  const canEdit = isClientViewing && ticket.status === 'nuevo'
+  const canAddItems = isClientViewing && ['nuevo', 'en_revision'].includes(ticket.status)
 
   const urgencyCardClass: Record<string, string> = {
     emergencia: 'ticket-card-em', urgencia: 'ticket-card-ur',
@@ -158,47 +162,79 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             </div>
           )}
 
-          {/* Items checklist */}
-          {ticket.items.length > 0 && (
+          {/* Items checklist + add item */}
+          {(ticket.items.length > 0 || canAddItems) && (
             <div className="pcard" style={{ padding: '16px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Trabajos</p>
-                <span style={{ fontSize: '11px', color: 'var(--p-t3)', fontWeight: '600' }}>
-                  {ticket.items.filter(i => i.status === 'resuelto').length}/{ticket.items.length} completados
-                </span>
+                {ticket.items.length > 0 && (
+                  <span style={{ fontSize: '11px', color: 'var(--p-t3)', fontWeight: '600' }}>
+                    {ticket.items.filter(i => i.status === 'resuelto').length}/{ticket.items.length} completados
+                  </span>
+                )}
               </div>
-              {/* Progress bar */}
-              <div style={{ height: '5px', background: 'var(--p-bd)', borderRadius: '5px', marginBottom: '14px', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', borderRadius: '5px',
-                  background: `linear-gradient(90deg, ${theme.primary}, color-mix(in srgb, ${theme.primary} 70%, #22c55e))`,
-                  width: `${(ticket.items.filter(i => i.status === 'resuelto').length / ticket.items.length) * 100}%`,
-                  transition: 'width 0.5s cubic-bezier(0.4,0,0.2,1)',
-                }} />
-              </div>
-              <ul style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {ticket.items.map(item => (
-                  <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+              {ticket.items.length > 0 && (
+                <>
+                  <div style={{ height: '5px', background: 'var(--p-bd)', borderRadius: '5px', marginBottom: '14px', overflow: 'hidden' }}>
                     <div style={{
-                      width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, marginTop: '1px',
-                      background: item.status === 'resuelto' ? '#22c55e' : 'var(--p-bg)',
-                      border: item.status === 'resuelto' ? '2px solid #22c55e' : '2px solid var(--p-bd2)',
-                      display: 'grid', placeItems: 'center',
-                    }}>
-                      {item.status === 'resuelto' && (
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5L8.5 2" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: '13px', color: item.status === 'resuelto' ? 'var(--p-t3)' : 'var(--p-text)', fontWeight: '500', textDecoration: item.status === 'resuelto' ? 'line-through' : 'none', lineHeight: '1.4' }}>
-                        {item.title}
-                      </p>
-                      {item.description && <p style={{ fontSize: '12px', color: 'var(--p-t3)', marginTop: '2px' }}>{item.description}</p>}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                      height: '100%', borderRadius: '5px',
+                      background: `linear-gradient(90deg, ${theme.primary}, color-mix(in srgb, ${theme.primary} 70%, #22c55e))`,
+                      width: `${(ticket.items.filter(i => i.status === 'resuelto').length / ticket.items.length) * 100}%`,
+                      transition: 'width 0.5s cubic-bezier(0.4,0,0.2,1)',
+                    }} />
+                  </div>
+                  <ul style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: canAddItems ? '14px' : '0' }}>
+                    {ticket.items.map(item => (
+                      <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <div style={{
+                          width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, marginTop: '1px',
+                          background: item.status === 'resuelto' ? '#22c55e' : 'var(--p-bg)',
+                          border: item.status === 'resuelto' ? '2px solid #22c55e' : '2px solid var(--p-bd2)',
+                          display: 'grid', placeItems: 'center',
+                        }}>
+                          {item.status === 'resuelto' && (
+                            <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5L8.5 2" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: '13px', color: item.status === 'resuelto' ? 'var(--p-t3)' : 'var(--p-text)', fontWeight: '500', textDecoration: item.status === 'resuelto' ? 'line-through' : 'none', lineHeight: '1.4' }}>
+                            {item.title}
+                          </p>
+                          {item.description && <p style={{ fontSize: '12px', color: 'var(--p-t3)', marginTop: '2px' }}>{item.description}</p>}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {ticket.items.length === 0 && canAddItems && (
+                <p style={{ fontSize: '13px', color: 'var(--p-t3)', marginBottom: '12px' }}>Sin sub-tareas aún. Agrega trabajos específicos que necesitas resolver.</p>
+              )}
+              {canAddItems && (
+                <PortalTicketActions
+                  ticketId={ticket.id}
+                  canEdit={false}
+                  canAddItems={true}
+                  initialTitle={ticket.title}
+                  initialDescription={ticket.description ?? ''}
+                  initialUrgency={ticket.urgency}
+                  primary={theme.primary}
+                />
+              )}
             </div>
+          )}
+
+          {/* Edit ticket actions (outside items card) */}
+          {canEdit && (
+            <PortalTicketActions
+              ticketId={ticket.id}
+              canEdit={true}
+              canAddItems={false}
+              initialTitle={ticket.title}
+              initialDescription={ticket.description ?? ''}
+              initialUrgency={ticket.urgency}
+              primary={theme.primary}
+            />
           )}
 
           {/* Documents */}

@@ -83,13 +83,15 @@ model Tenant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users       User[]
-  technicians Technician[]
-  crews       Crew[]
-  assets      Asset[]
-  vehicles    Vehicle[]
-  assignments Assignment[]
-  clients     Client[]
+  users         User[]
+  technicians   Technician[]
+  crews         Crew[]
+  assets        Asset[]
+  vehicles      Vehicle[]
+  assignments   Assignment[]
+  clients       Client[]
+  leaveRequests LeaveRequest[]
+  payrolls      Payroll[]
 
   @@map("tenants")
 }
@@ -120,6 +122,9 @@ model User {
   notifications     Notification[]
   pushSubscriptions PushSubscription[]
   expensesApproved  Expense[]
+  clientDocuments   ClientDocument[]
+  signaturesCreated SignatureRequest[] @relation("SignatureCreatedBy")
+  leaveApprovals    LeaveRequest[]     @relation("LeaveApprovals")
 
   @@index([tenantId])
   @@map("users")
@@ -173,8 +178,11 @@ model Technician {
 
   contractType    ContractType @default(indefinido)
   contractEndDate DateTime?   // solo para plazo_fijo
+  hireDate        DateTime?   // fecha de ingreso a la empresa
+  baseSalary      Int?        // sueldo base mensual en CLP
   dailyRate       Int?        // CLP/día — para ayudantes eventuales
   birthDate       DateTime?
+  address         String?
   emergencyContact String?
   emergencyPhone  String?
 
@@ -188,6 +196,9 @@ model Technician {
   documents     TechnicianDocument[]
   ticketCollab  TicketCollaborator[]
   expenses      Expense[]
+  signatures    SignatureRequest[]
+  leaveRequests LeaveRequest[]
+  payrolls      Payroll[]
 
   @@index([tenantId])
   @@map("technicians")
@@ -254,6 +265,7 @@ model Client {
   branches    Branch[]
   jobs        Job[]
   tickets     Ticket[]
+  documents   ClientDocument[]
 
   @@index([tenantId])
   @@map("clients")
@@ -629,6 +641,69 @@ model Expense {
   @@map("expenses")
 }
 
+// --- Documentos de cliente: propuestas y informes técnicos guardados ---
+
+enum ClientDocType {
+  propuesta    // cotización/propuesta comercial
+  informe      // informe técnico
+  otro
+}
+
+model ClientDocument {
+  id          String          @id @default(cuid())
+  tenantId    String
+  clientId    String
+  type        ClientDocType   @default(otro)
+  title       String
+  fileKey     String          // R2 key, o "inline" cuando los datos están en dataJson
+  dataJson    String?         // JSON completo del editor (QuoteData | ReportData) — fuente de verdad para re-editar
+  metadata    String?         // JSON: { quoteId?, reportId?, amount?, version? }
+  createdById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([clientId])
+  @@map("client_documents")
+}
+
+// --- FES interna: firma electrónica simple para técnicos ---
+
+enum SignatureStatus {
+  pendiente
+  firmado
+  rechazado
+}
+
+model SignatureRequest {
+  id            String          @id @default(cuid())
+  tenantId      String
+  technicianId  String
+  documentType  String          // "contrato" | "anexo" | "acuerdo" | texto libre
+  documentTitle String
+  documentHash  String          // SHA-256 del contenido del documento
+  documentData  String          // JSON con el contenido del documento
+  status        SignatureStatus @default(pendiente)
+  rutConfirmed  String?         // RUT que confirmó al firmar
+  signedAt      DateTime?
+  signedIp      String?
+  rejectedAt    DateTime?
+  rejectedNote  String?
+  createdById   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  technician    Technician      @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  createdBy     User?           @relation("SignatureCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([technicianId])
+  @@map("signature_requests")
+}
+
 model JobCost {
   id          String       @id @default(cuid())
   jobId       String
@@ -643,4 +718,72 @@ model JobCost {
 
   @@index([jobId])
   @@map("job_costs")
+}
+
+// ─── RR.HH. ────────────────────────────────────────────────────
+
+enum LeaveType {
+  vacaciones
+  permiso_sin_goce
+  permiso_con_goce
+  licencia_medica
+  otro
+}
+
+enum LeaveStatus {
+  pendiente
+  aprobado
+  rechazado
+}
+
+model LeaveRequest {
+  id           String      @id @default(cuid())
+  tenantId     String
+  technicianId String
+  type         LeaveType   @default(vacaciones)
+  startDate    DateTime
+  endDate      DateTime
+  days         Int
+  status       LeaveStatus @default(pendiente)
+  note         String?
+  approvedById String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  technician  Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  approvedBy  User?      @relation("LeaveApprovals", fields: [approvedById], references: [id])
+
+  @@index([tenantId])
+  @@index([technicianId])
+  @@map("leave_requests")
+}
+
+enum PayrollStatus {
+  borrador
+  emitido
+  pagado
+}
+
+model Payroll {
+  id           String        @id @default(cuid())
+  tenantId     String
+  technicianId String
+  month        Int           // 1–12
+  year         Int
+  baseSalary   Int           // CLP bruto
+  extras       Int           @default(0)   // horas extra, bonos
+  deductions   Int           @default(0)   // descuentos
+  note         String?
+  status       PayrollStatus @default(borrador)
+  paidAt       DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  technician Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@unique([technicianId, month, year])
+  @@index([tenantId])
+  @@map("payrolls")
 }

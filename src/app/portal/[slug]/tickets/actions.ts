@@ -83,6 +83,79 @@ export async function createPortalTicket(fd: FormData) {
   return { success: true, id: ticket.id }
 }
 
+export async function updatePortalTicket(ticketId: string, data: {
+  title?: string
+  description?: string
+  urgency?: string
+}) {
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'client') return { success: false }
+
+  const ticket = await prisma.ticket.findFirst({
+    where: {
+      id: ticketId,
+      clientId: session.user.clientId ?? '',
+      status: { in: ['nuevo'] },
+      deletedAt: null,
+    },
+    select: { id: true, title: true },
+  })
+  if (!ticket) return { success: false, error: 'Ticket no encontrado o no editable' }
+
+  const updates: Record<string, string> = {}
+  if (data.title?.trim()) updates.title = data.title.trim()
+  if (data.description !== undefined) updates.description = data.description
+  if (data.urgency) updates.urgency = data.urgency
+
+  await prisma.ticket.update({ where: { id: ticketId }, data: updates as never })
+
+  await prisma.ticketHistory.create({
+    data: {
+      ticketId,
+      userId: session.user.id,
+      note: 'Cliente editó el requerimiento',
+      isInternal: false,
+    },
+  })
+
+  return { success: true }
+}
+
+export async function addPortalTicketItem(ticketId: string, item: { title: string; description?: string }) {
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'client') return { success: false }
+
+  const title = item.title.trim()
+  if (!title) return { success: false }
+
+  const ticket = await prisma.ticket.findFirst({
+    where: {
+      id: ticketId,
+      clientId: session.user.clientId ?? '',
+      status: { in: ['nuevo', 'en_revision'] },
+      deletedAt: null,
+    },
+    select: { id: true },
+  })
+  if (!ticket) return { success: false, error: 'No se pueden agregar sub-tareas en el estado actual' }
+
+  const maxOrder = await prisma.ticketItem.aggregate({
+    where: { ticketId },
+    _max: { order: true },
+  })
+
+  const newItem = await prisma.ticketItem.create({
+    data: {
+      ticketId,
+      title,
+      description: item.description?.trim() || undefined,
+      order: (maxOrder._max.order ?? 0) + 1,
+    },
+  })
+
+  return { success: true, item: newItem }
+}
+
 export async function addPortalComment(ticketId: string, note: string) {
   const session = await auth()
   if (!session?.user || session.user.role !== 'client') return { success: false }

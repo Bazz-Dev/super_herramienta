@@ -4,10 +4,12 @@ Herramienta interna de gestión de INGEGAR: gestión de técnicos, cronogramas,
 cotizador con plantillas propias, pipeline comercial y portal cliente con tickets.
 Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 
-> **Versión actual: v1.6.0** — Auth + multi-tenant, Cotizador (editor + PDF),
+> **Versión actual: v1.7.0** — Auth + multi-tenant, Cotizador (editor + PDF + carpetas clientes),
 > Recursos (técnicos, vehículos, activos, cuadrillas, clientes), Cronograma,
-> Flujo de Caja, Tickets (interno + Portal JB con PWA), Informe Técnico.
-> **Pendiente**: persistencia de cotizaciones, módulo Pipeline.
+> Flujo de Caja, Tickets (interno + Portal JB con PWA), Informe Técnico,
+> **RR.HH.** (fichas de empleado, permisos/vacaciones, liquidaciones, FES),
+> **Carpetas de clientes** (propuestas/informes guardados como JSON editable, PDF on-demand).
+> **Pendiente**: módulo Pipeline (cotizaciones enviadas + seguimiento), import histórico Turso.
 
 ---
 
@@ -113,6 +115,24 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 - `renderReportHTML(data)` — fuente única para preview y PDF. Registro fotográfico en página propia (`break-before: page`).
 - API: `POST /api/reports/generate` (autenticada, `runtime='nodejs'`).
 
+### Módulo Carpetas de Clientes (`/documentos`, `src/app/api/client-documents/`)
+- `ClientDocument` model: `fileKey` (= `"inline"` cuando datos están en DB), `dataJson` (JSON completo del editor), `metadata` (info extra).
+- **Flujo de guardado**: Editor → JSON se guarda en `ClientDocument.dataJson` (no R2) → `/documentos` muestra carpetas por cliente.
+- **Re-editar**: botón "Editar" enlaza a `/cotizador?docId=xxx` o `/informe?docId=xxx` — carga `dataJson` como `initial` del editor.
+- **PDF on-demand**: botón "PDF" en `/documentos` hace `GET /api/client-documents?id=xxx` para obtener `dataJson` → `POST /api/quotes/generate` → descarga.
+- **API** (`/api/client-documents`): POST (JSON body, no FormData), GET (lista o single por id, `dataJson` omitido en lista), PATCH (actualizar), DELETE.
+- No requiere R2 para propuestas/informes — `isR2Key("inline")` = false.
+
+### Módulo RR.HH. (`src/lib/rrhh/`, `/rrhh`)
+- Acceso: solo `super` | `supervisor`. Requiere `requireActor(['super', 'supervisor'])`.
+- **`/rrhh`** — Dashboard: KPIs (headcount, permisos pendientes, masa salarial mes), lista equipo, permisos recientes, accesos rápidos.
+- **`/rrhh/[id]`** — Ficha empleado: datos personales, contrato, formulario edición datos laborales (`TechnicianHRForm`), historial permisos, liquidaciones, asignaciones, documentos.
+- **`/rrhh/vacaciones`** — CRUD de `LeaveRequest`: aprobar/rechazar inline, filtros por técnico y estado.
+- **`/rrhh/liquidaciones`** — CRUD de `Payroll`: flujo Borrador→Emitido→Pagado, cálculo líquido = base + extras − descuentos.
+- **Nuevos campos en `Technician`**: `hireDate`, `baseSalary`, `address`.
+- **Nuevos modelos**: `LeaveRequest` (vacaciones, permisos, licencias) + `Payroll` (liquidaciones mensuales).
+- `requireActor` actualizado para aceptar `allowedRoles?: Role[]` — redirige a `/dashboard` si el rol no está permitido.
+
 ### Módulo Recursos (`src/lib/resources/`, `/recursos`)
 - 5 entidades CRUD scoped por tenant: **Técnicos**, **Vehículos**, **Activos**, **Cuadrillas**, **Clientes**.
 - Patrón: `lib/resources/<entidad>.ts` + `actions.ts` (`'use server'`) + páginas + form component.
@@ -165,19 +185,21 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 ## Roadmap de módulos (estado jun-2026)
 
 1. ✅ **Auth + multi-tenant** — completo.
-2. 🟡 **Cotizador** — editor funcional; **falta** persistencia DB (guardar/listar/editar).
-3. ✅ **Recursos** — CRUD completo (técnicos con estados desvinculados, vehículos, activos, cuadrillas, clientes).
+2. ✅ **Cotizador** — editor funcional + guardar como JSON editable en carpeta cliente + PDF on-demand.
+3. ✅ **Recursos** — CRUD completo (técnicos, vehículos, activos, cuadrillas, clientes).
 4. ✅ **Cronograma** — calendario Día/Semana/Mes, equipos, permiso de sucursal.
 5. ✅ **Flujo de Caja** — dashboard + CRUD + métricas; falta poblar prod con datos históricos.
-6. ✅ **Tickets** — Kanban interno + Portal JB PWA con push.
-7. ✅ **Informe Técnico** — editor + PDF.
-8. ⬜ **Pipeline** — cotizaciones enviadas, estados, alertas de seguimiento.
+6. ✅ **Tickets** — Kanban interno + Portal JB PWA con push. Portal: editar ticket/sub-tareas si estado = nuevo/en_revision.
+7. ✅ **Informe Técnico** — editor + PDF + guardar en carpeta cliente.
+8. ✅ **Carpetas de clientes** (`/documentos`) — propuestas e informes guardados como JSON editable, re-abribles en editor, PDF generado on-demand.
+9. ✅ **RR.HH.** — fichas de empleado, permisos/vacaciones, liquidaciones mensuales, FES (Firma Electrónica Simple desde `/mi-panel`).
+10. ⬜ **Pipeline** — cotizaciones enviadas, estados, alertas de seguimiento (se une con Cotizador).
 
 **Próximos (sugeridos en orden de valor):**
-- Persistencia de cotizaciones (se une con Pipeline).
+- Pipeline: historial de propuestas enviadas por cliente, estados (enviada/vista/aceptada/rechazada), alertas.
+- Import histórico Flujo de Caja a Turso en producción (`scripts/import-flujo.ts`).
 - Estadísticas por técnico: trabajos ejecutados, horas, distribución semanal.
-- Import histórico Flujo de Caja a Turso en producción.
-- Ticketing Just Burger: migrar desde Google Apps Script.
+- Ticketing Just Burger: migrar desde Google Apps Script al Portal JB.
 
 ---
 
@@ -226,7 +248,7 @@ src/
   generated/prisma/       # cliente Prisma generado (gitignored)
   lib/
     prisma.ts             # singleton + adapter
-    tenant.ts             # tenantScope()
+    tenant.ts             # tenantScope(), requireActor(allowedRoles?)
     db-adapter.ts         # SQLite vs Turso
     push.ts               # sendPushToUser/Staff, notify, notifyTenantStaff
     portal-theme.ts       # resolvePortalTheme() — solo lee primary de DB
@@ -236,22 +258,28 @@ src/
     resources/            # technicians, vehicles, assets, crews, clients, labels, schemas
     cashflow/             # queries, metrics, labels, format
     tickets/              # tickets, labels
+    rrhh/                 # queries, actions, labels (RR.HH. module)
+    client-documents.ts   # listClientDocuments, listAllClientDocuments, deleteClientDocument
   types/next-auth.d.ts
   components/
     ui/                   # sidebar, logo, notification-bell, push-provider
-    quotes/               # QuotePreview, DownloadPdfButton, icons, ui primitivos
+    quotes/               # QuotePreview, DownloadPdfButton, SaveDocumentButton, icons, ui primitivos
     reports/              # ReportPreview
     resources/            # forms por entidad + doc-section
-    tickets/              # TicketCard, TicketFilters, portal-shell, portal-push-prompt
+    tickets/              # TicketCard, TicketFilters, portal-shell, portal-push-prompt, portal-edit-form, portal-add-item-form
     cashflow/             # KpiCard, ClientFilter, RevenueByClient, MonthlyTrend
+    rrhh/                 # TechnicianHRForm, LeaveManagementView, PayrollView
   app/
     layout.tsx            # Inter font, PushProvider, apple-touch-icon meta
     page.tsx              # redirect a /login o /dashboard
     (auth)/login/
     (app)/                # layout protegido (Sidebar + NotificationBell)
-      dashboard/          # hero con versión v1.6.0 + novedades
-      cotizador/
-      informe/
+      dashboard/          # hero con versión v1.7.0 + novedades
+      cotizador/          # ?docId=xxx carga documento guardado para re-editar
+      informe/            # ?docId=xxx carga informe guardado para re-editar
+      documentos/         # carpetas de clientes: propuestas + informes editables
+      mi-panel/           # panel de técnicos: FES pendientes + asignaciones
+      rrhh/               # dashboard, [id] ficha empleado, vacaciones, liquidaciones
       tickets/            # Kanban interno
       cronograma/
       flujo/

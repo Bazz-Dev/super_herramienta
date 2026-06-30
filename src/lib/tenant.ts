@@ -25,10 +25,11 @@ export type AuthActor = TenantActor & {
   tenantSlug: string
 }
 
-export async function requireActor(): Promise<AuthActor> {
+export async function requireActor(allowedRoles?: Role[]): Promise<AuthActor> {
   const session = await auth()
   if (!session?.user?.tenantId) redirect('/login')
   const u = session.user
+  if (allowedRoles && !allowedRoles.includes(u.role as Role)) redirect('/dashboard')
   return {
     id: u.id,
     role: u.role,

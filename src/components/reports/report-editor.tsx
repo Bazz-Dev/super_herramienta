@@ -4,13 +4,16 @@ import { useEffect, useState } from 'react'
 import type { ReportData } from '@/lib/reports/types'
 import { renderReportHTML } from '@/lib/reports/template'
 import { DownloadReportButton } from './download-report-button'
+import { SaveDocumentButton } from '@/components/quotes/save-document-button'
 import { ReportPhotosEditor } from './report-photos-editor'
 import { ReportPreview } from './report-preview'
 import { SectionsEditor } from './sections-editor'
 import { ExternalLinkIcon, ImageIcon, ZoomInIcon, ZoomOutIcon } from '@/components/quotes/icons'
 import { Field, IconButton, SectionCard, TextArea, TextInput } from '@/components/quotes/ui'
 
-export function ReportEditor({ initial }: { initial: ReportData }) {
+interface ClientOption { id: string; name: string }
+
+export function ReportEditor({ initial, clients = [], docId }: { initial: ReportData; clients?: ClientOption[]; docId?: string }) {
   const [data, setData] = useState<ReportData>(initial)
   const set = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }))
 
@@ -116,6 +119,15 @@ export function ReportEditor({ initial }: { initial: ReportData }) {
               <ExternalLinkIcon />
             </IconButton>
             <DownloadReportButton data={data} />
+            {clients.length > 0 && (
+              <SaveDocumentButton
+                clients={clients}
+                dataJson={() => data}
+                defaultTitle={data.reportId ? `Informe ${data.reportId}` : 'Informe Técnico'}
+                documentType="informe"
+                existingDocId={docId}
+              />
+            )}
           </div>
         </div>
         <div className="max-h-[82vh] overflow-auto rounded-lg bg-gray-100 p-3">
