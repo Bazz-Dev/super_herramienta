@@ -56,10 +56,13 @@ export async function createAssignment(_prev: FormState, formData: FormData): Pr
   const actor = await requireActor()
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  const rawTicketId = formData.get('ticketId')
+  const ticketId = typeof rawTicketId === 'string' && rawTicketId ? rawTicketId : null
   const assignment = await prisma.assignment.create({
     data: {
       ...scalarData(parsed.data),
       tenantId: actor.tenantId,
+      ticketId,
       assignees: { create: parsed.data.assignees.map((a) => ({ technicianId: a.technicianId, role: a.role })) },
     },
   })
@@ -91,6 +94,8 @@ export async function updateAssignment(id: string, _prev: FormState, formData: F
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  const rawTicketId = formData.get('ticketId')
+  const ticketId = typeof rawTicketId === 'string' && rawTicketId ? rawTicketId : null
   // Replace assignees wholesale (simplest reconciliation for a small team list).
   await prisma.$transaction([
     prisma.assignmentAssignee.deleteMany({ where: { assignmentId: id } }),
@@ -98,6 +103,7 @@ export async function updateAssignment(id: string, _prev: FormState, formData: F
       where: { id },
       data: {
         ...scalarData(parsed.data),
+        ticketId,
         assignees: { create: parsed.data.assignees.map((a) => ({ technicianId: a.technicianId, role: a.role })) },
       },
     }),

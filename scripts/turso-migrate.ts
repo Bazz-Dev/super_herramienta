@@ -38,6 +38,7 @@ const migrations = [
   '20260629213328_soft_delete_ticket_and_expiry_cron',
   '20260629220000_username_login_indexes_fk_fixes',
   '20260630033400_rename_drive_folder_url_to_folder_key',
+  '20260630122118_assignment_ticket_link',
 ]
 
 for (const name of migrations) {

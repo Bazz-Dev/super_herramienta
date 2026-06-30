@@ -329,11 +329,15 @@ model Assignment {
   clientId String?
   client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
+  ticketId String?
+  ticket   Ticket? @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+
   assignees AssignmentAssignee[] // técnicos y ayudantes
   expenses  Expense[]
 
   @@index([tenantId])
   @@index([start])
+  @@index([ticketId])
   @@map("assignments")
 }
 
@@ -522,6 +526,7 @@ model Ticket {
   documents     TicketDocument[]
   collaborators TicketCollaborator[]
   expenses      Expense[]
+  assignments   Assignment[]
 
   @@index([tenantId])
   @@index([clientId])

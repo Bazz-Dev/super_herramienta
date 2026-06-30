@@ -31,6 +31,7 @@
     "migrate:uploads:prod": "npx tsx --env-file=.env.production.local scripts/migrate-uploads-to-r2.ts",
     "migrate:drive:dryrun": "DRY_RUN=1 npx tsx --env-file=.env scripts/migrate-drive-to-r2.ts",
     "migrate:drive:prod": "npx tsx --env-file=.env.production.local scripts/migrate-drive-to-r2.ts",
+    "users:tecnico:prod": "npx tsx --env-file=.env.production.local scripts/create-technician-users.ts",
     "db:seed:prod": "npx tsx --env-file=.env.production.local scripts/seed-prod.ts",
     "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
     "cleanup:jb:prod": "npx tsx --env-file=.env.production.local scripts/cleanup-jb-flujo.ts",

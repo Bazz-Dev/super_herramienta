@@ -29,6 +29,8 @@ export type CalendarEvent = {
   client?: string | null
   meetingUrl?: string | null
   description?: string | null
+  ticketCode?: string | null
+  ticketId?: string | null
   assignees: CalendarAssignee[]
 }
 
@@ -57,11 +59,13 @@ export function ScheduleCalendar({
   options,
   createAction,
   deleteAction,
+  unscheduledTickets: _unscheduledTickets,
 }: {
   events: CalendarEvent[]
   options: AssignmentOptions
   createAction: (prev: FormState, formData: FormData) => Promise<FormState>
   deleteAction: (id: string) => Promise<void>
+  unscheduledTickets?: { id: string; ticketCode: string; title: string; urgency: string; client: { name: string } }[]
 }) {
   const today = new Date()
   const [view, setView] = useState<View>('month')

@@ -19,6 +19,7 @@ type Values = {
   permissionRequested?: boolean
   clientId?: string | null
   meetingUrl?: string | null
+  ticketId?: string | null
   assignees?: AssigneeValue[]
 }
 
@@ -27,14 +28,18 @@ export function AssignmentForm({
   options,
   initial = {},
   submitLabel,
+  preselectedTicketId,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>
   options: AssignmentOptions
   initial?: Values
   submitLabel: string
+  preselectedTicketId?: string | null
 }) {
   const [state, formAction, pending] = useActionState(action, {})
   const err = (f: string) => state.fieldErrors?.[f]?.[0]
+
+  const [ticketId, setTicketId] = useState(initial.ticketId ?? preselectedTicketId ?? '')
 
   // Client dropdown with inline creation.
   const [clients, setClients] = useState(options.clients)
@@ -82,6 +87,7 @@ export function AssignmentForm({
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-4">
       <input type="hidden" name="assignees" value={JSON.stringify(assignees)} />
+      <input type="hidden" name="ticketId" value={ticketId} />
 
       <Field label="Título *" hint={err('title')}>
         <TextInput name="title" defaultValue={initial.title ?? ''} required placeholder="Ej. Mantención UMA — Alcon" />
@@ -125,6 +131,22 @@ export function AssignmentForm({
           </span>
         </span>
       </label>
+
+      {/* Ticket vinculado */}
+      {options.openTickets.length > 0 && (
+        <div>
+          <span className="mb-1 block text-xs font-medium text-gray-600">Ticket vinculado (opcional)</span>
+          <Select value={ticketId} onChange={(e) => setTicketId(e.target.value)}>
+            <option value="">— Sin ticket —</option>
+            {options.openTickets.map((t) => (
+              <option key={t.id} value={t.id}>
+                [{t.ticketCode}] {t.title} — {t.client.name}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1 text-xs text-gray-400">Vincula este trabajo a un ticket existente para conectar cronograma y seguimiento.</p>
+        </div>
+      )}
 
       {/* Cliente con creación inline */}
       <div>
