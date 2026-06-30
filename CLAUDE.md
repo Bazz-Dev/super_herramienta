@@ -58,6 +58,19 @@ npm run test:e2e     # Playwright (levanta dev server automáticamente)
 ⚠️ **Tras cambiar el schema Prisma, reiniciar el dev server** — el cliente Prisma se cachea en `globalThis` y hot-reload no lo recarga.
 ⚠️ **`prisma migrate reset` bloquea en agente AI** — requiere consent explícito del usuario. Usar `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION="<mensaje exacto del usuario>"`.
 
+### 🔴 REGLA CRÍTICA — PROTECCIÓN DE DATOS (no negociable)
+
+Antes de correr CUALQUIER comando que toque la base de datos:
+
+1. **Verificar DATABASE_URL activo**: `file:` = local SQLite (seguro). `libsql://` = Turso producción (datos reales de clientes).
+2. **Nunca correr en producción sin confirmación explícita**: `prisma migrate dev`, `prisma migrate reset`, `prisma db push`, `db:reset`, `db:seed`.
+3. **Backup antes de migrar localmente**: `cp prisma/dev.db prisma/dev.db.bak`
+4. **Flujo seguro para schema changes**:
+   - Editar schema → `prisma migrate dev` (solo con `DATABASE_URL=file:`) → `tsc --noEmit` → `git commit` → DESPUÉS `npm run db:migrate:prod`
+5. **Para Turso producción**: SOLO usar `scripts/turso-migrate.ts` que aplica migraciones additive y es idempotente. NUNCA apuntar el CLI de Prisma directamente a la URL de Turso.
+
+Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida irreparable de confianza.
+
 ### Credenciales sembradas (dev)
 - **admin@ingegarchile.cl** / `ingegar123` — rol `super` (ve todos los tenants).
 - Tenants: `ingegar`, `justburger`, `loficoffee`.
