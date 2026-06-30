@@ -23,6 +23,7 @@
     "test:unit": "node --import tsx --test \"tests/unit/*.test.ts\"",
     "import:flujo": "node --import tsx scripts/import-flujo.ts",
     "db:migrate:prod": "npx tsx --env-file=.env.production.local scripts/turso-migrate.ts",
+    "db:migrate:bootstrap": "npx tsx --env-file=.env.production.local scripts/turso-migrate-bootstrap.ts",
     "db:fix:prod": "npx tsx --env-file=.env.production.local scripts/turso-fix-missing-tables.ts",
     "setup:jb:prod": "npx tsx --env-file=.env.production.local scripts/setup-justburger-portal.ts",
     "import:jb:prod": "npx tsx --env-file=.env.production.local scripts/import-jb-tickets.ts",
