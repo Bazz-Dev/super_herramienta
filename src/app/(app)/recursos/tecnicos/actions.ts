@@ -70,10 +70,14 @@ export async function deleteDocument(docId: string, techId: string): Promise<voi
   const actor = await requireActor()
   const doc = await prisma.technicianDocument.findFirst({
     where: { id: docId, technician: { tenantId: actor.tenantId } },
-    select: { id: true },
+    select: { id: true, fileUrl: true },
   })
   if (!doc) return
   await prisma.technicianDocument.delete({ where: { id: docId } })
+  if (!doc.fileUrl.startsWith('/') && !doc.fileUrl.startsWith('http')) {
+    const { deleteFromR2 } = await import('@/lib/r2')
+    await deleteFromR2(doc.fileUrl).catch(() => null)
+  }
   revalidatePath(`/recursos/tecnicos/${techId}`)
 }
 

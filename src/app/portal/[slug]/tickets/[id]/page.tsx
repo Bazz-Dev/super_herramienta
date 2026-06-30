@@ -4,6 +4,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getClientTicket } from '@/lib/tickets/tickets'
 import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
+import { getPresignedUrl, isR2Key } from '@/lib/r2'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalCommentForm } from '@/components/tickets/portal-comment-form'
 import { resolvePortalTheme } from '@/lib/portal-theme'
@@ -57,6 +58,14 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
 
   const ticket = await getClientTicket(client.id, id)
   if (!ticket) notFound()
+
+  // Pre-sign document URLs server-side (1h expiry, never exposed as static paths)
+  const signedDocs = await Promise.all(
+    ticket.documents.map(async (doc) => ({
+      ...doc,
+      viewUrl: isR2Key(doc.fileUrl) ? await getPresignedUrl(doc.fileUrl, 3600) : doc.fileUrl,
+    })),
+  )
 
   const theme = resolvePortalTheme(client.portalTheme)
 
@@ -197,13 +206,13 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             <div className="pcard" style={{ padding: '16px 18px' }}>
               <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Documentos adjuntos</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {ticket.documents.map(doc => (
+                {signedDocs.map(doc => (
                   <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--p-bg)', borderRadius: 'var(--p-r)', gap: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
                       <div style={{ color: 'var(--p-t3)', flexShrink: 0 }}><IconDoc /></div>
                       <span style={{ fontSize: '13px', color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
                     </div>
-                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                    <a href={doc.viewUrl} target="_blank" rel="noopener noreferrer"
                       style={{ fontSize: '12px', fontWeight: '600', color: theme.primary, textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
                       Ver
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke={theme.primary} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">

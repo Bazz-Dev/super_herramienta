@@ -27,6 +27,8 @@
     "setup:jb:prod": "npx tsx --env-file=.env.production.local scripts/setup-justburger-portal.ts",
     "import:jb:prod": "npx tsx --env-file=.env.production.local scripts/import-jb-tickets.ts",
     "fix:portal-slugs:prod": "npx tsx --env-file=.env.production.local scripts/fix-portal-client-slug.ts",
+    "migrate:uploads": "npx tsx --env-file=.env scripts/migrate-uploads-to-r2.ts",
+    "migrate:uploads:prod": "npx tsx --env-file=.env.production.local scripts/migrate-uploads-to-r2.ts",
     "db:seed:prod": "npx tsx --env-file=.env.production.local scripts/seed-prod.ts",
     "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
     "cleanup:jb:prod": "npx tsx --env-file=.env.production.local scripts/cleanup-jb-flujo.ts",
@@ -40,6 +42,8 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1076.0",
+    "@aws-sdk/s3-request-presigner": "^3.1076.0",
     "@eslint/eslintrc": "^3.3.5",
     "@libsql/client": "^0.17.3",
     "@prisma/adapter-better-sqlite3": "^7.8.0",

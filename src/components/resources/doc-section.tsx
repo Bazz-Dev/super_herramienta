@@ -23,9 +23,16 @@ function expiryStatus(d: Date | null): 'ok' | 'warn' | 'expired' | null {
 }
 
 const EXPIRY_BADGE: Record<string, string> = {
-  ok: 'bg-green-100 text-green-700',
-  warn: 'bg-amber-100 text-amber-700',
-  expired: 'bg-red-100 text-red-700',
+  ok: 'bg-ok-100 text-ok-700',
+  warn: 'bg-warn-100 text-warn-700',
+  expired: 'bg-danger-100 text-danger-700',
+}
+
+/** Build the URL to view/download a document through the signed-URL proxy. */
+function fileHref(fileUrl: string) {
+  // Legacy local files served directly; R2 keys go through the signed URL API
+  if (fileUrl.startsWith('/') || fileUrl.startsWith('http')) return fileUrl
+  return `/api/files?key=${encodeURIComponent(fileUrl)}&type=technician`
 }
 
 function formatDate(d: Date | null) {
@@ -207,7 +214,7 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <a
-                    href={d.fileUrl}
+                    href={fileHref(d.fileUrl)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
@@ -215,7 +222,7 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
                     Ver
                   </a>
                   <a
-                    href={d.fileUrl}
+                    href={fileHref(d.fileUrl)}
                     download
                     className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
                   >

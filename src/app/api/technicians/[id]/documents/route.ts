@@ -1,14 +1,13 @@
-import { writeFile, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { canAccessTenant } from '@/lib/tenant'
+import { uploadToR2, deleteFromR2, isR2Key } from '@/lib/r2'
 
 export const runtime = 'nodejs'
 
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
-const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
+const MAX_BYTES = 10 * 1024 * 1024
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
@@ -35,22 +34,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Archivo mayor a 10 MB' }, { status: 400 })
   }
 
-  const bytes = await file.arrayBuffer()
-  const buffer = Buffer.from(bytes)
-
-  const safeFileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-  const dir = join(process.cwd(), 'public', 'uploads', 'docs', techId)
-  await mkdir(dir, { recursive: true })
-  await writeFile(join(dir, safeFileName), buffer)
-
-  const fileUrl = `/uploads/docs/${techId}/${safeFileName}`
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+  const key = `technicians/${techId}/${Date.now()}-${crypto.randomUUID()}.${ext}`
+  const buf = Buffer.from(await file.arrayBuffer())
+  await uploadToR2(key, buf, file.type)
 
   const doc = await prisma.technicianDocument.create({
     data: {
       technicianId: techId,
       type: type as never,
       label,
-      fileUrl,
+      fileUrl: key,
       expiryDate: expiryDate ? new Date(expiryDate) : null,
       notes,
     },
@@ -68,10 +62,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const doc = await prisma.technicianDocument.findFirst({
     where: { id: docId, technicianId: techId, technician: { tenantId: session.user.tenantId } },
-    select: { id: true },
+    select: { id: true, fileUrl: true },
   })
   if (!doc) return NextResponse.json({ error: 'No encontrado' }, { status: 404 })
 
   await prisma.technicianDocument.delete({ where: { id: docId } })
+
+  if (isR2Key(doc.fileUrl)) await deleteFromR2(doc.fileUrl).catch(() => null)
+
   return NextResponse.json({ ok: true })
 }
