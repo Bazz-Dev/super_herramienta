@@ -303,10 +303,10 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             </div>
           </div>
 
-          {ticket.driveFolderUrl && (
-            <a href={ticket.driveFolderUrl} target="_blank" rel="noopener noreferrer" className="pbtn pbtn-ghost" style={{ textDecoration: 'none', justifyContent: 'center', gap: '8px' }}>
-              <IconFolder /> Carpeta de archivos
-            </a>
+          {signedDocs.length > 0 && (
+            <p style={{ fontSize: '12px', color: 'var(--p-t3)', textAlign: 'center', marginTop: '4px' }}>
+              {signedDocs.length} documento{signedDocs.length !== 1 ? 's' : ''} adjunto{signedDocs.length !== 1 ? 's' : ''}
+            </p>
           )}
 
           <Link href={`/portal/${slug}/tickets`} className="pbtn pbtn-ghost" style={{ textDecoration: 'none', justifyContent: 'center' }}>

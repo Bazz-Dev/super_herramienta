@@ -46,3 +46,12 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
 export function isR2Key(value: string): boolean {
   return !value.startsWith('/') && !value.startsWith('http')
 }
+
+/**
+ * Canonical folder prefix for a ticket's files in R2.
+ * Pattern: clients/{clientSlug}/tickets/{ticketCode}
+ * Scalable: adding Decathlon = clients/decathlon/tickets/DEC-001
+ */
+export function ticketFolderKey(clientSlug: string, ticketCode: string): string {
+  return `clients/${clientSlug}/tickets/${ticketCode}`
+}

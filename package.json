@@ -29,6 +29,8 @@
     "fix:portal-slugs:prod": "npx tsx --env-file=.env.production.local scripts/fix-portal-client-slug.ts",
     "migrate:uploads": "npx tsx --env-file=.env scripts/migrate-uploads-to-r2.ts",
     "migrate:uploads:prod": "npx tsx --env-file=.env.production.local scripts/migrate-uploads-to-r2.ts",
+    "migrate:drive:dryrun": "DRY_RUN=1 npx tsx --env-file=.env scripts/migrate-drive-to-r2.ts",
+    "migrate:drive:prod": "npx tsx --env-file=.env.production.local scripts/migrate-drive-to-r2.ts",
     "db:seed:prod": "npx tsx --env-file=.env.production.local scripts/seed-prod.ts",
     "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
     "cleanup:jb:prod": "npx tsx --env-file=.env.production.local scripts/cleanup-jb-flujo.ts",

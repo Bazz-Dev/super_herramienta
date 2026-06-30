@@ -30,6 +30,11 @@ next-env.d.ts
 /tmp-quote*.pdf
 /tmp-pdf-diag
 /public/uploads
+# Client document folders for R2 migration (never commit — large binary files)
+JustBurger - Trabajos/
+JUSTbURGER - Trabajos/
+Decathlon - Trabajos/
+INGEGAR - Documentos/
 .DS_Store
 *.pem
 npm-debug.log*

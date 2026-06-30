@@ -106,14 +106,10 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             </p>
           </div>
           <div>
-            <p className="text-gray-400">Carpeta Drive</p>
-            {ticket.driveFolderUrl ? (
-              <a href={ticket.driveFolderUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-brand hover:underline">
-                Abrir en Drive ↗
-              </a>
-            ) : (
-              <p className="text-gray-400">—</p>
-            )}
+            <p className="text-gray-400">Carpeta R2</p>
+            <p className="font-mono text-xs text-gray-500 break-all">
+              {ticket.folderKey ?? '—'}
+            </p>
           </div>
         </div>
 
@@ -137,7 +133,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               estimatedDate: ticket.estimatedDate?.toISOString().split('T')[0] ?? null,
               workSummary: ticket.workSummary,
               internalNotes: ticket.internalNotes,
-              driveFolderUrl: ticket.driveFolderUrl,
+              folderKey: ticket.folderKey,
               showToClient: ticket.showToClient,
               items: ticket.items,
               documents: ticket.documents,

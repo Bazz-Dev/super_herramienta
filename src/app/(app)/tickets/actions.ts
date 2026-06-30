@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { assertRole } from '@/lib/policies'
 import { notify } from '@/lib/push'
-import { driveEnabled, createDriveFolder, ticketFolderName } from '@/lib/drive'
+import { ticketFolderKey } from '@/lib/r2'
 
 const createSchema = z.object({
   ticketCode: z.string().min(1),
@@ -32,7 +32,7 @@ const updateSchema = z.object({
   workSummary: z.string().optional(),
   clientComment: z.string().optional(),
   internalNotes: z.string().optional(),
-  driveFolderUrl: z.string().optional(),
+  folderKey: z.string().optional(),
   branchId: z.string().nullable().optional(),
   showToClient: z.boolean().optional(),
 })
@@ -54,14 +54,11 @@ export async function createTicket(_: unknown, fd: FormData) {
   const { assignedToId, internalNotes, ...ticketData } = parsed
   const initialStatus = assignedToId ? 'en_revision' : 'nuevo'
 
-  // Fetch client for Drive folder creation
+  // Fetch client slug for R2 folder key
   const clientRecord = await prisma.client.findUnique({
     where: { id: parsed.clientId },
-    select: { name: true, driveFolderId: true },
+    select: { portalSlug: true },
   })
-  const branchRecord = parsed.branchId
-    ? await prisma.branch.findUnique({ where: { id: parsed.branchId }, select: { name: true } })
-    : null
 
   const ticket = await prisma.ticket.create({
     data: {
@@ -71,25 +68,10 @@ export async function createTicket(_: unknown, fd: FormData) {
       tenantId: actor.tenantId,
       createdById: actor.id,
       status: initialStatus,
+      // Auto-assign R2 folder key on creation (no API call needed — just a path prefix)
+      folderKey: ticketFolderKey(clientRecord?.portalSlug ?? 'ingegar', ticketData.ticketCode),
     },
   })
-
-  // Auto-create Drive folder if client has a root folder configured
-  if (driveEnabled() && clientRecord?.driveFolderId) {
-    const folderName = ticketFolderName({
-      ticketCode: ticket.ticketCode,
-      clientName: clientRecord.name,
-      branchName: branchRecord?.name,
-    })
-    createDriveFolder(folderName, clientRecord.driveFolderId)
-      .then((folder) =>
-        prisma.ticket.update({
-          where: { id: ticket.id },
-          data: { driveFolderUrl: folder.webViewLink },
-        }),
-      )
-      .catch((err) => console.error('[Drive] folder creation failed:', err))
-  }
 
   await prisma.ticketHistory.create({
     data: {

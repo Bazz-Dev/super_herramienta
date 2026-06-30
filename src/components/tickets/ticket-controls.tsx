@@ -16,7 +16,7 @@ interface Props {
     estimatedDate: string | null
     workSummary: string | null
     internalNotes: string | null
-    driveFolderUrl: string | null
+    folderKey: string | null
     showToClient: boolean
     items: Item[]
     documents: Doc[]

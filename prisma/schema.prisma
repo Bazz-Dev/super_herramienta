@@ -499,7 +499,7 @@ model Ticket {
   workSummary    String?
   clientComment  String?
   internalNotes  String?
-  driveFolderUrl String?
+  folderKey      String?
   parentTicketId String?
   showToClient   Boolean       @default(true)
   tenantId       String
