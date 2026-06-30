@@ -10,6 +10,7 @@
  * Notifies all supervisors + super users of the affected tenant.
  */
 import { NextResponse } from 'next/server'
+import { timingSafeEqual, createHash } from 'node:crypto'
 import { prisma } from '@/lib/prisma'
 import { notifyTenantStaff } from '@/lib/push'
 
@@ -21,9 +22,16 @@ function daysUntil(date: Date): number {
   return Math.ceil((date.getTime() - Date.now()) / 86_400_000)
 }
 
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const ha = createHash('sha256').update(a).digest()
+  const hb = createHash('sha256').update(b).digest()
+  return timingSafeEqual(ha, hb)
+}
+
 export async function GET(req: Request) {
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const authHeader = req.headers.get('authorization') ?? ''
+  const expected = `Bearer ${process.env.CRON_SECRET ?? ''}`
+  if (!process.env.CRON_SECRET || !timingSafeStringEqual(authHeader, expected)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

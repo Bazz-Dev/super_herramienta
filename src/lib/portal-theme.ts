@@ -17,12 +17,22 @@ export const PORTAL_LIGHT: Omit<PortalTheme, 'primary'> = {
  * stored JSON — bg/card/text are ALWAYS the hardcoded light palette so the
  * portal can never become dark regardless of what's saved in the database.
  */
+// Only accept valid CSS hex colors (#rgb, #rrggbb). Prevents XSS when the
+// value is interpolated into dangerouslySetInnerHTML script tags in portal layout.
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/
+
+function sanitizeHex(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  return HEX_COLOR_RE.test(value) ? value : null
+}
+
 export function resolvePortalTheme(portalTheme: string | null): PortalTheme {
   let primary = '#d42030'
   if (portalTheme) {
     try {
       const parsed = JSON.parse(portalTheme) as Partial<PortalTheme>
-      if (parsed.primary && typeof parsed.primary === 'string') primary = parsed.primary
+      const safe = sanitizeHex(parsed.primary)
+      if (safe) primary = safe
     } catch {}
   }
   return { primary, ...PORTAL_LIGHT }

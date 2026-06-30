@@ -33,3 +33,11 @@ export const COST_CATEGORY_LABELS: Record<string, string> = {
   transporte: 'Transporte',
   otros: 'Otros',
 }
+export const EXPENSE_CATEGORY_LABELS: Record<string, string> = {
+  combustible: 'Combustible',
+  estacionamiento: 'Estacionamiento',
+  materiales: 'Materiales',
+  viatico: 'Viático',
+  herramienta: 'Herramienta',
+  otro: 'Otro',
+}

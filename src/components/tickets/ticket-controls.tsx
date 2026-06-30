@@ -224,7 +224,7 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
               <li key={doc.id} className="flex items-center justify-between text-sm gap-2">
                 <span className="text-gray-700 truncate flex-1">📎 {doc.name}</span>
                 <div className="flex items-center gap-3 shrink-0">
-                  <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-brand hover:underline">Abrir ↗</a>
+                  <a href={doc.fileUrl.startsWith('/') || doc.fileUrl.startsWith('http') ? doc.fileUrl : `/api/files?key=${encodeURIComponent(doc.fileUrl)}&type=ticket`} target="_blank" rel="noopener noreferrer" className="text-xs text-brand hover:underline">Abrir ↗</a>
                   <button
                     type="button"
                     onClick={async () => {

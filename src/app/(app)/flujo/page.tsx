@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { auth } from '@/auth'
+import { prisma } from '@/lib/prisma'
+import { tenantScope } from '@/lib/tenant'
 import {
   listClientsForCashflow,
   listJobs,
@@ -17,7 +19,7 @@ import { KpiCard } from '@/components/cashflow/kpi-card'
 import { ClientFilter } from '@/components/cashflow/client-filter'
 import { RevenueByClient } from '@/components/cashflow/revenue-by-client'
 import { MonthlyTrend } from '@/components/cashflow/monthly-trend'
-import { JOB_TYPE_LABELS } from '@/lib/cashflow/labels'
+import { JOB_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '@/lib/cashflow/labels'
 
 export default async function FlujoPage({
   searchParams,
@@ -28,11 +30,24 @@ export default async function FlujoPage({
   const actor = session!.user
   const { cliente } = await searchParams
 
-  const [clients, jobs, allJobs, monthlyJobs] = await Promise.all([
+  const [clients, jobs, allJobs, monthlyJobs, expensesByCategory, expensesPending] = await Promise.all([
     listClientsForCashflow(actor),
     listJobs(actor, { clientId: cliente }),
     cliente ? Promise.resolve([]) : getClientSummaries(actor),
     cliente ? Promise.resolve([]) : getMonthlySummary(actor),
+    // Gastos aprobados agrupados por categoría
+    prisma.expense.groupBy({
+      by: ['category'],
+      where: { ...tenantScope(actor), status: 'aprobado' },
+      _sum: { amount: true },
+      _count: { id: true },
+    }),
+    // Gastos pendientes de aprobación
+    prisma.expense.aggregate({
+      where: { ...tenantScope(actor), status: 'pendiente' },
+      _count: { id: true },
+      _sum: { amount: true },
+    }),
   ])
 
   const m = computeMetrics(jobs as unknown as JobLike[], new Date())
@@ -47,6 +62,11 @@ export default async function FlujoPage({
     jobs.length > 0
       ? Math.round((m.facturado + m.sinOcBacklog) / jobs.length)
       : null
+
+  const totalExpensesApproved = expensesByCategory.reduce((s, e) => s + (e._sum.amount ?? 0), 0)
+  const pendingExpenseCount = expensesPending._count.id
+  const pendingExpenseAmount = expensesPending._sum.amount ?? 0
+  const netMarginWithExpenses = m.cobrado > 0 ? m.cobrado - totalExpensesApproved : null
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -173,13 +193,54 @@ export default async function FlujoPage({
         </div>
       )}
 
-      {/* G. Quick links */}
+      {/* G. Gastos operacionales */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink">Gastos operacionales</h2>
+          <Link href="/gastos" className="text-xs text-brand hover:underline font-medium">
+            Administrar gastos →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard label="Gastos aprobados" value={clp(totalExpensesApproved)} />
+          <KpiCard
+            label="Resultado neto"
+            value={netMarginWithExpenses != null ? clp(netMarginWithExpenses) : '—'}
+            tone={netMarginWithExpenses != null ? (netMarginWithExpenses > 0 ? 'good' : 'danger') : undefined}
+            hint="cobrado − gastos aprobados"
+          />
+          <KpiCard
+            label="Gastos pendientes"
+            value={pendingExpenseCount > 0 ? `${pendingExpenseCount} (${clp(pendingExpenseAmount)})` : '—'}
+            tone={pendingExpenseCount > 0 ? 'warn' : undefined}
+            hint="por aprobar"
+          />
+          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">Por categoría</p>
+            <ul className="space-y-1">
+              {expensesByCategory.length === 0 ? (
+                <li className="text-xs text-gray-400">Sin gastos registrados</li>
+              ) : expensesByCategory.map((e) => (
+                <li key={e.category} className="flex justify-between text-xs">
+                  <span className="text-gray-500">{EXPENSE_CATEGORY_LABELS[e.category] ?? e.category} ({e._count.id})</span>
+                  <span className="tabular-nums font-medium">{clp(e._sum.amount ?? 0)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* H. Quick links */}
       <div className="mt-6 flex gap-4 border-t border-gray-100 pt-4 text-sm text-gray-400">
         <Link href="/flujo/sucursales" className="hover:text-ink hover:underline">
           Administrar sucursales →
         </Link>
         <Link href="/flujo/trabajos" className="hover:text-ink hover:underline">
           Ver todos los trabajos →
+        </Link>
+        <Link href="/gastos" className="hover:text-ink hover:underline">
+          Gastos operacionales →
         </Link>
       </div>
     </div>

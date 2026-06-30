@@ -7,12 +7,34 @@ export const metadata = { title: 'Inicio — INGEGAR' }
 
 const APP_VERSION = 'v1.7.0'
 
+// ── Información institucional INGEGAR ─────────────────────────────────────────
+const EMPRESA = {
+  razonSocial: 'INGEGAR SpA',
+  rut: '77.123.456-7',           // ← actualizar con RUT real
+  giro: 'Mantención y climatización industrial',
+  mutualidad: 'ACHS',            // Asociación Chilena de Seguridad
+  codigoMutual: 'ING-2024-001',  // ← actualizar con código real
+  direccion: 'Santiago, Chile',
+  telefono: '+56 2 2222 2222',   // ← actualizar
+  email: 'admin@ingegarchile.cl',
+  web: 'www.ingegarchile.cl',
+  regimenTributario: 'Primera Categoría — contabilidad completa',
+  afp: 'Capital',                // AFP del personal (referencial)
+  prevision: 'FONASA',           // previsión de salud predominante
+}
+
 const NOVEDADES = [
   {
     date: 'Jun 2026',
     type: 'nuevo' as const,
-    title: 'Portal cliente v1.6 — tema claro garantizado',
-    desc: 'Modo claro forzado en todos los dispositivos. CSS vars inyectados inline para máxima compatibilidad. Versión visible en portal y dashboard.',
+    title: 'Almacenamiento R2 + documentos con acceso seguro',
+    desc: 'Archivos en Cloudflare R2 con signed URLs (1 h). Documentos de técnicos y tickets sin URLs públicas.',
+  },
+  {
+    date: 'Jun 2026',
+    type: 'nuevo' as const,
+    title: 'Módulo Gastos — operacionales y rendición técnicos',
+    desc: 'Registro de gastos por técnico con comprobante, aprobación supervisor y vinculación a ticket o trabajo.',
   },
   {
     date: 'Jun 2026',
@@ -23,20 +45,8 @@ const NOVEDADES = [
   {
     date: 'Jun 2026',
     type: 'nuevo' as const,
-    title: 'Flujo de Caja con datos históricos',
-    desc: '$74.8M registrados: Just Burger (205 trabajos), Decathlon, Unity. KPIs de cobranza, aging y margen.',
-  },
-  {
-    date: 'Jun 2026',
-    type: 'nuevo' as const,
     title: 'Portal cliente — PWA + notificaciones push',
     desc: 'Instalable en iPhone y Android. Notificaciones push cuando cambia el estado de un ticket.',
-  },
-  {
-    date: 'Jun 2026',
-    type: 'nuevo' as const,
-    title: 'Cronograma — Día/Semana/Mes con equipos',
-    desc: 'Calendario de trabajos con roles técnico/ayudante, color por permiso de sucursal, filtro por técnico.',
   },
   {
     date: 'Próximo',
@@ -79,7 +89,7 @@ export default async function DashboardPage() {
   const firstName = (user.name ?? 'Usuario').split(' ')[0]
   const scope = tenantScope(actor)
 
-  const [technicians, vehicles, openTickets, cashflow] = await Promise.all([
+  const [technicians, vehicles, openTickets, cashflow, expenseStats] = await Promise.all([
     prisma.technician.findMany({
       where: { ...scope, active: true },
       select: { id: true, name: true },
@@ -96,6 +106,17 @@ export default async function DashboardPage() {
       where: { ...scope, collectionStatus: { in: ['pendiente_pago', 'sin_oc'] } },
       _sum: { netAmount: true },
     }),
+    Promise.all([
+      prisma.expense.aggregate({
+        where: { ...scope, status: 'pendiente' },
+        _count: { id: true },
+        _sum: { amount: true },
+      }),
+      prisma.expense.aggregate({
+        where: { ...scope, status: 'aprobado' },
+        _sum: { amount: true },
+      }),
+    ]),
   ])
 
   const vehicleAlerts = expiryAlerts(vehicles)
@@ -107,6 +128,10 @@ export default async function DashboardPage() {
     return checks.every(d => !d || Math.ceil((new Date(d).getTime() - now) / 86400000) > 30)
   })
   const pendingCLP = cashflow._sum.netAmount ?? 0
+  const [pendingExpenses, approvedExpenses] = expenseStats
+  const pendingExpenseCount = pendingExpenses._count.id
+  const pendingExpenseAmount = pendingExpenses._sum.amount ?? 0
+  const approvedExpenseAmount = approvedExpenses._sum.amount ?? 0
 
   const vehicleAssigned = vehicles.filter(v => v.technicianId).length
 
@@ -129,18 +154,18 @@ export default async function DashboardPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
         <Link href="/recursos/tecnicos" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Técnicos activos</p>
           <p className="mt-2 text-3xl font-bold text-ink">{technicians.length}</p>
-          <p className="mt-1 text-xs text-gray-500">{vehicleAssigned} con camioneta asignada</p>
+          <p className="mt-1 text-xs text-gray-500">{vehicleAssigned} con camioneta</p>
         </Link>
 
         <Link href="/recursos/vehiculos" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Vehículos</p>
           <p className="mt-2 text-3xl font-bold text-ink">{vehicles.length}</p>
           <p className={`mt-1 text-xs font-medium ${vehicleAlerts.length > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-            {vehicleAlerts.length > 0 ? `${vehicleAlerts.length} alerta${vehicleAlerts.length > 1 ? 's' : ''}` : `${vehiclesOk.length} sin alertas`}
+            {vehicleAlerts.length > 0 ? `${vehicleAlerts.length} alerta${vehicleAlerts.length > 1 ? 's' : ''}` : `${vehiclesOk.length} OK`}
           </p>
         </Link>
 
@@ -149,7 +174,7 @@ export default async function DashboardPage() {
           <p className="mt-2 text-3xl font-bold text-ink">{openTickets.length}</p>
           <p className={`mt-1 text-xs font-medium ${unassigned.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
             {unassigned.length > 0 ? `${unassigned.length} sin asignar` : 'Todos asignados'}
-            {emergencias.length > 0 && <span className="ml-1.5 text-red-700">· {emergencias.length} emergencia{emergencias.length > 1 ? 's' : ''}</span>}
+            {emergencias.length > 0 && <span className="ml-1 text-red-700">· {emergencias.length} urg.</span>}
           </p>
         </Link>
 
@@ -158,7 +183,23 @@ export default async function DashboardPage() {
           <p className="mt-2 text-2xl font-bold text-amber-700 tabular-nums">
             {pendingCLP > 0 ? `$${(pendingCLP / 1_000_000).toFixed(1)}M` : '—'}
           </p>
-          <p className="mt-1 text-xs text-gray-500">Flujo de caja pendiente</p>
+          <p className="mt-1 text-xs text-gray-500">Flujo pendiente</p>
+        </Link>
+
+        <Link href="/gastos" className={`group rounded-xl border p-4 shadow-sm transition hover:shadow-md ${pendingExpenseCount > 0 ? 'border-amber-300 bg-amber-50 hover:border-amber-400' : 'border-gray-200 bg-white hover:border-brand'}`}>
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Gastos pendientes</p>
+          <p className={`mt-2 text-3xl font-bold ${pendingExpenseCount > 0 ? 'text-amber-700' : 'text-ink'}`}>{pendingExpenseCount}</p>
+          <p className="mt-1 text-xs text-gray-500">
+            {pendingExpenseAmount > 0 ? `$${(pendingExpenseAmount / 1000).toFixed(0)}K por aprobar` : 'Sin pendientes'}
+          </p>
+        </Link>
+
+        <Link href="/gastos" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Gastos aprobados</p>
+          <p className="mt-2 text-2xl font-bold text-green-700 tabular-nums">
+            {approvedExpenseAmount > 0 ? `$${(approvedExpenseAmount / 1_000_000).toFixed(1)}M` : '—'}
+          </p>
+          <p className="mt-1 text-xs text-gray-500">Mes en curso</p>
         </Link>
       </div>
 
@@ -218,35 +259,80 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Módulos acceso rápido */}
+      {/* Información INGEGAR */}
       <div>
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">Módulos</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            { name: 'Cronograma', desc: 'Equipos, clientes y permisos', href: '/cronograma', icon: '📅' },
-            { name: 'Tickets', desc: 'Requerimientos de clientes', href: '/tickets', icon: '🎫' },
-            { name: 'Flujo de Caja', desc: 'Facturación y cobranza', href: '/flujo', icon: '💵' },
-            { name: 'Propuestas', desc: 'Cotizaciones PDF', href: '/cotizador', icon: '📄' },
-            { name: 'Recursos', desc: 'Técnicos, vehículos, activos', href: '/recursos', icon: '🔧' },
-            { name: 'Pipeline', desc: 'Cotizaciones enviadas', href: null, icon: '📊' },
-          ].map((m) => m.href ? (
-            <Link key={m.name} href={m.href}
-              className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
-              <span className="text-xl">{m.icon}</span>
-              <div>
-                <p className="text-sm font-semibold text-ink">{m.name}</p>
-                <p className="text-xs text-gray-400">{m.desc}</p>
-              </div>
-            </Link>
-          ) : (
-            <div key={m.name} className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 opacity-60">
-              <span className="text-xl">{m.icon}</span>
-              <div>
-                <p className="text-sm font-semibold text-gray-400">{m.name}</p>
-                <p className="text-xs text-gray-400">{m.desc} · próximamente</p>
-              </div>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">Información de la empresa</h2>
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+            {/* Datos legales */}
+            <div className="p-5 space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Datos legales</h3>
+              <dl className="space-y-1.5 text-sm">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Razón social</dt>
+                  <dd className="font-semibold text-ink text-right">{EMPRESA.razonSocial}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">RUT</dt>
+                  <dd className="font-mono font-semibold text-brand">{EMPRESA.rut}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Giro</dt>
+                  <dd className="text-gray-700 text-right text-xs">{EMPRESA.giro}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Régimen tributario</dt>
+                  <dd className="text-gray-700 text-right text-xs">{EMPRESA.regimenTributario}</dd>
+                </div>
+              </dl>
             </div>
-          ))}
+
+            {/* Mutual y previsión */}
+            <div className="p-5 space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Mutual y previsión</h3>
+              <dl className="space-y-1.5 text-sm">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Mutualidad</dt>
+                  <dd className="font-semibold text-ink">{EMPRESA.mutualidad}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Código empresa</dt>
+                  <dd className="font-mono text-gray-700">{EMPRESA.codigoMutual}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">AFP</dt>
+                  <dd className="text-gray-700">{EMPRESA.afp}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Previsión salud</dt>
+                  <dd className="text-gray-700">{EMPRESA.prevision}</dd>
+                </div>
+              </dl>
+            </div>
+
+            {/* Contacto */}
+            <div className="p-5 space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Contacto</h3>
+              <dl className="space-y-1.5 text-sm">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Dirección</dt>
+                  <dd className="text-gray-700">{EMPRESA.direccion}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Teléfono</dt>
+                  <dd className="font-mono text-gray-700">{EMPRESA.telefono}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Email</dt>
+                  <dd className="text-blue-600 text-xs">{EMPRESA.email}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Web</dt>
+                  <dd className="text-gray-700">{EMPRESA.web}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
         </div>
       </div>
 
