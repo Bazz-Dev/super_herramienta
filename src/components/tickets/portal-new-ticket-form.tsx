@@ -130,6 +130,16 @@ export function PortalNewTicketForm({ slug, clientId, createdById, branches, pri
           onFocus={focusStyle} onBlur={blurStyle} />
       </div>
 
+      {/* Comentario del cliente */}
+      <div>
+        {label('Comentario adicional')}
+        <textarea name="clientComment" rows={3}
+          placeholder="¿Tienes algún detalle, restricción de horario, o información extra que debamos saber?"
+          style={{ ...inp, resize: 'vertical', minHeight: '80px' }}
+          onFocus={focusStyle} onBlur={blurStyle} />
+        <p style={{ fontSize: '11px', color: 'var(--p-t3)', marginTop: '5px' }}>Opcional — solo visible para ti y el equipo INGEGAR.</p>
+      </div>
+
       {error && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>⚠️</span>

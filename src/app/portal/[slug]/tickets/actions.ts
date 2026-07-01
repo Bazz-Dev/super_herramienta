@@ -20,13 +20,14 @@ export async function createPortalTicket(fd: FormData) {
   const session = await auth()
   if (!session?.user || session.user.role !== 'client') return { success: false }
 
-  const clientId    = String(fd.get('clientId') ?? '')
-  const createdById = String(fd.get('createdById') ?? session.user.id)
-  const branchId    = String(fd.get('branchId') ?? '') || undefined
-  const urgency     = String(fd.get('urgency') ?? 'no_urgente')
-  const category    = String(fd.get('category') ?? '') || undefined
-  const title       = String(fd.get('title') ?? '').trim()
-  const description = String(fd.get('description') ?? '') || undefined
+  const clientId      = String(fd.get('clientId') ?? '')
+  const createdById   = String(fd.get('createdById') ?? session.user.id)
+  const branchId      = String(fd.get('branchId') ?? '') || undefined
+  const urgency       = String(fd.get('urgency') ?? 'no_urgente')
+  const category      = String(fd.get('category') ?? '') || undefined
+  const title         = String(fd.get('title') ?? '').trim()
+  const description   = String(fd.get('description') ?? '') || undefined
+  const clientComment = String(fd.get('clientComment') ?? '') || undefined
 
   if (!title || !clientId) return { success: false }
 
@@ -51,6 +52,7 @@ export async function createPortalTicket(fd: FormData) {
       ticketCode: finalCode,
       title,
       description,
+      clientComment,
       urgency: urgency as never,
       category,
       status: 'nuevo',

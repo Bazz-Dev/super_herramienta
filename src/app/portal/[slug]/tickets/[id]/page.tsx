@@ -154,11 +154,21 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             </div>
           )}
 
-          {/* Description */}
-          {ticket.description && (
+          {/* Description + clientComment */}
+          {(ticket.description || ticket.clientComment) && (
             <div className="pcard" style={{ padding: '16px 18px' }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Descripción del requerimiento</p>
-              <p style={{ fontSize: '14px', color: 'var(--p-text)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.description}</p>
+              {ticket.description && (
+                <>
+                  <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Descripción del requerimiento</p>
+                  <p style={{ fontSize: '14px', color: 'var(--p-text)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.description}</p>
+                </>
+              )}
+              {ticket.clientComment && (
+                <div style={{ marginTop: ticket.description ? '14px' : '0', paddingTop: ticket.description ? '14px' : '0', borderTop: ticket.description ? '1px solid var(--p-bd)' : 'none' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Comentario adicional</p>
+                  <p style={{ fontSize: '14px', color: 'var(--p-text)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.clientComment}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -237,27 +247,44 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             />
           )}
 
-          {/* Documents */}
-          {ticket.documents.length > 0 && (
+          {/* Documents + Drive folder */}
+          {(ticket.documents.length > 0 || ticket.driveFolderUrl) && (
             <div className="pcard" style={{ padding: '16px 18px' }}>
               <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Documentos adjuntos</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {signedDocs.map(doc => (
-                  <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--p-bg)', borderRadius: 'var(--p-r)', gap: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                      <div style={{ color: 'var(--p-t3)', flexShrink: 0 }}><IconDoc /></div>
-                      <span style={{ fontSize: '13px', color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
-                    </div>
-                    <a href={doc.viewUrl} target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: '12px', fontWeight: '600', color: theme.primary, textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      Ver
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke={theme.primary} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 9L9 3M9 3H5M9 3v4"/>
-                      </svg>
-                    </a>
+              {ticket.driveFolderUrl && (
+                <a href={ticket.driveFolderUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: `color-mix(in srgb, ${theme.primary} 6%, white)`, border: `1px solid color-mix(in srgb, ${theme.primary} 20%, transparent)`, borderRadius: 'var(--p-r)', gap: '10px', textDecoration: 'none', marginBottom: ticket.documents.length > 0 ? '8px' : '0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                    <IconFolder />
+                    <span style={{ fontSize: '13px', color: 'var(--p-text)', fontWeight: '500' }}>Carpeta de documentos</span>
                   </div>
-                ))}
-              </div>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: theme.primary, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    Abrir
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke={theme.primary} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9L9 3M9 3H5M9 3v4"/>
+                    </svg>
+                  </span>
+                </a>
+              )}
+              {ticket.documents.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {signedDocs.map(doc => (
+                    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--p-bg)', borderRadius: 'var(--p-r)', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <div style={{ color: 'var(--p-t3)', flexShrink: 0 }}><IconDoc /></div>
+                        <span style={{ fontSize: '13px', color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
+                      </div>
+                      <a href={doc.viewUrl} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '12px', fontWeight: '600', color: theme.primary, textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        Ver
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke={theme.primary} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 9L9 3M9 3H5M9 3v4"/>
+                        </svg>
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -339,9 +366,11 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             </div>
           </div>
 
-          {signedDocs.length > 0 && (
+          {(signedDocs.length > 0 || ticket.driveFolderUrl) && (
             <p style={{ fontSize: '12px', color: 'var(--p-t3)', textAlign: 'center', marginTop: '4px' }}>
-              {signedDocs.length} documento{signedDocs.length !== 1 ? 's' : ''} adjunto{signedDocs.length !== 1 ? 's' : ''}
+              {signedDocs.length > 0 ? `${signedDocs.length} archivo${signedDocs.length !== 1 ? 's' : ''}` : ''}
+              {signedDocs.length > 0 && ticket.driveFolderUrl ? ' · ' : ''}
+              {ticket.driveFolderUrl ? 'carpeta disponible' : ''}
             </p>
           )}
 

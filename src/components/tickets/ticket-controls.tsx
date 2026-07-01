@@ -188,7 +188,21 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
       {/* Documents */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">Documentos adjuntos</h3>
+          <h3 className="text-sm font-semibold text-gray-700">
+            Documentos adjuntos
+            {ticket.internalNotes?.includes('[Carpeta Drive:') && (() => {
+              const m = ticket.internalNotes?.match(/\[Carpeta Drive:\s*(https?:\/\/[^\]]+)\]/)
+              return m ? (
+                <a href={m[1]} target="_blank" rel="noopener noreferrer"
+                  className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 4a1 1 0 011-1h4l2 2h4a1 1 0 011 1v6a1 1 0 01-1 1H3a1 1 0 01-1-1V4z"/>
+                  </svg>
+                  Carpeta Drive
+                </a>
+              ) : null
+            })()}
+          </h3>
           <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
             {uploading ? 'Subiendo…' : 'Adjuntar archivo'}
