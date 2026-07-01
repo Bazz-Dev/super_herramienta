@@ -1,67 +1,73 @@
 /**
- * Creates User accounts for technicians who don't have one yet.
- * Run against LOCAL:  npx tsx --env-file=.env scripts/create-technician-users.ts
- * Run against PROD:   npm run users:tecnico:prod
+ * Crea/actualiza cuentas de usuario para técnicos que no tienen una.
+ * Idempotente: si el técnico ya tiene usuario, muestra sus credenciales sin modificarlas.
  *
- * Outputs generated credentials so they can be shared with the technicians.
+ * Run LOCAL:  npx tsx --env-file=.env scripts/create-technician-users.ts
+ * Run PROD:   npm run users:tecnico:prod
+ *             (requiere .env.production.local con DATABASE_URL + TURSO_AUTH_TOKEN)
  */
-import { prisma } from '../src/lib/prisma'
+import { prisma } from '../src/lib/prisma.js'
 import bcrypt from 'bcryptjs'
-import { randomBytes } from 'node:crypto'
 
-function slug(name: string): string {
-  return name
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase().replace(/\s+/g, '.')
-    .replace(/[^a-z.]/g, '')
-}
-
-// Technicians to provision — name must match exactly as stored in DB
-const TO_PROVISION = [
-  { name: 'Juan Jesus Diaz',  username: 'jjdiaz',    password: 'Ingegar2024!' },
-  { name: 'Jesus Gonzalez',   username: 'jgonzalez', password: 'Ingegar2024!' },
+// ─────────────────────────────────────────────────────────────────────────────
+// Lista de técnicos a provisionar.
+// "search" es una cadena que debe estar contenida (case-insensitive) en el
+// nombre del técnico tal como está guardado en la DB.
+// ─────────────────────────────────────────────────────────────────────────────
+const TO_PROVISION: Array<{
+  search: string       // fragmento del nombre para buscar en DB
+  username: string     // nick de login
+  password: string     // contraseña inicial
+}> = [
+  { search: 'jesus',      username: 'jesus',      password: 'Tecnico@2026' },
+  { search: 'gonzalez',   username: 'jgonzalez',  password: 'Ingegar2024!' },
 ]
 
-const tenant = await prisma.tenant.findFirst({ where: { slug: 'ingegar' }, select: { id: true } })
-if (!tenant) { console.error('❌ Tenant ingegar no encontrado'); process.exit(1) }
+// ─────────────────────────────────────────────────────────────────────────────
 
-console.log('\n🔧 Provisionando usuarios técnicos...\n')
+const tenant = await prisma.tenant.findFirst({
+  where: { slug: 'ingegar' },
+  select: { id: true },
+})
+if (!tenant) { console.error('❌ Tenant "ingegar" no encontrado'); process.exit(1) }
+
+const allTechs = await prisma.technician.findMany({
+  where: { tenantId: tenant.id },
+  select: { id: true, name: true, active: true },
+  orderBy: { name: 'asc' },
+})
+
+console.log(`\n🔧 Provisionando usuarios técnicos en tenant ingegar...\n`)
+console.log(`   Técnicos en DB (${allTechs.length}): ${allTechs.map(t => t.name).join(', ')}\n`)
 
 for (const spec of TO_PROVISION) {
-  // Find technician by name (case-insensitive)
-  // SQLite doesn't support mode: 'insensitive' — find all and filter in JS
-  const allTechs = await prisma.technician.findMany({
-    where: { tenantId: tenant.id },
-    select: { id: true, name: true },
-  })
-  const tech = allTechs.find(t => t.name.toLowerCase().includes(spec.name.toLowerCase().split(' ')[1] ?? spec.name.toLowerCase()))
+  const term = spec.search.toLowerCase()
+  const tech = allTechs.find(t => t.name.toLowerCase().includes(term))
 
   if (!tech) {
-    console.log(`⚠️  Técnico "${spec.name}" no encontrado en DB — verifica el nombre exacto`)
-    // List available technicians
-    const all = await prisma.technician.findMany({ where: { tenantId: tenant.id }, select: { name: true }, orderBy: { name: 'asc' } })
-    console.log(`   Técnicos disponibles: ${all.map(t => t.name).join(', ')}`)
+    console.log(`⚠️  No se encontró técnico que coincida con "${spec.search}"`)
+    console.log(`   Nombres disponibles: ${allTechs.map(t => t.name).join(', ')}\n`)
     continue
   }
 
-  // Check if user already linked
+  // Check if already linked to a user
   const existing = await prisma.user.findFirst({
     where: { technicianId: tech.id },
-    select: { id: true, username: true },
+    select: { id: true, email: true, username: true, active: true },
   })
 
   if (existing) {
-    console.log(`✓  ${tech.name} ya tiene usuario (username: ${existing.username})`)
+    console.log(`✓  ${tech.name} ya tiene cuenta:`)
+    console.log(`   nick: ${existing.username ?? '—'}  email: ${existing.email}  activo: ${existing.active}\n`)
     continue
   }
 
-  // Check username collision
+  // Guard: username collision
   const taken = await prisma.user.findFirst({ where: { username: spec.username }, select: { id: true } })
   const username = taken ? `${spec.username}2` : spec.username
-
-  const passwordHash = await bcrypt.hash(spec.password, 12)
   const email = `${username}@ingegarchile.cl`
 
+  const passwordHash = await bcrypt.hash(spec.password, 12)
   const user = await prisma.user.create({
     data: {
       name: tech.name,
@@ -76,13 +82,11 @@ for (const spec of TO_PROVISION) {
   })
 
   console.log(`✅  ${tech.name}`)
-  console.log(`    Usuario:    ${username}`)
-  console.log(`    Email:      ${email}`)
-  console.log(`    Contraseña: ${spec.password}`)
-  console.log(`    Rol:        técnico`)
-  console.log(`    ID usuario: ${user.id}`)
-  console.log()
+  console.log(`    nick:       ${username}`)
+  console.log(`    email:      ${email}`)
+  console.log(`    contraseña: ${spec.password}`)
+  console.log(`    userId:     ${user.id}\n`)
 }
 
 await prisma.$disconnect()
-console.log('✅ Listo. Guarda las credenciales en un lugar seguro.')
+console.log('✅ Listo.\n')
