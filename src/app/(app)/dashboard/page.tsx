@@ -5,7 +5,7 @@ import { tenantScope } from '@/lib/tenant'
 
 export const metadata = { title: 'Inicio — INGEGAR' }
 
-const APP_VERSION = 'v1.7.0'
+const APP_VERSION = 'v1.8.0'
 
 // ── Información institucional INGEGAR ─────────────────────────────────────────
 const EMPRESA = {

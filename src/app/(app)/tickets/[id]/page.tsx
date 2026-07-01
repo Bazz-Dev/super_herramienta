@@ -70,6 +70,12 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             <p className="font-mono text-xs text-gray-400 mb-1">{ticket.ticketCode}</p>
             <h1 className="text-xl font-bold text-ink">{ticket.title}</h1>
             {ticket.description && <p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
+            {ticket.clientComment && (
+              <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+                <p className="text-xs font-semibold text-blue-600 mb-0.5">Comentario del cliente</p>
+                <p className="text-sm text-blue-800">{ticket.clientComment}</p>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col items-end gap-2">
