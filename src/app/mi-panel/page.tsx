@@ -3,6 +3,7 @@ import { requireActor } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { ExpenseForm } from '@/components/expenses/expense-form'
 import { ExpenseList } from '@/components/expenses/expense-list'
+import { SignaturePendingList } from './signature-pending-list'
 
 function formatClp(n: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
@@ -57,7 +58,7 @@ export default async function MiPanelPage() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
   // All queries in parallel
-  const [assignmentRows, myExpenses, expenses, ticketStats] = await Promise.all([
+  const [assignmentRows, myExpenses, expenses, ticketStats, pendingSignatures, signedSignatures] = await Promise.all([
     // Assignments via AssignmentAssignee (technicianId = Technician.id ✓)
     prisma.assignmentAssignee.findMany({
       where: { technicianId: actor.technicianId },
@@ -110,7 +111,23 @@ export default async function MiPanelPage() {
       orderBy: { updatedAt: 'desc' },
       take: 5,
     }),
+
+    // Pending signature requests
+    prisma.signatureRequest.findMany({
+      where: { technicianId: actor.technicianId, status: 'pendiente' },
+      orderBy: { createdAt: 'desc' },
+    }),
+
+    // Signature history
+    prisma.signatureRequest.findMany({
+      where: { technicianId: actor.technicianId, status: { not: 'pendiente' } },
+      orderBy: { updatedAt: 'desc' },
+      take: 10,
+    }),
   ])
+
+  const pendingSerialized = pendingSignatures.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(), signedAt: r.signedAt?.toISOString() ?? null }))
+  const signedSerialized = signedSignatures.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(), signedAt: r.signedAt?.toISOString() ?? null }))
 
   // Stats from assignments
   const totalAsignaciones = assignmentRows.length
@@ -149,6 +166,19 @@ export default async function MiPanelPage() {
           )}
         </p>
       </div>
+
+      {/* FES — Firma Electrónica Simple */}
+      {(pendingSerialized.length > 0 || signedSerialized.length > 0) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <h2 className="mb-3 text-base font-semibold flex items-center gap-2">
+            <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold ${pendingSerialized.length > 0 ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-600'}`}>
+              {pendingSerialized.length}
+            </span>
+            Documentos pendientes de firma
+          </h2>
+          <SignaturePendingList pending={pendingSerialized} signed={signedSerialized} />
+        </div>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
