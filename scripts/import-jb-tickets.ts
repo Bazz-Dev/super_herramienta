@@ -6,6 +6,7 @@
  */
 import ExcelJS from 'exceljs'
 import { prisma } from '../src/lib/prisma.js'
+import { ticketFolderKey } from '../src/lib/r2.js'
 
 const FILE = 'justburger-ingegar/Fuente_Datos_Trabajos_JustBurger.xlsx'
 const TENANT_SLUG = 'ingegar'
@@ -132,15 +133,6 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
   const rawBranch = str(cell(row, 3)) ?? 'Sin sucursal'
   const branchId = await getBranchId(rawBranch)
 
-  const driveRaw = cell(row, 12)
-  let driveFolderUrl: string | null = null
-  if (driveRaw && typeof driveRaw === 'object') {
-    const d = driveRaw as { text?: string; hyperlink?: string }
-    driveFolderUrl = d.hyperlink ?? d.text ?? null
-  } else {
-    driveFolderUrl = str(driveRaw)
-  }
-
   const showToClient = String(cell(row, 17) ?? 'Si').trim().toLowerCase() !== 'no'
   const createdAt = asDate(cell(row, 2)) ?? new Date()
   const closedDate = asDate(cell(row, 9))
@@ -159,7 +151,8 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
     workSummary: str(cell(row, 26)),
     clientComment: str(cell(row, 23)),
     internalNotes: str(cell(row, 24)),
-    driveFolderUrl,
+    // R2 folder key: clients/justburger/tickets/{ticketCode}/
+    folderKey: ticketFolderKey('justburger', ticketCode),
     showToClient,
     tenantId: tenant.id,
     clientId: jbClient!.id,

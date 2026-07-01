@@ -10,7 +10,6 @@ const NAV_SECTIONS = [
     label: null,
     links: [
       { href: '/dashboard', label: 'Inicio', icon: HomeIcon },
-      { href: '/mi-panel', label: 'Mi Panel', icon: UserCircleIcon },
     ],
   },
   {
