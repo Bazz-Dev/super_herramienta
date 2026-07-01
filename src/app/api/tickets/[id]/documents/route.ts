@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const { id: ticketId } = await params
-  const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, tenantId }, select: { id: true } })
+  const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, tenantId }, select: { id: true, folderKey: true } })
   if (!ticket) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const form = await req.formData()
@@ -30,7 +30,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
   if (!ALLOWED_EXT.includes(ext)) return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 415 })
 
-  const key = `tickets/${ticketId}/${randomUUID()}.${ext}`
+  const prefix = ticket.folderKey && isR2Key(ticket.folderKey)
+    ? ticket.folderKey
+    : `tickets/${ticketId}`
+  const key = `${prefix}/${randomUUID()}.${ext}`
   const buf = Buffer.from(await file.arrayBuffer())
   await uploadToR2(key, buf, file.type || 'application/octet-stream')
 
