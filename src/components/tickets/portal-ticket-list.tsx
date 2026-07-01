@@ -53,26 +53,37 @@ const URG_COLOR: Record<string, string> = {
   emergencia: '#ef4444', urgencia: '#f59e0b', no_urgente: '#22c55e', preventivo: '#3b82f6',
 }
 
-// Status badge inline styles
-function statusStyle(s: string): React.CSSProperties {
-  const map: Record<string, React.CSSProperties> = {
-    nuevo:                { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' },
-    en_revision:          { background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a' },
-    en_ejecucion:         { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' },
-    esperando_aprobacion: { background: '#f5f3ff', color: '#6d28d9', border: '1px solid #ddd6fe' },
-    resuelto:             { background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' },
-    cancelado:            { background: '#f9fafb', color: '#6b7280', border: '1px solid #e5e7eb' },
-  }
-  return { display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', ...(map[s] ?? { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb' }) }
+// Status/urgency — dot + label (no colored background)
+const STATUS_DOT_COLOR: Record<string, string> = {
+  nuevo:                '#3b82f6',
+  en_revision:          '#f59e0b',
+  en_ejecucion:         '#f97316',
+  esperando_aprobacion: '#8b5cf6',
+  resuelto:             '#22c55e',
+  cancelado:            '#9ca3af',
 }
-function urgStyle(u: string): React.CSSProperties {
-  const map: Record<string, React.CSSProperties> = {
-    emergencia: { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' },
-    urgencia:   { background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa' },
-    no_urgente: { background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0' },
-    preventivo: { background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe' },
-  }
-  return { display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap', ...(map[u] ?? { background: '#f3f4f6', color: '#374151', border: '1px solid #e5e7eb' }) }
+const URG_DOT_COLOR: Record<string, string> = {
+  emergencia: '#ef4444',
+  urgencia:   '#f97316',
+  no_urgente: '#22c55e',
+  preventivo: '#3b82f6',
+}
+
+function StatusDot({ s }: { s: string }) {
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, fontWeight:600, color:C.t2, whiteSpace:'nowrap' }}>
+      <span style={{ width:7, height:7, borderRadius:'50%', background:STATUS_DOT_COLOR[s]??'#ccc', flexShrink:0, display:'inline-block' }}/>
+      {STATUS_LABEL[s]??s}
+    </span>
+  )
+}
+function UrgDot({ u }: { u: string }) {
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, fontWeight:600, color:C.t2, whiteSpace:'nowrap' }}>
+      <span style={{ width:7, height:7, borderRadius:'50%', background:URG_DOT_COLOR[u]??'#ccc', flexShrink:0, display:'inline-block' }}/>
+      {URG_LABEL[u]??u}
+    </span>
+  )
 }
 
 const OPEN = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
@@ -265,8 +276,8 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
                         {t.assignedTo && <div style={{ fontSize: 11, color: C.t3, marginTop: 1 }}>Téc: {t.assignedTo.name}</div>}
                       </td>
                       <td style={{ padding: '10px 14px', fontSize: 12, color: C.t2, whiteSpace: 'nowrap' }}>{t.branch?.name ?? '—'}</td>
-                      <td style={{ padding: '10px 14px' }}><span style={urgStyle(t.urgency)}>{URG_LABEL[t.urgency] ?? t.urgency}</span></td>
-                      <td style={{ padding: '10px 14px' }}><span style={statusStyle(t.status)}>{STATUS_LABEL[t.status] ?? t.status}</span></td>
+                      <td style={{ padding: '10px 14px' }}><UrgDot u={t.urgency} /></td>
+                      <td style={{ padding: '10px 14px' }}><StatusDot s={t.status} /></td>
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         {(t._count.documents > 0 || t._count.items > 0) ? (
                           <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>

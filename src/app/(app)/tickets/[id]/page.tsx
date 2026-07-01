@@ -40,39 +40,41 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const internalHistory = ticket.history.filter((h) => h.isInternal)
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="max-w-5xl space-y-6">
       {/* Back */}
-      <Link href="/tickets" className="text-sm text-gray-500 hover:text-ink transition">← Volver a tickets</Link>
+      <Link href="/tickets" className="inline-flex items-center gap-1 text-sm text-gray-500 transition hover:text-ink">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 12L6 8l4-4"/></svg>
+        Volver a tickets
+      </Link>
 
       {/* Header card */}
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            {/* Client chip */}
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              <span className="rounded-full bg-gray-900 px-3 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
+          <div className="min-w-0 flex-1">
+            {/* Client / branch / portal */}
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-gray-900 px-3 py-0.5 text-xs font-bold uppercase tracking-wide text-white">
                 {ticket.client.name}
               </span>
               {ticket.branch && (
-                <span className="text-xs text-gray-500">📍 {ticket.branch.name}{ticket.branch.city ? `, ${ticket.branch.city}` : ''}</span>
+                <span className="flex items-center gap-1 text-xs text-gray-500">
+                  <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="6.5" r="2.5" stroke="currentColor" strokeWidth="1.5"/><path d="M8 14S3.5 10.2 3.5 6.5a4.5 4.5 0 0 1 9 0C12.5 10.2 8 14 8 14z" stroke="currentColor" strokeWidth="1.5"/></svg>
+                  {ticket.branch.name}{ticket.branch.city ? `, ${ticket.branch.city}` : ''}
+                </span>
               )}
               {ticket.client.portalSlug && (
-                <Link
-                  href={`/portal/${ticket.client.portalSlug}`}
-                  target="_blank"
-                  className="text-xs text-brand hover:underline"
-                >
+                <Link href={`/portal/${ticket.client.portalSlug}`} target="_blank" className="text-xs text-brand hover:underline">
                   Ver portal →
                 </Link>
               )}
             </div>
 
-            <p className="font-mono text-xs text-gray-400 mb-1">{ticket.ticketCode}</p>
+            <p className="mb-1 font-mono text-xs text-gray-400">{ticket.ticketCode}</p>
             <h1 className="text-xl font-bold text-ink">{ticket.title}</h1>
             {ticket.description && <p className="mt-1 text-sm text-gray-600">{ticket.description}</p>}
             {ticket.clientComment && (
               <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-                <p className="text-xs font-semibold text-blue-600 mb-0.5">Comentario del cliente</p>
+                <p className="mb-0.5 text-xs font-semibold text-blue-600">Comentario del cliente</p>
                 <p className="text-sm text-blue-800">{ticket.clientComment}</p>
               </div>
             )}
@@ -86,15 +88,15 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               {URGENCY_LABEL[urgency]}
             </span>
             {ticket.otNumber && (
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-mono text-gray-600">
+              <span className="rounded-full bg-gray-100 px-3 py-1 font-mono text-xs text-gray-600">
                 OT: {ticket.otNumber}
               </span>
             )}
           </div>
         </div>
 
-        {/* Meta row */}
-        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-4 text-xs">
+        {/* Meta grid */}
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-4 text-xs sm:grid-cols-4">
           <div>
             <p className="text-gray-400">Creado por</p>
             <p className="font-medium text-gray-700">{ticket.createdBy.name}</p>
@@ -122,16 +124,17 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         </div>
 
         {ticket.workSummary && (
-          <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-3">
-            <p className="text-xs font-semibold text-green-700 mb-1">Resumen del trabajo</p>
+          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
+            <p className="mb-1 text-xs font-semibold text-green-700">Resumen del trabajo</p>
             <p className="text-sm text-green-800">{ticket.workSummary}</p>
           </div>
         )}
       </div>
 
+      {/* 2-col layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left: controls */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="space-y-5 lg:col-span-2">
           <TicketControls
             ticket={{
               id: ticket.id,
@@ -153,79 +156,162 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
         {/* Right: history */}
         <div className="space-y-4">
-          {/* Public history */}
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-4 text-sm font-semibold text-gray-700 flex items-center justify-between">
-              Historial de actividad
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">{publicHistory.length}</span>
-            </h3>
-            {publicHistory.length === 0 ? (
-              <p className="text-xs text-gray-400">Sin actividad registrada.</p>
-            ) : (
-              <ol className="relative border-l border-gray-100 ml-2 space-y-0">
-                {publicHistory.map((h, i) => {
-                  const isStatusChange = !!(h.fromStatus && h.toStatus)
-                  const actor = h.user?.name ?? 'Sistema'
-                  const dateStr = new Date(h.createdAt).toLocaleString('es-CL', {
-                    day: 'numeric', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                  })
-                  const dotCls = h.toStatus
-                    ? STATUS_DOT[h.toStatus as TicketStatusId] ?? 'bg-gray-300'
-                    : 'bg-gray-300'
-                  return (
-                    <li key={h.id} className={`ml-4 ${i < publicHistory.length - 1 ? 'pb-5' : 'pb-1'}`}>
-                      <span className={`absolute -left-1.25 flex h-2.5 w-2.5 items-center justify-center rounded-full ring-2 ring-white ${dotCls}`} />
-                      <div className="text-xs">
-                        {isStatusChange && (
-                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">
-                              {STATUS_LABEL[h.fromStatus as TicketStatusId] ?? h.fromStatus}
-                            </span>
-                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 shrink-0"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
-                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold border ${STATUS_COLOR[h.toStatus as TicketStatusId] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                              {STATUS_LABEL[h.toStatus as TicketStatusId] ?? h.toStatus}
-                            </span>
-                          </div>
-                        )}
-                        {h.note && <p className="text-gray-700 mb-0.5">{h.note}</p>}
-                        <p className="text-gray-400">
-                          <span className="font-medium text-gray-500">{actor}</span>
-                          {' · '}{dateStr}
-                        </p>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ol>
-            )}
-          </div>
-
-          {/* Internal notes */}
+          <HistoryPanel events={publicHistory} title="Historial de actividad" variant="public" />
           {internalHistory.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-              <h3 className="mb-4 text-sm font-semibold text-amber-800 flex items-center justify-between">
-                🔒 Notas internas
-                <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">{internalHistory.length}</span>
-              </h3>
-              <ol className="relative border-l border-amber-200 ml-2 space-y-0">
-                {internalHistory.map((h, i) => (
-                  <li key={h.id} className={`ml-4 ${i < internalHistory.length - 1 ? 'pb-4' : 'pb-1'}`}>
-                    <span className="absolute -left-1.25 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-50" />
-                    <div className="text-xs">
-                      {h.note && <p className="text-amber-900 mb-0.5">{h.note}</p>}
-                      <p className="text-amber-600">
-                        <span className="font-medium">{h.user?.name ?? 'Sistema'}</span>
-                        {' · '}{new Date(h.createdAt).toLocaleString('es-CL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
+            <HistoryPanel events={internalHistory} title="Notas internas" variant="internal" />
           )}
         </div>
       </div>
     </div>
   )
+}
+
+/* ── History panel ── */
+
+type HistoryEvent = {
+  id: string
+  note: string | null
+  fromStatus: string | null
+  toStatus: string | null
+  isInternal: boolean
+  createdAt: Date
+  user: { id: string; name: string } | null
+}
+
+function HistoryPanel({
+  events,
+  title,
+  variant,
+}: {
+  events: HistoryEvent[]
+  title: string
+  variant: 'public' | 'internal'
+}) {
+  const isInternal = variant === 'internal'
+
+  return (
+    <div className={`rounded-xl border p-4 shadow-sm ${isInternal ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white'}`}>
+      <div className={`mb-4 flex items-center justify-between text-sm font-semibold ${isInternal ? 'text-amber-800' : 'text-gray-700'}`}>
+        <span>{isInternal ? '🔒 ' : ''}{title}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${isInternal ? 'bg-amber-200 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+          {events.length}
+        </span>
+      </div>
+
+      {events.length === 0 ? (
+        <p className="text-xs text-gray-400">Sin actividad registrada.</p>
+      ) : (
+        <div className="overflow-y-auto" style={{ maxHeight: '520px' }}>
+          <ol className="relative ml-2 space-y-0 border-l border-gray-100">
+            {events.map((h, i) => {
+              const isStatusChange = !!(h.fromStatus && h.toStatus)
+              const actor = h.user?.name ?? 'Sistema'
+              const dateStr = formatDate(h.createdAt)
+              const dotCls = h.toStatus
+                ? (STATUS_DOT[h.toStatus as TicketStatusId] ?? 'bg-gray-300')
+                : isInternal ? 'bg-amber-400' : 'bg-gray-300'
+              const isLast = i === events.length - 1
+
+              return (
+                <li key={h.id} className={`ml-4 ${isLast ? 'pb-1' : 'pb-5'}`}>
+                  {/* Timeline dot */}
+                  <span
+                    className={`absolute -left-1.25 flex h-2.5 w-2.5 items-center justify-center rounded-full ring-2 ${isInternal ? 'ring-amber-50' : 'ring-white'} ${dotCls}`}
+                  />
+
+                  <div>
+                    {/* Status transition */}
+                    {isStatusChange && (
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <span className="rounded border border-gray-200 bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">
+                          {STATUS_LABEL[h.fromStatus as TicketStatusId] ?? h.fromStatus}
+                        </span>
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-gray-300">
+                          <path d="M3 8h10M9 4l4 4-4 4"/>
+                        </svg>
+                        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_COLOR[h.toStatus as TicketStatusId] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                          {STATUS_LABEL[h.toStatus as TicketStatusId] ?? h.toStatus}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Note content */}
+                    <NoteContent note={h.note} />
+
+                    {/* Meta */}
+                    <p className={`mt-0.5 text-[10px] ${isInternal ? 'text-amber-600' : 'text-gray-400'}`}>
+                      <span className={`font-semibold ${isInternal ? 'text-amber-700' : 'text-gray-500'}`}>{actor}</span>
+                      {' · '}{dateStr}
+                    </p>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ── Note renderer — handles plain text and JSON import artifacts ── */
+
+function NoteContent({ note }: { note: string | null }) {
+  if (!note) return null
+
+  try {
+    const obj = JSON.parse(note)
+    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+      const FIELD_LABELS: Record<string, string> = {
+        tecnico:        'Técnico',
+        ot:             'N° OT',
+        fechaEstimada:  'Fecha est.',
+        avanceId:       'ID avance',
+      }
+      const fields = Object.entries(obj as Record<string, unknown>)
+        .filter(([, v]) => v && String(v).trim() !== '')
+        .map(([k, v]) => `${FIELD_LABELS[k] ?? k}: ${v}`)
+
+      if (fields.length === 0) {
+        return <p className="mb-0.5 text-[10px] italic text-gray-400">Registro de sistema</p>
+      }
+
+      return (
+        <div className="mb-0.5 flex flex-wrap gap-1">
+          {fields.map((f, i) => (
+            <span key={i} className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+              {f}
+            </span>
+          ))}
+        </div>
+      )
+    }
+  } catch {
+    // not JSON — fall through
+  }
+
+  return <p className="mb-0.5 text-xs leading-snug text-gray-700">{note}</p>
+}
+
+/* ── Date formatting ── */
+
+function formatDate(date: Date): string {
+  const now = Date.now()
+  const diff = now - new Date(date).getTime()
+  const minutes = Math.floor(diff / 60_000)
+  const hours = Math.floor(diff / 3_600_000)
+  const days = Math.floor(diff / 86_400_000)
+
+  if (minutes < 1) return 'ahora'
+  if (minutes < 60) return `hace ${minutes} min`
+  if (hours < 24) return `hace ${hours}h`
+  if (days < 7) return `hace ${days}d`
+
+  return new Date(date).toLocaleString('es-CL', {
+    day: 'numeric',
+    month: 'short',
+    year: days > 365 ? 'numeric' : undefined,
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }

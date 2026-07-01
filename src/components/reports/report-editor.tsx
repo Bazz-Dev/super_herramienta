@@ -12,8 +12,12 @@ import { ExternalLinkIcon, ImageIcon, ZoomInIcon, ZoomOutIcon } from '@/componen
 import { Field, IconButton, SectionCard, TextArea, TextInput } from '@/components/quotes/ui'
 
 interface ClientOption { id: string; name: string }
+interface TicketOption {
+  id: string; ticketCode: string; title: string
+  otNumber: string | null; clientId: string; clientName: string; branchName: string
+}
 
-export function ReportEditor({ initial, clients = [], docId }: { initial: ReportData; clients?: ClientOption[]; docId?: string }) {
+export function ReportEditor({ initial, clients = [], tickets = [], docId }: { initial: ReportData; clients?: ClientOption[]; tickets?: TicketOption[]; docId?: string }) {
   const [data, setData] = useState<ReportData>(initial)
   const set = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }))
 
@@ -35,6 +39,36 @@ export function ReportEditor({ initial, clients = [], docId }: { initial: Report
       {/* ---------- Editor ---------- */}
       <div className="flex flex-col gap-4">
         <SectionCard title="Identificación" description="Datos de cabecera del informe">
+          {/* Ticket link — autocompletes client, branch and OT */}
+          {tickets.length > 0 && (
+            <div className="mb-4 rounded-lg border border-brand/20 bg-brand/5 p-3">
+              <label className="mb-1.5 block text-xs font-semibold text-gray-600">
+                Vincular a ticket existente
+                <span className="ml-1.5 font-normal text-gray-400">(autocompletará cliente, sucursal y OT)</span>
+              </label>
+              <select
+                defaultValue=""
+                onChange={(e) => {
+                  const t = tickets.find(t => t.id === e.target.value)
+                  if (!t) return
+                  set({
+                    client: t.clientName,
+                    branch: t.branchName,
+                    workOrder: t.otNumber ?? '',
+                    subject: t.title,
+                  })
+                }}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+              >
+                <option value="">— Seleccionar ticket (opcional) —</option>
+                {tickets.map(t => (
+                  <option key={t.id} value={t.id}>
+                    {t.ticketCode} · {t.title}{t.otNumber ? ` (OT: ${t.otNumber})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="N° / Código de reporte">
               <TextInput value={data.reportId} onChange={(e) => set({ reportId: e.target.value })} />

@@ -37,6 +37,9 @@ function IconPlus() {
 function IconReports() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12V5M6 12V8M10 12V3M14 12V7"/></svg>
 }
+function IconDocument() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3M6 8h4M6 11h3"/></svg>
+}
 function IconCalendar() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 7h12M5 1v3M11 1v3"/></svg>
 }
@@ -51,11 +54,12 @@ function IconX() {
 }
 
 const NAV = [
-  { href: (s: string) => `/portal/${s}/dashboard`,   label: 'Panel',           Icon: IconDashboard },
-  { href: (s: string) => `/portal/${s}/tickets`,     label: 'Requerimientos',  Icon: IconTickets },
-  { href: (s: string) => `/portal/${s}/cronograma`,  label: 'Cronograma',      Icon: IconCalendar },
-  { href: (s: string) => `/portal/${s}/tickets/new`, label: 'Nueva solicitud', Icon: IconPlus },
-  { href: (s: string) => `/portal/${s}/reportes`,    label: 'Reportes',        Icon: IconReports },
+  { href: (s: string) => `/portal/${s}/dashboard`,   label: 'Panel',             Icon: IconDashboard },
+  { href: (s: string) => `/portal/${s}/tickets`,     label: 'Requerimientos',    Icon: IconTickets },
+  { href: (s: string) => `/portal/${s}/tickets/new`, label: 'Nueva solicitud',   Icon: IconPlus },
+  { href: (s: string) => `/portal/${s}/informes`,    label: 'Inf. Técnicos',     Icon: IconDocument },
+  { href: (s: string) => `/portal/${s}/reportes`,    label: 'Reportes',          Icon: IconReports },
+  { href: (s: string) => `/portal/${s}/cronograma`,  label: 'Cronograma',        Icon: IconCalendar },
 ]
 
 export function PortalShell({

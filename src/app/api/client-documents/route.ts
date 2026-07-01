@@ -89,7 +89,8 @@ export async function GET(req: NextRequest) {
       include: { client: { select: { id: true, name: true } } },
     })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    return NextResponse.json({ doc })
+    // Return top-level dataJson for convenient destructuring in portal downloads
+    return NextResponse.json({ doc, dataJson: doc.dataJson })
   }
 
   const where = clientId

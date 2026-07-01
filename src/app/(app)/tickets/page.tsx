@@ -1,39 +1,27 @@
 import Link from 'next/link'
-import { Suspense } from 'react'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { getTickets } from '@/lib/tickets/tickets'
-import { TicketFilters } from '@/components/tickets/ticket-filters'
+import { TicketListView } from '@/components/tickets/ticket-list-view'
 import {
-  KANBAN_COLUMNS,
-  STATUS_COLOR,
-  STATUS_LABEL,
-  URGENCY_LABEL,
-  URGENCY_COLOR,
+  STATUS_DOT, STATUS_LABEL,
   type TicketStatusId,
-  type TicketUrgencyId,
 } from '@/lib/tickets/labels'
 
 export const metadata = { title: 'Tickets — INGEGAR' }
 
-export default async function TicketsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ clientId?: string; assignedToId?: string }>
-}) {
+export default async function TicketsPage() {
   const session = await auth()
   if (!session?.user) redirect('/login')
   const actor = { id: session.user.id, tenantId: session.user.tenantId, role: session.user.role }
 
-  const { clientId, assignedToId } = await searchParams
-
   const [tickets, clients, users] = await Promise.all([
-    getTickets(actor, { clientId, assignedToId }),
+    getTickets(actor),
     prisma.client.findMany({
       where: tenantScope(actor),
-      select: { id: true, name: true, portalSlug: true },
+      select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
     prisma.user.findMany({
@@ -43,31 +31,52 @@ export default async function TicketsPage({
     }),
   ])
 
-  const grouped = KANBAN_COLUMNS.reduce<Record<string, typeof tickets>>(
-    (acc, col) => {
-      acc[col.status] = tickets.filter((t) => t.status === col.status)
-      return acc
-    },
-    {} as Record<string, typeof tickets>,
-  )
+  const needsAttention = tickets.filter(t => t.status === 'nuevo' && !t.assignedToId).length
+  const emergencias    = tickets.filter(t => t.urgency === 'emergencia').length
+  const sinAbordar24h  = tickets.filter(t =>
+    t.status === 'nuevo' &&
+    (Date.now() - new Date(t.createdAt).getTime()) > 86_400_000,
+  ).length
 
-  // Count tickets needing attention (nuevo + unassigned)
-  const needsAttention = tickets.filter((t) => t.status === 'nuevo' && !t.assignedToId).length
+  // Serialize dates to ISO strings for client component
+  const serialized = tickets.map(t => ({
+    id: t.id,
+    ticketCode: t.ticketCode,
+    title: t.title,
+    status: t.status,
+    urgency: t.urgency,
+    createdAt: t.createdAt.toISOString(),
+    estimatedDate: t.estimatedDate ? t.estimatedDate.toISOString() : null,
+    client: t.client,
+    branch: t.branch ? { id: t.branch.id, name: t.branch.name } : null,
+    assignedTo: t.assignedTo ? { id: t.assignedTo.id, name: t.assignedTo.name } : null,
+    _count: t._count,
+  }))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-ink">Tickets de mantención</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {tickets.length} activos
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-500">{tickets.length} activos</span>
             {needsAttention > 0 && (
-              <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
                 {needsAttention} sin asignar
               </span>
             )}
-          </p>
+            {sinAbordar24h > 0 && (
+              <span className="rounded-full bg-red-50 border border-red-200 px-2 py-0.5 text-xs font-semibold text-red-700">
+                {sinAbordar24h} sin abordar +24h
+              </span>
+            )}
+            {emergencias > 0 && (
+              <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                🚨 {emergencias} emergencia{emergencias > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
         <Link
           href="/tickets/new"
@@ -77,110 +86,19 @@ export default async function TicketsPage({
         </Link>
       </div>
 
-      {/* Filters */}
-      <Suspense>
-        <TicketFilters clients={clients} users={users} />
-      </Suspense>
+      <TicketListView tickets={serialized} clients={clients} users={users} />
 
-      {/* Kanban */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {KANBAN_COLUMNS.map((col) => {
-          const colTickets = grouped[col.status] ?? []
-          return (
-            <div key={col.status} className="flex flex-col gap-3">
-              {/* Column header */}
-              <div className={`flex items-center justify-between rounded-t-lg border-t-4 bg-white px-3 py-2 shadow-sm ${col.color}`}>
-                <span className="text-sm font-semibold text-gray-700">{col.label}</span>
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-bold text-gray-500">
-                  {colTickets.length}
-                </span>
-              </div>
-
-              {/* Cards */}
-              <div className="flex flex-col gap-2">
-                {colTickets.length === 0 && (
-                  <p className="rounded-lg border border-dashed border-gray-200 py-6 text-center text-xs text-gray-400">
-                    Sin tickets
-                  </p>
-                )}
-                {colTickets.map((ticket) => (
-                  <Link
-                    key={ticket.id}
-                    href={`/tickets/${ticket.id}`}
-                    className="group rounded-lg border border-gray-200 bg-white p-3 shadow-sm transition hover:border-brand/40 hover:shadow-md"
-                  >
-                    {/* Client chip */}
-                    <div className="mb-2 flex items-center justify-between gap-1">
-                      <span className="rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                        {ticket.client.name}
-                      </span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${URGENCY_COLOR[ticket.urgency as TicketUrgencyId]}`}>
-                        {URGENCY_LABEL[ticket.urgency as TicketUrgencyId]}
-                      </span>
-                    </div>
-
-                    {/* Ticket code */}
-                    <p className="font-mono text-[10px] text-gray-400">{ticket.ticketCode}</p>
-
-                    {/* Title */}
-                    <p className="mt-0.5 text-sm font-medium text-gray-800 group-hover:text-ink line-clamp-2">
-                      {ticket.title}
-                    </p>
-
-                    {/* Branch */}
-                    {ticket.branch && (
-                      <p className="mt-1 text-xs text-gray-500">📍 {ticket.branch.name}</p>
-                    )}
-
-                    {/* Footer */}
-                    <div className="mt-2 flex items-center justify-between gap-1 text-xs text-gray-400">
-                      <span className="truncate">{ticket.assignedTo?.name ?? <span className="text-amber-600 font-medium">Sin asignar</span>}</span>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {ticket._count.documents > 0 && (
-                          <span
-                            title={`${ticket._count.documents} adjunto${ticket._count.documents > 1 ? 's' : ''}`}
-                            className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600"
-                          >
-                            <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9.5V5a3 3 0 0 0-6 0v7a1.5 1.5 0 0 0 3 0V5.5a.5.5 0 0 0-1 0V12"/></svg>
-                            {ticket._count.documents}
-                          </span>
-                        )}
-                        {ticket._count.items > 0 && (
-                          <span
-                            title={`${ticket._count.items} ítem${ticket._count.items > 1 ? 's' : ''}`}
-                            className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 border border-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
-                          >
-                            ☑ {ticket._count.items}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Closed tickets section */}
-      <ClosedSection tenantScope={actor} clientId={clientId} />
+      {/* Closed tickets */}
+      <ClosedSection actor={actor} />
     </div>
   )
 }
 
-async function ClosedSection({
-  tenantScope: actor,
-  clientId,
-}: {
-  tenantScope: { id: string; tenantId: string; role: string }
-  clientId?: string
-}) {
+async function ClosedSection({ actor }: { actor: { id: string; tenantId: string; role: string } }) {
   const closed = await prisma.ticket.findMany({
     where: {
       tenantId: actor.tenantId,
       status: { in: ['resuelto', 'cancelado'] },
-      ...(clientId ? { clientId } : {}),
     },
     select: {
       id: true,
@@ -191,6 +109,7 @@ async function ClosedSection({
       client: { select: { name: true } },
       branch: { select: { name: true } },
       assignedTo: { select: { name: true } },
+      _count: { select: { documents: true } },
     },
     orderBy: { closedDate: 'desc' },
     take: 20,
@@ -200,38 +119,44 @@ async function ClosedSection({
 
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">Cerrados recientes</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Cerrados recientes</h2>
       <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         <table className="w-full text-sm">
-          <thead className="border-b border-gray-100 bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+          <thead className="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wider text-gray-400">
             <tr>
-              <th className="px-4 py-2 text-left">Código</th>
-              <th className="px-4 py-2 text-left">Título</th>
-              <th className="px-4 py-2 text-left">Cliente</th>
-              <th className="px-4 py-2 text-left">Sucursal</th>
-              <th className="px-4 py-2 text-left">Estado</th>
-              <th className="px-4 py-2 text-left">Técnico</th>
-              <th className="px-4 py-2 text-left">Fecha cierre</th>
+              {['Código', 'Título', 'Cliente', 'Sucursal', 'Estado', 'Técnico', 'Docs', 'Cierre'].map(h => (
+                <th key={h} className="px-4 py-2.5 text-left">{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {closed.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50 transition">
-                <td className="px-4 py-2 font-mono text-xs text-gray-400">
-                  <Link href={`/tickets/${t.id}`} className="hover:text-brand">{t.ticketCode}</Link>
+            {closed.map(t => (
+              <tr key={t.id} className="transition hover:bg-gray-50">
+                <td className="px-4 py-2.5">
+                  <Link href={`/tickets/${t.id}`} className="font-mono text-xs text-gray-400 hover:text-brand">
+                    {t.ticketCode}
+                  </Link>
                 </td>
-                <td className="px-4 py-2 text-gray-700">
-                  <Link href={`/tickets/${t.id}`} className="hover:text-brand">{t.title}</Link>
+                <td className="max-w-[240px] px-4 py-2.5">
+                  <Link href={`/tickets/${t.id}`} className="line-clamp-1 text-gray-700 hover:text-brand">{t.title}</Link>
                 </td>
-                <td className="px-4 py-2 text-gray-600">{t.client.name}</td>
-                <td className="px-4 py-2 text-gray-500">{t.branch?.name ?? '—'}</td>
-                <td className="px-4 py-2">
-                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_COLOR[t.status as TicketStatusId]}`}>
+                <td className="whitespace-nowrap px-4 py-2.5 text-gray-600">{t.client.name}</td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-gray-500">{t.branch?.name ?? '—'}</td>
+                <td className="px-4 py-2.5">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700">
+                    <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[t.status as TicketStatusId] ?? 'bg-gray-400'}`} />
                     {STATUS_LABEL[t.status as TicketStatusId]}
                   </span>
                 </td>
-                <td className="px-4 py-2 text-gray-500">{t.assignedTo?.name ?? '—'}</td>
-                <td className="px-4 py-2 text-gray-400 text-xs">
+                <td className="whitespace-nowrap px-4 py-2.5 text-gray-500">{t.assignedTo?.name ?? '—'}</td>
+                <td className="px-4 py-2.5 text-center">
+                  {t._count.documents > 0 ? (
+                    <span className="inline-flex items-center gap-0.5 rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-600">
+                      📎 {t._count.documents}
+                    </span>
+                  ) : <span className="text-xs text-gray-300">—</span>}
+                </td>
+                <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-400">
                   {t.closedDate ? new Date(t.closedDate).toLocaleDateString('es-CL') : '—'}
                 </td>
               </tr>
