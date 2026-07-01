@@ -30,6 +30,8 @@
     "import:jb:prod": "npx tsx --env-file=.env.production.local scripts/import-jb-tickets.ts",
     "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
     "fix:portal-slugs:prod": "npx tsx --env-file=.env.production.local scripts/fix-portal-client-slug.ts",
+    "sync:r2:prod": "npx tsx --env-file=.env.production.local scripts/sync-r2-docs.ts",
+    "sync:r2": "npx tsx --env-file=.env scripts/sync-r2-docs.ts",
     "icons:generate": "node scripts/generate-icons.mjs"
   },
   "prisma": {

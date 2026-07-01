@@ -240,7 +240,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: `2px solid ${C.bd}`, background: bg }}>
-                  {['ID','Título','Sucursal','Urgencia','Estado','Ítems','Fecha'].map(h => (
+                  {['ID','Título','Sucursal','Urgencia','Estado','Docs','Fecha'].map(h => (
                     <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                   <th style={{ width: 32 }}></th>
@@ -268,9 +268,25 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
                       <td style={{ padding: '10px 14px' }}><span style={urgStyle(t.urgency)}>{URG_LABEL[t.urgency] ?? t.urgency}</span></td>
                       <td style={{ padding: '10px 14px' }}><span style={statusStyle(t.status)}>{STATUS_LABEL[t.status] ?? t.status}</span></td>
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        {t._count.items > 0
-                          ? <span style={{ fontSize: 11, fontWeight: 600, color: C.t2, background: bg, border: `1px solid ${C.bd}`, borderRadius: 10, padding: '1px 7px' }}>{t._count.items}</span>
-                          : <span style={{ color: C.t4, fontSize: 11 }}>—</span>}
+                        {(t._count.documents > 0 || t._count.items > 0) ? (
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
+                            {t._count.documents > 0 && (
+                              <span title={`${t._count.documents} adjunto${t._count.documents !== 1 ? 's' : ''}`}
+                                style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: C.t2, background: bg, border: `1px solid ${C.bd}`, borderRadius: 10, padding: '1px 7px' }}>
+                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 2H3a1 1 0 00-1 1v7a1 1 0 001 1h6a1 1 0 001-1V5L7 2z"/><path d="M7 2v3h3M4 7h4M4 9h2"/></svg>
+                                {t._count.documents}
+                              </span>
+                            )}
+                            {t._count.items > 0 && (
+                              <span title={`${t._count.items} ítem${t._count.items !== 1 ? 's' : ''}`}
+                                style={{ fontSize: 11, fontWeight: 600, color: C.t2, background: bg, border: `1px solid ${C.bd}`, borderRadius: 10, padding: '1px 7px' }}>
+                                ☑ {t._count.items}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: C.t4, fontSize: 11 }}>—</span>
+                        )}
                       </td>
                       <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
                         <div style={{ fontSize: 11, color: C.t3 }}>{new Date(t.createdAt).toLocaleDateString('es-CL')}</div>

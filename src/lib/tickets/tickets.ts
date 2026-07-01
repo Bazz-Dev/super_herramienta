@@ -121,8 +121,6 @@ export async function getClientTicket(clientId: string, ticketId: string) {
     },
   })
   if (!t) return null
-  // Extract Drive folder URL before stripping internalNotes
-  const driveMatch = t.internalNotes?.match(/\[Carpeta Drive:\s*(https?:\/\/[^\]]+)\]/)
   const { internalNotes: _stripped, ...safe } = t
-  return { ...safe, driveFolderUrl: driveMatch?.[1] ?? null }
+  return safe
 }
