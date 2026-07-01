@@ -40,12 +40,18 @@ export function NotificationBell() {
 
   useEffect(() => {
     load()
-    // Poll every 30s when tab is visible
     const id = setInterval(() => { if (!document.hidden) load() }, 30_000)
-    // Check current push permission (only show button if push is actually supported)
     if (pushSupported()) setPushEnabled(Notification.permission === 'granted')
     return () => clearInterval(id)
   }, [])
+
+  // PWA App Badge — shows unread count as number on home screen icon
+  useEffect(() => {
+    if (!('setAppBadge' in navigator)) return
+    const nav = navigator as Navigator & { setAppBadge?: (n: number) => void; clearAppBadge?: () => void }
+    if (unread > 0) nav.setAppBadge?.(unread)
+    else nav.clearAppBadge?.()
+  }, [unread])
 
   // Close on outside click
   useEffect(() => {
@@ -84,6 +90,9 @@ export function NotificationBell() {
             {unread > 9 ? '9+' : unread}
           </span>
         )}
+        {unread === 0 && pushEnabled === false && (
+          <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" title="Activar notificaciones push" />
+        )}
       </button>
 
       {open && (
@@ -92,8 +101,8 @@ export function NotificationBell() {
           <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
             <span className="text-sm font-semibold text-ink">Notificaciones</span>
             {pushEnabled === false && (
-              <button onClick={enablePush} className="text-xs text-brand-700 font-medium hover:underline">
-                Activar push →
+              <button onClick={enablePush} className="flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition">
+                🔔 Activar alertas
               </button>
             )}
           </div>

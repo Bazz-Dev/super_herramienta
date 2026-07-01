@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { resolvePortalTheme } from '@/lib/portal-theme'
+import { PortalPushPrompt } from '@/components/tickets/portal-push-prompt'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: any }) {
@@ -327,6 +328,8 @@ export default async function PortalLayout({ children, params }: { children: Rea
 
       {/* .pw: CSS vars injected BOTH in <style> and as inline style — belt + suspenders.
           If the <style> tag fails to load (body injection quirk), inline vars still resolve. */}
+      <PortalPushPrompt primary={acc} slug={slug} />
+
       <div className="pw" style={{
         '--acc': acc,
         '--bg':  theme.bg,
