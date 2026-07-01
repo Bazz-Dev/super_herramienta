@@ -27,8 +27,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       orderBy: { name: 'asc' },
     }),
     prisma.user.findMany({
-      where: { tenantId: actor.tenantId, role: { in: ['super', 'supervisor'] } },
-      select: { id: true, name: true },
+      where: { tenantId: actor.tenantId, role: { in: ['super', 'supervisor', 'tecnico'] }, active: true },
+      select: { id: true, name: true, role: true },
       orderBy: { name: 'asc' },
     }),
   ])
@@ -106,9 +106,11 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             </p>
           </div>
           <div>
-            <p className="text-gray-400">Carpeta R2</p>
-            <p className="font-mono text-xs text-gray-500 break-all">
-              {ticket.folderKey ?? '—'}
+            <p className="text-gray-400">Adjuntos</p>
+            <p className="font-medium text-gray-700">
+              {ticket.documents.length > 0
+                ? `${ticket.documents.length} archivo${ticket.documents.length > 1 ? 's' : ''}`
+                : '—'}
             </p>
           </div>
         </div>
@@ -147,36 +149,73 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         <div className="space-y-4">
           {/* Public history */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <h3 className="mb-3 text-sm font-semibold text-gray-700">Historial</h3>
-            {publicHistory.length === 0 && (
+            <h3 className="mb-4 text-sm font-semibold text-gray-700 flex items-center justify-between">
+              Historial de actividad
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-500">{publicHistory.length}</span>
+            </h3>
+            {publicHistory.length === 0 ? (
               <p className="text-xs text-gray-400">Sin actividad registrada.</p>
+            ) : (
+              <ol className="relative border-l border-gray-100 ml-2 space-y-0">
+                {publicHistory.map((h, i) => {
+                  const isStatusChange = !!(h.fromStatus && h.toStatus)
+                  const actor = h.user?.name ?? 'Sistema'
+                  const dateStr = new Date(h.createdAt).toLocaleString('es-CL', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })
+                  const dotCls = h.toStatus
+                    ? STATUS_DOT[h.toStatus as TicketStatusId] ?? 'bg-gray-300'
+                    : 'bg-gray-300'
+                  return (
+                    <li key={h.id} className={`ml-4 ${i < publicHistory.length - 1 ? 'pb-5' : 'pb-1'}`}>
+                      <span className={`absolute -left-1.25 flex h-2.5 w-2.5 items-center justify-center rounded-full ring-2 ring-white ${dotCls}`} />
+                      <div className="text-xs">
+                        {isStatusChange && (
+                          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200">
+                              {STATUS_LABEL[h.fromStatus as TicketStatusId] ?? h.fromStatus}
+                            </span>
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300 shrink-0"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold border ${STATUS_COLOR[h.toStatus as TicketStatusId] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                              {STATUS_LABEL[h.toStatus as TicketStatusId] ?? h.toStatus}
+                            </span>
+                          </div>
+                        )}
+                        {h.note && <p className="text-gray-700 mb-0.5">{h.note}</p>}
+                        <p className="text-gray-400">
+                          <span className="font-medium text-gray-500">{actor}</span>
+                          {' · '}{dateStr}
+                        </p>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ol>
             )}
-            <ul className="space-y-3">
-              {publicHistory.map((h) => (
-                <li key={h.id} className="relative pl-4 text-xs">
-                  <span className={`absolute left-0 top-1.5 h-2 w-2 rounded-full ${h.toStatus ? STATUS_DOT[h.toStatus as TicketStatusId] ?? 'bg-gray-300' : 'bg-gray-300'}`} />
-                  <p className="text-gray-600">{h.note}</p>
-                  {h.fromStatus && h.toStatus && (
-                    <p className="text-gray-400">{STATUS_LABEL[h.fromStatus as TicketStatusId] ?? h.fromStatus} → {STATUS_LABEL[h.toStatus as TicketStatusId] ?? h.toStatus}</p>
-                  )}
-                  <p className="text-gray-400">{h.user?.name} · {new Date(h.createdAt).toLocaleString('es-CL')}</p>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Internal notes */}
           {internalHistory.length > 0 && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-amber-800">Notas internas</h3>
-              <ul className="space-y-3">
-                {internalHistory.map((h) => (
-                  <li key={h.id} className="text-xs">
-                    <p className="text-amber-900">{h.note}</p>
-                    <p className="text-amber-600">{h.user?.name} · {new Date(h.createdAt).toLocaleString('es-CL')}</p>
+              <h3 className="mb-4 text-sm font-semibold text-amber-800 flex items-center justify-between">
+                🔒 Notas internas
+                <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">{internalHistory.length}</span>
+              </h3>
+              <ol className="relative border-l border-amber-200 ml-2 space-y-0">
+                {internalHistory.map((h, i) => (
+                  <li key={h.id} className={`ml-4 ${i < internalHistory.length - 1 ? 'pb-4' : 'pb-1'}`}>
+                    <span className="absolute -left-1.25 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-amber-50" />
+                    <div className="text-xs">
+                      {h.note && <p className="text-amber-900 mb-0.5">{h.note}</p>}
+                      <p className="text-amber-600">
+                        <span className="font-medium">{h.user?.name ?? 'Sistema'}</span>
+                        {' · '}{new Date(h.createdAt).toLocaleString('es-CL', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             </div>
           )}
         </div>

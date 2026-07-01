@@ -133,14 +133,25 @@ export default async function TicketsPage({
                     )}
 
                     {/* Footer */}
-                    <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                      <span>{ticket.assignedTo?.name ?? <span className="text-amber-600 font-medium">Sin asignar</span>}</span>
-                      <div className="flex items-center gap-2">
+                    <div className="mt-2 flex items-center justify-between gap-1 text-xs text-gray-400">
+                      <span className="truncate">{ticket.assignedTo?.name ?? <span className="text-amber-600 font-medium">Sin asignar</span>}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
                         {ticket._count.documents > 0 && (
-                          <span title="Documentos">📎 {ticket._count.documents}</span>
+                          <span
+                            title={`${ticket._count.documents} adjunto${ticket._count.documents > 1 ? 's' : ''}`}
+                            className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600"
+                          >
+                            <svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9.5V5a3 3 0 0 0-6 0v7a1.5 1.5 0 0 0 3 0V5.5a.5.5 0 0 0-1 0V12"/></svg>
+                            {ticket._count.documents}
+                          </span>
                         )}
                         {ticket._count.items > 0 && (
-                          <span title="Ítems">☑ {ticket._count.items}</span>
+                          <span
+                            title={`${ticket._count.items} ítem${ticket._count.items > 1 ? 's' : ''}`}
+                            className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 border border-gray-200 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
+                          >
+                            ☑ {ticket._count.items}
+                          </span>
                         )}
                       </div>
                     </div>

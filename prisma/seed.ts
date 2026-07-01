@@ -45,11 +45,11 @@ async function main() {
 
   // --- Recursos demo (solo si la BD está vacía) ---
   const techCount = await prisma.technician.count({ where: { tenantId: ingegar.id } })
-  let firstDemoTech: { id: string } | null = null
+  let firstDemoTech: { id: string; name: string } | null = null
   if (techCount === 0) {
     const techs = await Promise.all(
       [
-        { name: 'Carlos Fuentes', specialty: 'Climatización', phone: '+56 9 1111 1111' },
+        { name: 'Jesús Díaz', specialty: 'Climatización', phone: '+56 9 1111 1111' },
         { name: 'Marcela Rojas', specialty: 'Eléctrica', phone: '+56 9 2222 2222' },
         { name: 'Diego Soto', specialty: 'Mecánica', phone: '+56 9 3333 3333' },
       ].map((t) => prisma.technician.create({ data: { ...t, tenantId: ingegar.id } })),
@@ -129,28 +129,38 @@ async function main() {
     }
   }
 
-  // --- Usuario técnico demo (Carlos Fuentes) ---
-  // Use firstDemoTech (new seed) or look up Carlos Fuentes if DB already had technicians
-  const carlosTech = firstDemoTech
+  // --- Usuario técnico demo (Jesús Díaz) ---
+  // Find by name, rename if DB had old Carlos Fuentes entry
+  let jesusTech = firstDemoTech
+    ?? await prisma.technician.findFirst({ where: { tenantId: ingegar.id, name: 'Jesús Díaz' } })
     ?? await prisma.technician.findFirst({ where: { tenantId: ingegar.id, name: 'Carlos Fuentes' } })
 
-  if (carlosTech) {
+  if (jesusTech?.name === 'Carlos Fuentes') {
+    jesusTech = await prisma.technician.update({
+      where: { id: jesusTech.id },
+      data: { name: 'Jesús Díaz' },
+    })
+  }
+
+  if (jesusTech) {
     const tecnicoPassword = process.env.SEED_TECNICO_PASSWORD ?? 'Tecnico@2026'
     const tecnicoHash = await bcrypt.hash(tecnicoPassword, 10)
     await prisma.user.upsert({
-      where: { email: 'carlos@ingegarchile.cl' },
-      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Carlos Fuentes', technicianId: carlosTech.id, username: 'carlos' },
+      where: { email: 'jesus@ingegarchile.cl' },
+      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Jesús Díaz', technicianId: jesusTech.id, username: 'jesus' },
       create: {
-        email: 'carlos@ingegarchile.cl',
-        username: 'carlos',
-        name: 'Carlos Fuentes',
+        email: 'jesus@ingegarchile.cl',
+        username: 'jesus',
+        name: 'Jesús Díaz',
         passwordHash: tecnicoHash,
         role: 'tecnico',
         tenantId: ingegar.id,
-        technicianId: carlosTech.id,
+        technicianId: jesusTech.id,
       },
     })
-    console.log('  carlos / carlos@ingegarchile.cl     /', tecnicoPassword, '(tecnico — Carlos Fuentes)')
+    // Remove old carlos account if it lingered
+    await prisma.user.deleteMany({ where: { email: 'carlos@ingegarchile.cl' } })
+    console.log('  jesus / jesus@ingegarchile.cl      /', tecnicoPassword, '(tecnico — Jesús Díaz)')
   }
 
   // --- Portales cliente (Just Burger + Decathlon) ---
@@ -225,7 +235,7 @@ async function main() {
   console.log(`  ingegar  / admin@ingegarchile.cl       ${adminPassword.padEnd(20)} super`)
   console.log(`  sgarrido / sgarrido@ingegarchile.cl    ${sebastianPassword.padEnd(20)} supervisor`)
   console.log(`  cristian / cristian@ingegarchile.cl    ${cristianPassword.padEnd(20)} supervisor`)
-  console.log(`  carlos   / carlos@ingegarchile.cl      Tecnico@2026         tecnico`)
+  console.log(`  jesus    / jesus@ingegarchile.cl       Tecnico@2026         tecnico`)
   console.log('\n  Portales cliente:')
   console.log(`  justburger / portal@justburger.cl      ${jbPassword.padEnd(20)} → /portal/justburger`)
   console.log(`  decathlon  / portal@decathlon.cl       ${decPassword.padEnd(20)} → /portal/decathlon`)

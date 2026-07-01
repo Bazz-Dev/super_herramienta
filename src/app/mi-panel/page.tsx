@@ -28,9 +28,32 @@ const TICKET_STATUS_LABELS: Record<string, string> = {
   nuevo: 'Nuevo',
   en_revision: 'En revisión',
   en_ejecucion: 'En ejecución',
-  esperando_aprobacion: 'Esperando aprobación',
+  esperando_aprobacion: 'Esp. aprobación',
   resuelto: 'Resuelto',
   cancelado: 'Cancelado',
+}
+
+const TICKET_STATUS_COLOR: Record<string, string> = {
+  nuevo: 'bg-blue-100 text-blue-700',
+  en_revision: 'bg-purple-100 text-purple-700',
+  en_ejecucion: 'bg-amber-100 text-amber-700',
+  esperando_aprobacion: 'bg-orange-100 text-orange-700',
+  resuelto: 'bg-green-100 text-green-700',
+  cancelado: 'bg-gray-100 text-gray-500',
+}
+
+const URGENCY_LABELS: Record<string, string> = {
+  emergencia: 'Emergencia',
+  urgencia: 'Urgente',
+  no_urgente: 'Normal',
+  preventivo: 'Preventivo',
+}
+
+const URGENCY_COLOR: Record<string, string> = {
+  emergencia: 'bg-red-100 text-red-700',
+  urgencia: 'bg-orange-100 text-orange-700',
+  no_urgente: 'bg-gray-100 text-gray-500',
+  preventivo: 'bg-teal-100 text-teal-700',
 }
 
 export default async function MiPanelPage() {
@@ -98,18 +121,20 @@ export default async function MiPanelPage() {
 
     // Tickets assigned via User account (assignedToId = User.id, not Technician.id)
     prisma.ticket.findMany({
-      where: { assignedToId: actor.id, tenantId: actor.tenantId },
+      where: { assignedToId: actor.id, tenantId: actor.tenantId, deletedAt: null },
       select: {
         id: true,
         ticketCode: true,
         title: true,
         status: true,
         urgency: true,
+        estimatedDate: true,
         client: { select: { name: true } },
+        branch: { select: { name: true } },
+        _count: { select: { documents: true } },
         updatedAt: true,
       },
-      orderBy: { updatedAt: 'desc' },
-      take: 5,
+      orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
     }),
 
     // Pending signature requests
@@ -133,6 +158,10 @@ export default async function MiPanelPage() {
   const totalAsignaciones = assignmentRows.length
   const enAgenda = assignmentRows.filter((r) => r.assignment.status === 'scheduled' || r.assignment.status === 'in_progress').length
   const completadas = assignmentRows.filter((r) => r.assignment.status === 'done').length
+
+  // Ticket stats
+  const activeTickets = ticketStats.filter((t) => !['resuelto', 'cancelado', 'fusionado'].includes(t.status))
+  const totalTickets = ticketStats.length
 
   // Upcoming assignments (future, sorted asc)
   const upcoming = assignmentRows
@@ -181,10 +210,10 @@ export default async function MiPanelPage() {
       )}
 
       {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
           <p className="text-3xl font-bold text-blue-700">{totalAsignaciones}</p>
-          <p className="mt-1 text-xs text-blue-600 font-medium">Trabajos totales</p>
+          <p className="mt-1 text-xs text-blue-600 font-medium">Trabajos</p>
         </div>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
           <p className="text-3xl font-bold text-amber-700">{enAgenda}</p>
@@ -194,9 +223,13 @@ export default async function MiPanelPage() {
           <p className="text-3xl font-bold text-green-700">{completadas}</p>
           <p className="mt-1 text-xs text-green-600 font-medium">Completados</p>
         </div>
+        <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 text-center">
+          <p className="text-3xl font-bold text-purple-700">{activeTickets.length}</p>
+          <p className="mt-1 text-xs text-purple-600 font-medium">Tickets activos</p>
+        </div>
         <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-center">
           <p className="text-3xl font-bold text-yellow-700">{pendienteCount}</p>
-          <p className="mt-1 text-xs text-yellow-600 font-medium">Gastos pendientes</p>
+          <p className="mt-1 text-xs text-yellow-600 font-medium">Gastos pend.</p>
         </div>
       </div>
 
@@ -249,27 +282,47 @@ export default async function MiPanelPage() {
       )}
 
       {/* Tickets assigned to this user */}
-      {ticketStats.length > 0 && (
-        <div className="rounded-xl border border-purple-100 bg-purple-50 p-5">
-          <h2 className="mb-3 text-base font-semibold text-ink">Tickets asignados</h2>
-          <ul className="divide-y divide-purple-100">
+      <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-ink">Tickets asignados</h2>
+          <span className="rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-bold text-purple-700">{totalTickets}</span>
+        </div>
+        {ticketStats.length === 0 ? (
+          <p className="text-sm text-gray-400">No tienes tickets asignados actualmente.</p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
             {ticketStats.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 py-3">
+              <li key={t.id} className="flex items-start gap-3 py-3">
                 <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className="font-mono text-[10px] text-gray-400">{t.ticketCode}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TICKET_STATUS_COLOR[t.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                      {TICKET_STATUS_LABELS[t.status] ?? t.status}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${URGENCY_COLOR[t.urgency] ?? 'bg-gray-100 text-gray-500'}`}>
+                      {URGENCY_LABELS[t.urgency] ?? t.urgency}
+                    </span>
+                  </div>
                   <p className="text-sm font-medium text-ink truncate">{t.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {t.ticketCode}
-                    {t.client && <span className="ml-2">· {t.client.name}</span>}
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {t.client?.name}
+                    {t.branch && <span className="ml-1.5">· 📍 {t.branch.name}</span>}
+                    {t.estimatedDate && (
+                      <span className="ml-1.5">· 📅 {new Date(t.estimatedDate).toLocaleDateString('es-CL')}</span>
+                    )}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-white border border-purple-200 px-2 py-0.5 text-xs text-purple-700">
-                  {TICKET_STATUS_LABELS[t.status] ?? t.status}
-                </span>
+                {t._count.documents > 0 && (
+                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-semibold text-blue-600" title="Documentos adjuntos">
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9.5V5a3 3 0 0 0-6 0v7a1.5 1.5 0 0 0 3 0V5.5a.5.5 0 0 0-1 0V12"/></svg>
+                    {t._count.documents}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Approved this month */}
       <div className="flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-5 py-3">
