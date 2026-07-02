@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { updateTicketFields, updateTicketStatus, addTicketComment } from '@/app/(app)/tickets/actions'
 import { ALL_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
+import { PhotoGallery } from '@/components/tickets/photo-gallery'
 
 type Item    = { id: string; title: string; status: string; description: string | null }
 type Doc     = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date }
@@ -216,72 +217,37 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
 
         {/* ── 1. Multimedia (fotos y videos) ── */}
         <div className="p-4 border-b border-gray-100">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M6 6.5l4 2.5-4 2.5V6.5z" fill="currentColor" stroke="none"/></svg>
-              Fotos y videos
-              {docs.filter(d => isMedia(d.mimeType)).length > 0 && (
-                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">
-                  {docs.filter(d => isMedia(d.mimeType)).length}
-                </span>
-              )}
-            </h3>
-            <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100 ${uploading ? 'opacity-40 pointer-events-none' : ''}`}>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-              {uploading ? 'Subiendo…' : 'Agregar'}
-              <input type="file" className="sr-only" accept="image/*,video/*" disabled={uploading}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]; if (!file) return
-                  setUploading(true); setUploadError('')
-                  const fd = new FormData(); fd.append('file', file)
-                  try {
-                    const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
-                    if (!res.ok) { const j = await res.json(); setUploadError(j.error ?? 'Error al subir'); return }
-                    const newDoc: Doc = await res.json()
-                    setDocs(prev => [...prev, newDoc])
-                  } catch { setUploadError('Error de red') }
-                  finally { setUploading(false); e.target.value = '' }
-                }}
-              />
-            </label>
-          </div>
-
-          {docs.filter(d => isMedia(d.mimeType)).length === 0 ? (
-            <p className="text-xs text-gray-400">Sin fotos ni videos adjuntos.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {docs.filter(d => isMedia(d.mimeType)).map(doc => {
-                const url = resolveUrl(doc.fileUrl)
-                return (
-                  <div key={doc.id} className="group relative">
-                    {isImage(doc.mimeType) ? (
-                      <a href={url} target="_blank" rel="noopener noreferrer"
-                        className="block aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt={doc.name} className="h-full w-full object-cover transition group-hover:opacity-90" />
-                      </a>
-                    ) : (
-                      <a href={url} target="_blank" rel="noopener noreferrer"
-                        className="flex aspect-square items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-2xl transition hover:bg-gray-100">
-                        🎬
-                      </a>
-                    )}
-                    <p className="mt-0.5 truncate text-[10px] text-gray-400">{doc.name}</p>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (!confirm(`Eliminar "${doc.name}"?`)) return
-                        const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${doc.id}`, { method: 'DELETE' })
-                        if (res.ok) setDocs(prev => prev.filter(d => d.id !== doc.id))
-                      }}
-                      className="absolute right-1 top-1 hidden h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] text-white shadow group-hover:flex"
-                      title="Eliminar"
-                    >✕</button>
-                  </div>
-                )
-              })}
-            </div>
-          )}
+          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M6 6.5l4 2.5-4 2.5V6.5z" fill="currentColor" stroke="none"/></svg>
+            Fotos y videos
+            {docs.filter(d => isMedia(d.mimeType)).length > 0 && (
+              <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">
+                {docs.filter(d => isMedia(d.mimeType)).length}
+              </span>
+            )}
+          </h3>
+          <PhotoGallery
+            items={docs.filter(d => isMedia(d.mimeType)).map(doc => ({
+              id: doc.id,
+              name: doc.name,
+              url: resolveUrl(doc.fileUrl),
+              mimeType: doc.mimeType,
+            }))}
+            accent="#f5b100"
+            onUpload={async (file) => {
+              const fd = new FormData(); fd.append('file', file)
+              const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
+              if (!res.ok) { const j = await res.json(); throw new Error(j.error ?? 'Error al subir') }
+              const newDoc: Doc = await res.json()
+              setDocs(prev => [...prev, newDoc])
+              return { id: newDoc.id, name: newDoc.name, url: resolveUrl(newDoc.fileUrl), mimeType: newDoc.mimeType }
+            }}
+            onDelete={async (id) => {
+              const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${id}`, { method: 'DELETE' })
+              if (!res.ok) throw new Error('Error al eliminar')
+              setDocs(prev => prev.filter(d => d.id !== id))
+            }}
+          />
         </div>
 
         {/* ── 2. Archivos adjuntos (docs/pdfs/etc.) ── */}

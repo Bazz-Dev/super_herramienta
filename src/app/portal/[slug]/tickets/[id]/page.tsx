@@ -11,6 +11,7 @@ import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalCommentForm } from '@/components/tickets/portal-comment-form'
 import { PortalTicketActions } from '@/components/tickets/portal-ticket-actions'
 import { PortalInformeBtn } from '@/components/tickets/portal-informe-btn'
+import { PhotoGallery } from '@/components/tickets/photo-gallery'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import {
   PORTAL_STATUS_BADGE as SB,
@@ -217,6 +218,35 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           </div>
         </div>
 
+        {/* ── DETALLES DEL REQUERIMIENTO ─────────────────────────────── */}
+        <div className="pcard" style={{ padding: '18px 22px' }}>
+          <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            Detalles del requerimiento
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            <div>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Código</p>
+              <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--p-text)', fontFamily: 'ui-monospace, monospace' }}>{ticket.ticketCode}</p>
+            </div>
+            <div>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>N° OT</p>
+              <p style={{ fontSize: '13px', fontWeight: '600', color: ticket.otNumber ? 'var(--p-text)' : 'var(--p-t3)' }}>{ticket.otNumber ?? '—'}</p>
+            </div>
+            {ticket.category && (
+              <div>
+                <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Categoría</p>
+                <p style={{ fontSize: '13px', fontWeight: '500', color: 'var(--p-text)' }}>{ticket.category}</p>
+              </div>
+            )}
+            <div>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Fecha de solicitud</p>
+              <p style={{ fontSize: '13px', fontWeight: '500', color: 'var(--p-text)' }}>
+                {new Date(ticket.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* ── PROGRESO ─────────────────────────────────────────────────── */}
         {si >= 0 && !isResolved && (
           <div className="pcard" style={{ padding: '18px 22px' }}>
@@ -360,22 +390,10 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
                 {mediaDocs.length}
               </span>
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-              {mediaDocs.map(doc => (
-                isImage(doc.mimeType) ? (
-                  <a key={doc.id} href={doc.viewUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'block', aspectRatio: '1', borderRadius: 'var(--p-r)', overflow: 'hidden', background: 'var(--p-bg)', border: '1px solid var(--p-bd)' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={doc.viewUrl} alt={doc.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </a>
-                ) : (
-                  <a key={doc.id} href={doc.viewUrl} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', aspectRatio: '1', borderRadius: 'var(--p-r)', background: 'var(--p-bg)', border: '1px solid var(--p-bd)', fontSize: '28px', textDecoration: 'none' }}>
-                    🎬
-                  </a>
-                )
-              ))}
-            </div>
+            <PhotoGallery
+              items={mediaDocs.map(doc => ({ id: doc.id, name: doc.name, url: doc.viewUrl, mimeType: doc.mimeType }))}
+              accent={acc}
+            />
           </div>
         )}
 
