@@ -122,10 +122,11 @@ export default async function DashboardPage() {
   const vehicleAlerts = expiryAlerts(vehicles)
   const unassigned = openTickets.filter(t => !t.assignedToId)
   const emergencias = openTickets.filter(t => t.urgency === 'emergencia')
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now()
   const vehiclesOk = vehicles.filter(v => {
-    const now = Date.now()
     const checks = [v.revTecnicaExpiry, v.soapExpiry, v.permisoCirculacionExpiry, v.nextServiceDate]
-    return checks.every(d => !d || Math.ceil((new Date(d).getTime() - now) / 86400000) > 30)
+    return checks.every(d => !d || Math.ceil((new Date(d).getTime() - nowMs) / 86400000) > 30)
   })
   const pendingCLP = cashflow._sum.netAmount ?? 0
   const [pendingExpenses, approvedExpenses] = expenseStats

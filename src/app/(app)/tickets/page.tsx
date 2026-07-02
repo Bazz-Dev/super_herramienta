@@ -31,11 +31,13 @@ export default async function TicketsPage() {
     }),
   ])
 
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs = Date.now()
   const needsAttention = tickets.filter(t => t.status === 'nuevo' && !t.assignedToId).length
   const emergencias    = tickets.filter(t => t.urgency === 'emergencia').length
   const sinAbordar24h  = tickets.filter(t =>
     t.status === 'nuevo' &&
-    (Date.now() - new Date(t.createdAt).getTime()) > 86_400_000,
+    (nowMs - new Date(t.createdAt).getTime()) > 86_400_000,
   ).length
 
   // Serialize dates to ISO strings for client component

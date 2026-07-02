@@ -9,35 +9,11 @@ interface Props {
 
 type Step = 'idle' | 'prompt' | 'requesting' | 'subscribing' | 'done' | 'denied' | 'unsupported'
 
-const DISMISSED_KEY = 'pw-push-dismissed'
+const DISMISSED_UNTIL_KEY = 'pw-push-dismissed-until'
+const DISMISS_MS = 7 * 24 * 3600_000 // 7 days
 
 export function PortalPushPrompt({ primary, slug }: Props) {
   const [step, setStep] = useState<Step>('idle')
-
-  useEffect(() => {
-    // Only show if SW + push supported, not already dismissed/granted
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      return
-    }
-    if (Notification.permission === 'granted') {
-      ensureSubscribed()
-      return
-    }
-    if (Notification.permission === 'denied') return
-    if (sessionStorage.getItem(DISMISSED_KEY)) return
-    // Show prompt after a short delay
-    const t = setTimeout(() => setStep('prompt'), 2500)
-    return () => clearTimeout(t)
-  }, [])
-
-  async function ensureSubscribed() {
-    try {
-      const reg = await navigator.serviceWorker.ready
-      const existing = await reg.pushManager.getSubscription()
-      if (existing) return // already subscribed
-      await doSubscribe(reg)
-    } catch {}
-  }
 
   async function doSubscribe(reg?: ServiceWorkerRegistration) {
     setStep('subscribing')
@@ -60,6 +36,32 @@ export function PortalPushPrompt({ primary, slug }: Props) {
     }
   }
 
+  async function ensureSubscribed() {
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const existing = await reg.pushManager.getSubscription()
+      if (existing) return // already subscribed
+      await doSubscribe(reg)
+    } catch {}
+  }
+
+  useEffect(() => {
+    // Only show if SW + push supported, not already dismissed/granted
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      return
+    }
+    if (Notification.permission === 'granted') {
+      void ensureSubscribed() // eslint-disable-line react-hooks/set-state-in-effect
+      return
+    }
+    if (Notification.permission === 'denied') return
+    const until = localStorage.getItem(DISMISSED_UNTIL_KEY)
+    if (until && Date.now() < Number(until)) return
+    // Show prompt after a short delay
+    const t = setTimeout(() => setStep('prompt'), 2500)
+    return () => clearTimeout(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleEnable() {
     setStep('requesting')
     const perm = await Notification.requestPermission()
@@ -74,7 +76,7 @@ export function PortalPushPrompt({ primary, slug }: Props) {
   }
 
   function dismiss() {
-    sessionStorage.setItem(DISMISSED_KEY, '1')
+    localStorage.setItem(DISMISSED_UNTIL_KEY, String(Date.now() + DISMISS_MS))
     setStep('idle')
   }
 

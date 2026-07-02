@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Logo } from './logo'
+import { NotificationBell } from './notification-bell'
 
 const NAV_SECTIONS = [
   {
@@ -146,14 +147,17 @@ export function Sidebar({
         <Link href="/dashboard" aria-label="Ir al inicio">
           <Logo className="text-lg" />
         </Link>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Abrir menú"
-          className="cursor-pointer rounded-md border border-gray-300 p-2 text-gray-600 hover:bg-gray-50"
-        >
-          <MenuIcon />
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Abrir menú"
+            className="cursor-pointer rounded-md border border-gray-300 p-2 text-gray-600 hover:bg-gray-50"
+          >
+            <MenuIcon />
+          </button>
+        </div>
       </header>
 
       {/* Mobile drawer */}

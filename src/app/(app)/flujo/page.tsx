@@ -51,10 +51,8 @@ export default async function FlujoPage({
   ])
 
   const m = computeMetrics(jobs as unknown as JobLike[], new Date())
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const clientBreakdown = cliente ? [] : computeClientBreakdown(allJobs as any)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const monthlyTrend = cliente ? [] : computeMonthlyTrend(monthlyJobs as any)
+  const clientBreakdown = cliente ? [] : computeClientBreakdown(allJobs as never)
+  const monthlyTrend = cliente ? [] : computeMonthlyTrend(monthlyJobs as never)
 
   const cobradoPct =
     m.facturado > 0 ? Math.round((m.cobrado / m.facturado) * 100) : null

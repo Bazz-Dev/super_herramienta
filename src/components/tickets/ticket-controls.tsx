@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { updateTicketFields, updateTicketStatus, addTicketComment } from '@/app/(app)/tickets/actions'
 import { ALL_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 
-type Item = { id: string; title: string; status: string; description: string | null }
-type Doc  = { id: string; name: string; fileUrl: string; uploadedAt: Date }
+type Item    = { id: string; title: string; status: string; description: string | null }
+type Doc     = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date }
+type Informe = { id: string; title: string; createdAt: string }
 
 interface Props {
   ticket: {
@@ -23,9 +25,33 @@ interface Props {
   }
   staffUsers: { id: string; name: string }[]
   technicians: { id: string; name: string }[]
+  linkedInformes?: Informe[]
 }
 
-export function TicketControls({ ticket, staffUsers, technicians }: Props) {
+// ── doc helpers ────────────────────────────────────────────────────────────────
+
+function isMedia(mime: string | null | undefined) {
+  return !!mime && (mime.startsWith('image/') || mime.startsWith('video/'))
+}
+function isImage(mime: string | null | undefined) {
+  return !!mime?.startsWith('image/')
+}
+function resolveUrl(fileUrl: string) {
+  return (fileUrl.startsWith('/') || fileUrl.startsWith('http'))
+    ? fileUrl
+    : `/api/files?key=${encodeURIComponent(fileUrl)}&type=ticket`
+}
+function fileIcon(mimeType: string | null, name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  if (mimeType?.includes('pdf') || ext === 'pdf')                              return '📄'
+  if (mimeType?.includes('word') || ['doc', 'docx'].includes(ext))            return '📝'
+  if (mimeType?.includes('excel') || mimeType?.includes('sheet') || ['xls', 'xlsx'].includes(ext)) return '📊'
+  if (mimeType?.includes('zip') || mimeType?.includes('compress') || ['zip', 'rar', '7z'].includes(ext)) return '🗜️'
+  if (mimeType?.includes('text') || ext === 'txt')                            return '📃'
+  return '📎'
+}
+
+export function TicketControls({ ticket, staffUsers, technicians, linkedInformes = [] }: Props) {
   const [isPending, startTransition] = useTransition()
   const [comment, setComment] = useState('')
   const [isInternal, setIsInternal] = useState(false)
@@ -185,60 +211,181 @@ export function TicketControls({ ticket, staffUsers, technicians }: Props) {
         </div>
       )}
 
-      {/* Documents */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">Documentos adjuntos</h3>
-          <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            {uploading ? 'Subiendo…' : 'Adjuntar archivo'}
-            <input
-              type="file"
-              className="sr-only"
-              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.zip"
-              disabled={uploading}
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                setUploading(true)
-                setUploadError('')
-                const fd = new FormData()
-                fd.append('file', file)
-                try {
-                  const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
-                  if (!res.ok) { const j = await res.json(); setUploadError(j.error ?? 'Error al subir'); return }
-                  const doc: Doc = await res.json()
-                  setDocs((prev) => [...prev, doc])
-                } catch { setUploadError('Error de red') }
-                finally { setUploading(false); e.target.value = '' }
-              }}
-            />
-          </label>
+      {/* ── DOCUMENTOS ── 3 secciones separadas ──────────────────────────── */}
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+
+        {/* ── 1. Multimedia (fotos y videos) ── */}
+        <div className="p-4 border-b border-gray-100">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M6 6.5l4 2.5-4 2.5V6.5z" fill="currentColor" stroke="none"/></svg>
+              Fotos y videos
+              {docs.filter(d => isMedia(d.mimeType)).length > 0 && (
+                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">
+                  {docs.filter(d => isMedia(d.mimeType)).length}
+                </span>
+              )}
+            </h3>
+            <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100 ${uploading ? 'opacity-40 pointer-events-none' : ''}`}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              {uploading ? 'Subiendo…' : 'Agregar'}
+              <input type="file" className="sr-only" accept="image/*,video/*" disabled={uploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file) return
+                  setUploading(true); setUploadError('')
+                  const fd = new FormData(); fd.append('file', file)
+                  try {
+                    const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
+                    if (!res.ok) { const j = await res.json(); setUploadError(j.error ?? 'Error al subir'); return }
+                    const newDoc: Doc = await res.json()
+                    setDocs(prev => [...prev, newDoc])
+                  } catch { setUploadError('Error de red') }
+                  finally { setUploading(false); e.target.value = '' }
+                }}
+              />
+            </label>
+          </div>
+
+          {docs.filter(d => isMedia(d.mimeType)).length === 0 ? (
+            <p className="text-xs text-gray-400">Sin fotos ni videos adjuntos.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {docs.filter(d => isMedia(d.mimeType)).map(doc => {
+                const url = resolveUrl(doc.fileUrl)
+                return (
+                  <div key={doc.id} className="group relative">
+                    {isImage(doc.mimeType) ? (
+                      <a href={url} target="_blank" rel="noopener noreferrer"
+                        className="block aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={url} alt={doc.name} className="h-full w-full object-cover transition group-hover:opacity-90" />
+                      </a>
+                    ) : (
+                      <a href={url} target="_blank" rel="noopener noreferrer"
+                        className="flex aspect-square items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-2xl transition hover:bg-gray-100">
+                        🎬
+                      </a>
+                    )}
+                    <p className="mt-0.5 truncate text-[10px] text-gray-400">{doc.name}</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!confirm(`Eliminar "${doc.name}"?`)) return
+                        const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${doc.id}`, { method: 'DELETE' })
+                        if (res.ok) setDocs(prev => prev.filter(d => d.id !== doc.id))
+                      }}
+                      className="absolute right-1 top-1 hidden h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] text-white shadow group-hover:flex"
+                      title="Eliminar"
+                    >✕</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
-        {uploadError && <p className="mb-2 text-xs text-red-600">{uploadError}</p>}
-        {docs.length === 0 ? (
-          <p className="text-xs text-gray-400">Sin documentos adjuntos aún.</p>
-        ) : (
-          <ul className="space-y-2">
-            {docs.map((doc) => (
-              <li key={doc.id} className="flex items-center justify-between text-sm gap-2">
-                <span className="text-gray-700 truncate flex-1">📎 {doc.name}</span>
-                <div className="flex items-center gap-3 shrink-0">
-                  <a href={doc.fileUrl.startsWith('/') || doc.fileUrl.startsWith('http') ? doc.fileUrl : `/api/files?key=${encodeURIComponent(doc.fileUrl)}&type=ticket`} target="_blank" rel="noopener noreferrer" className="text-xs text-brand hover:underline">Abrir ↗</a>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (!confirm(`Eliminar "${doc.name}"?`)) return
-                      const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${doc.id}`, { method: 'DELETE' })
-                      if (res.ok) setDocs((prev) => prev.filter((d) => d.id !== doc.id))
-                    }}
-                    className="text-xs text-red-400 hover:text-red-600"
-                  >✕</button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+
+        {/* ── 2. Archivos adjuntos (docs/pdfs/etc.) ── */}
+        <div className="p-4 border-b border-gray-100">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3"/></svg>
+              Archivos adjuntos
+              {docs.filter(d => !isMedia(d.mimeType)).length > 0 && (
+                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">
+                  {docs.filter(d => !isMedia(d.mimeType)).length}
+                </span>
+              )}
+            </h3>
+            <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100 ${uploading ? 'opacity-40 pointer-events-none' : ''}`}>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              {uploading ? 'Subiendo…' : 'Adjuntar'}
+              <input type="file" className="sr-only" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" disabled={uploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file) return
+                  setUploading(true); setUploadError('')
+                  const fd = new FormData(); fd.append('file', file)
+                  try {
+                    const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
+                    if (!res.ok) { const j = await res.json(); setUploadError(j.error ?? 'Error al subir'); return }
+                    const newDoc: Doc = await res.json()
+                    setDocs(prev => [...prev, newDoc])
+                  } catch { setUploadError('Error de red') }
+                  finally { setUploading(false); e.target.value = '' }
+                }}
+              />
+            </label>
+          </div>
+
+          {uploadError && <p className="mb-2 text-xs text-red-600">{uploadError}</p>}
+          {docs.filter(d => !isMedia(d.mimeType)).length === 0 ? (
+            <p className="text-xs text-gray-400">Sin archivos adjuntos.</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {docs.filter(d => !isMedia(d.mimeType)).map(doc => (
+                <li key={doc.id} className="flex items-center gap-2 py-2">
+                  <span className="text-base shrink-0">{fileIcon(doc.mimeType, doc.name)}</span>
+                  <span className="flex-1 min-w-0 text-sm text-gray-700 truncate" title={doc.name}>{doc.name}</span>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <a href={resolveUrl(doc.fileUrl)} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-brand hover:underline font-medium">Abrir ↗</a>
+                    <button type="button" className="text-xs text-red-400 hover:text-red-600 transition"
+                      onClick={async () => {
+                        if (!confirm(`Eliminar "${doc.name}"?`)) return
+                        const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${doc.id}`, { method: 'DELETE' })
+                        if (res.ok) setDocs(prev => prev.filter(d => d.id !== doc.id))
+                      }}>✕</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* ── 3. Documentos de trabajo (generados) ── */}
+        <div className="p-4 bg-gray-50/60">
+          <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h4"/><circle cx="12" cy="12" r="3.5" fill="#f5b100" stroke="none"/><path d="M12 10.5v3M10.5 12h3" stroke="#111" strokeWidth="1.2" strokeLinecap="round"/></svg>
+            Documentos de trabajo
+          </h3>
+
+          {/* OT */}
+          {ticket.otNumber && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">OT</span>
+              <span className="font-mono text-sm font-bold text-ink">{ticket.otNumber}</span>
+            </div>
+          )}
+
+          {/* Informes técnicos vinculados */}
+          {linkedInformes.length > 0 && (
+            <ul className="mb-3 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white overflow-hidden">
+              {linkedInformes.map(inf => (
+                <li key={inf.id} className="flex items-center gap-2 px-3 py-2.5">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-indigo-500"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3M5 7h6M5 10h4"/></svg>
+                  <span className="flex-1 min-w-0 text-sm text-gray-700 truncate">{inf.title}</span>
+                  <span className="shrink-0 text-[10px] text-gray-400">
+                    {new Date(inf.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                  <Link
+                    href={`/informe?docId=${inf.id}`}
+                    className="shrink-0 text-xs text-brand hover:underline font-medium"
+                  >
+                    Ver ↗
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Acción: nuevo informe */}
+          <Link
+            href={`/informe?ticketId=${ticket.id}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:border-brand hover:text-brand hover:bg-brand/5"
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
+            Nuevo informe técnico
+          </Link>
+        </div>
       </div>
 
       {/* Add comment */}

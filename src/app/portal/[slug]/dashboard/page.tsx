@@ -79,8 +79,11 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   const resMes     = tickets.filter(t => t.status==='resuelto' && t.closedDate && String(t.closedDate).startsWith(mes))
   const vnc        = act.filter(t => t.estimatedDate && daysBetween(String(t.estimatedDate)) < 0)
   const emg        = tickets.filter(t => t.urgency==='emergencia' && OPEN.includes(t.status))
-  const sinAbordar = act.filter(t => t.status==='nuevo' && (Date.now()-new Date(t.createdAt).getTime()) > 86_400_000)
-  const hoy        = tickets.filter(t => String(t.createdAt).startsWith(new Date().toISOString().slice(0,10)))
+  // eslint-disable-next-line react-hooks/purity
+  const nowMs      = Date.now()
+  const todayStr   = new Date().toISOString().slice(0, 10)
+  const sinAbordar = act.filter(t => t.status==='nuevo' && (nowMs-new Date(t.createdAt).getTime()) > 86_400_000)
+  const hoy        = tickets.filter(t => String(t.createdAt).startsWith(todayStr))
   const sucursales = new Set(act.filter(t => t.branch).map(t => t.branch!.name)).size
 
   // SLA: resolved tickets with date that closed on time

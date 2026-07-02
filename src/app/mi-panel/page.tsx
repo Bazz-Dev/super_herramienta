@@ -219,6 +219,23 @@ export default async function MiPanelPage() {
   const pendingSerialized  = pendingSignatures.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(), signedAt: r.signedAt?.toISOString() ?? null }))
   const signedSerialized   = signedSignatures.map(r => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString(), signedAt: r.signedAt?.toISOString() ?? null }))
 
+  // ── ticket helpers ─────────────────────────────────────────────────────────
+  const URGENCY_RANK: Record<string, number> = { emergencia: 0, urgencia: 1, no_urgente: 2, preventivo: 3 }
+  // eslint-disable-next-line react-hooks/purity
+  const now48h = Date.now() - 48 * 3600000
+  const sortedTickets = [...ticketStats].sort((a, b) => {
+    const ua = URGENCY_RANK[a.urgency] ?? 4, ub = URGENCY_RANK[b.urgency] ?? 4
+    if (ua !== ub) return ua - ub
+    if (a.estimatedDate && b.estimatedDate) return new Date(a.estimatedDate).getTime() - new Date(b.estimatedDate).getTime()
+    if (a.estimatedDate) return -1
+    if (b.estimatedDate) return 1
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  })
+  const newlyAssigned = sortedTickets.filter(t =>
+    new Date(t.updatedAt).getTime() > now48h &&
+    !['resuelto', 'cancelado', 'fusionado'].includes(t.status)
+  )
+
   const initials = technician.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
@@ -439,38 +456,57 @@ export default async function MiPanelPage() {
         <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-sm font-semibold text-gray-700 flex items-center justify-between">
             🎫 Tickets asignados
-            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700">{ticketStats.length}</span>
+            <div className="flex items-center gap-1.5">
+              {newlyAssigned.length > 0 && (
+                <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {newlyAssigned.length} nuevo{newlyAssigned.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700">{ticketStats.length}</span>
+            </div>
           </h2>
-          {ticketStats.length === 0 ? (
+          {sortedTickets.length === 0 ? (
             <p className="text-sm text-gray-400">No tienes tickets asignados actualmente.</p>
           ) : (
-            <ul className="divide-y divide-gray-100 space-y-0">
-              {ticketStats.map(t => (
-                <li key={t.id} className="py-3">
-                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-                    <span className="font-mono text-[10px] text-gray-400">{t.ticketCode}</span>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${TICKET_STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-500'}`}>
-                      {TICKET_STATUS_LABEL[t.status] ?? t.status}
-                    </span>
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${URGENCY_CLS[t.urgency] ?? 'bg-gray-100 text-gray-500'}`}>
-                      {URGENCY_LBL[t.urgency] ?? t.urgency}
-                    </span>
-                    {t._count.documents > 0 && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
-                        📎 {t._count.documents}
+            <ul className="divide-y divide-gray-100">
+              {sortedTickets.map(t => {
+                const isNew = new Date(t.updatedAt).getTime() > now48h && !['resuelto', 'cancelado', 'fusionado'].includes(t.status)
+                return (
+                  <li key={t.id} className={`py-3 ${isNew ? 'bg-amber-50/60 -mx-5 px-5 first:rounded-t-lg' : ''}`}>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                      {isNew && (
+                        <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white uppercase tracking-wide">NUEVO</span>
+                      )}
+                      <span className="font-mono text-[10px] text-gray-400">{t.ticketCode}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${TICKET_STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                        {TICKET_STATUS_LABEL[t.status] ?? t.status}
                       </span>
-                    )}
-                  </div>
-                  <p className="text-sm font-medium text-ink truncate">{t.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {t.client?.name}
-                    {t.branch && <span className="ml-1.5">· {t.branch.name}</span>}
-                    {t.estimatedDate && (
-                      <span className="ml-1.5">· 📅 {fDate(t.estimatedDate)}</span>
-                    )}
-                  </p>
-                </li>
-              ))}
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${URGENCY_CLS[t.urgency] ?? 'bg-gray-100 text-gray-500'}`}>
+                        {URGENCY_LBL[t.urgency] ?? t.urgency}
+                      </span>
+                      {t._count.documents > 0 && (
+                        <span className="inline-flex items-center gap-0.5 rounded-full bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+                          📎 {t._count.documents}
+                        </span>
+                      )}
+                    </div>
+                    <Link href={`/tickets/${t.id}`} className="text-sm font-medium text-ink hover:text-brand truncate block transition">
+                      {t.title}
+                    </Link>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {t.client?.name}
+                      {t.branch && <span className="ml-1.5">· {t.branch.name}</span>}
+                      {t.estimatedDate ? (
+                        <span className="ml-1.5 font-medium text-brand">
+                          · 📅 {fDate(t.estimatedDate)} {fTime(t.estimatedDate)}
+                        </span>
+                      ) : (
+                        <span className="ml-1.5 text-gray-400">· sin fecha</span>
+                      )}
+                    </p>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

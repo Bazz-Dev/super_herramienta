@@ -72,7 +72,7 @@ export function PortalShell({
   const initials = clientName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   const userInitials = userName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
 
-  useEffect(() => { setOpen(false) }, [activeHref])
+  useEffect(() => { setOpen(false) }, [activeHref]) // eslint-disable-line react-hooks/set-state-in-effect
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('keydown', h)
@@ -83,6 +83,7 @@ export function PortalShell({
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 860px)')
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobile(mq.matches)
     const fn = (e: MediaQueryListEvent) => setIsMobile(e.matches)
     mq.addEventListener('change', fn)

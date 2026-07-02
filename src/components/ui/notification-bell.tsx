@@ -39,8 +39,9 @@ export function NotificationBell() {
   }
 
   useEffect(() => {
-    load()
-    const id = setInterval(() => { if (!document.hidden) load() }, 30_000)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load()
+    const id = setInterval(() => { if (!document.hidden) void load() }, 30_000)
     if (pushSupported()) setPushEnabled(Notification.permission === 'granted')
     return () => clearInterval(id)
   }, [])

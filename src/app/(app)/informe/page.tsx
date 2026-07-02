@@ -6,12 +6,12 @@ import { tenantScope } from '@/lib/tenant'
 import type { ReportData } from '@/lib/reports/types'
 
 interface Props {
-  searchParams: Promise<{ docId?: string }>
+  searchParams: Promise<{ docId?: string; ticketId?: string }>
 }
 
 export default async function InformePage({ searchParams }: Props) {
   const actor = await requireActor()
-  const { docId } = await searchParams
+  const { docId, ticketId } = await searchParams
 
   const [clients, tickets, savedDoc] = await Promise.all([
     prisma.client.findMany({
@@ -63,7 +63,7 @@ export default async function InformePage({ searchParams }: Props) {
           <a href="/informe" className="text-xs text-gray-400 hover:text-gray-600 mt-1">+ Nuevo informe</a>
         )}
       </div>
-      <ReportEditor initial={initialData} clients={clients} tickets={ticketOptions} docId={docId} />
+      <ReportEditor initial={initialData} clients={clients} tickets={ticketOptions} docId={docId} ticketId={ticketId} />
     </div>
   )
 }

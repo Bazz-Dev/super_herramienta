@@ -18,6 +18,8 @@ const createSchema = z.object({
   branchId: z.string().optional(),
   assignedToId: z.string().optional(),
   internalNotes: z.string().optional(),
+  otNumber: z.string().optional(),
+  estimatedDate: z.string().optional(), // ISO datetime string (date + time combined)
 })
 
 const updateSchema = z.object({
@@ -49,9 +51,11 @@ export async function createTicket(_: unknown, fd: FormData) {
     branchId: fd.get('branchId') || undefined,
     assignedToId: fd.get('assignedToId') || undefined,
     internalNotes: fd.get('internalNotes') || undefined,
+    otNumber: fd.get('otNumber') || undefined,
+    estimatedDate: fd.get('estimatedDate') || undefined,
   })
 
-  const { assignedToId, internalNotes, ...ticketData } = parsed
+  const { assignedToId, internalNotes, otNumber, estimatedDate, ...ticketData } = parsed
   const initialStatus = assignedToId ? 'en_revision' : 'nuevo'
 
   // Fetch client slug for R2 folder key
@@ -65,6 +69,8 @@ export async function createTicket(_: unknown, fd: FormData) {
       ...ticketData,
       assignedToId: assignedToId ?? null,
       internalNotes: internalNotes ?? null,
+      otNumber: otNumber ?? null,
+      estimatedDate: estimatedDate ? new Date(estimatedDate) : null,
       tenantId: actor.tenantId,
       createdById: actor.id,
       status: initialStatus,
@@ -241,6 +247,24 @@ export async function addTicketComment(ticketId: string, note: string, isInterna
 
   revalidatePath(`/tickets/${ticketId}`)
   return { success: true }
+}
+
+export async function bulkAssignResolvedTickets(assignedToId: string) {
+  const actor = await requireActor()
+  assertRole(actor, ['super', 'supervisor'])
+
+  const result = await prisma.ticket.updateMany({
+    where: {
+      tenantId: actor.tenantId,
+      status: 'resuelto',
+      assignedToId: null,
+      deletedAt: null,
+    },
+    data: { assignedToId },
+  })
+
+  revalidatePath('/tickets')
+  return { success: true, count: result.count }
 }
 
 export async function deleteTicket(ticketId: string) {

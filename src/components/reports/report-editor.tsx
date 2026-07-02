@@ -17,7 +17,7 @@ interface TicketOption {
   otNumber: string | null; clientId: string; clientName: string; branchName: string
 }
 
-export function ReportEditor({ initial, clients = [], tickets = [], docId }: { initial: ReportData; clients?: ClientOption[]; tickets?: TicketOption[]; docId?: string }) {
+export function ReportEditor({ initial, clients = [], tickets = [], docId, ticketId }: { initial: ReportData; clients?: ClientOption[]; tickets?: TicketOption[]; docId?: string; ticketId?: string }) {
   const [data, setData] = useState<ReportData>(initial)
   const set = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }))
 
@@ -160,6 +160,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId }: { i
                 defaultTitle={data.reportId ? `Informe ${data.reportId}` : 'Informe Técnico'}
                 documentType="informe"
                 existingDocId={docId}
+                ticketId={ticketId}
               />
             )}
           </div>

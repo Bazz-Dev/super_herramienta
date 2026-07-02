@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createTicket } from '@/app/(app)/tickets/actions'
 import { URGENCY_LABEL, type TicketUrgencyId } from '@/lib/tickets/labels'
@@ -10,7 +11,7 @@ type Client = { id: string; name: string; branches: Branch[] }
 
 interface Props {
   clients: Client[]
-  users: { id: string; name: string }[]
+  users: { id: string; name: string; role: string }[]
   createdById: string
 }
 
@@ -38,6 +39,9 @@ export function NewTicketForm({ clients, users, createdById }: Props) {
   const [description, setDescription] = useState('')
   const [assignedToId, setAssignedToId] = useState('')
   const [internalNotes, setInternalNotes] = useState('')
+  const [otNumber, setOtNumber] = useState('')
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('')
 
   const selectedClient = clients.find(c => c.id === clientId)
   const branches = selectedClient?.branches ?? []
@@ -69,6 +73,11 @@ export function NewTicketForm({ clients, users, createdById }: Props) {
     if (branchId) fd.set('branchId', branchId)
     if (assignedToId) fd.set('assignedToId', assignedToId)
     if (internalNotes.trim()) fd.set('internalNotes', internalNotes.trim())
+    if (otNumber.trim()) fd.set('otNumber', otNumber.trim())
+    if (scheduledDate) {
+      const time = scheduledTime || '09:00'
+      fd.set('estimatedDate', `${scheduledDate}T${time}:00`)
+    }
 
     startTransition(async () => {
       const result = await createTicket(null, fd)
@@ -156,13 +165,54 @@ export function NewTicketForm({ clients, users, createdById }: Props) {
         />
       </div>
 
-      {/* Assign + Internal notes */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* OT + Scheduled date/time + Assign — CRONOGRAMA FIELDS */}
+      <div className="rounded-lg border border-brand/20 bg-brand/5 p-4 space-y-4">
+        <p className="text-xs font-semibold text-ink/60 uppercase tracking-wide">Programación</p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className={labelCls}>N° OT / Trabajo</label>
+            <input
+              type="text"
+              value={otNumber}
+              onChange={e => setOtNumber(e.target.value)}
+              placeholder="Ej: OT-2024-001"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Fecha programada</label>
+            <input
+              type="date"
+              value={scheduledDate}
+              onChange={e => setScheduledDate(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Hora</label>
+            <input
+              type="time"
+              value={scheduledTime}
+              onChange={e => setScheduledTime(e.target.value)}
+              placeholder="09:00"
+              className={inputCls}
+            />
+          </div>
+        </div>
         <div>
           <label className={labelCls}>Asignar a técnico</label>
           <select value={assignedToId} onChange={e => setAssignedToId(e.target.value)} className={inputCls}>
             <option value="">Sin asignar</option>
-            {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            {users.filter(u => u.role !== 'tecnico').length > 0 && (
+              <optgroup label="Supervisores">
+                {users.filter(u => u.role !== 'tecnico').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </optgroup>
+            )}
+            {users.filter(u => u.role === 'tecnico').length > 0 && (
+              <optgroup label="Técnicos">
+                {users.filter(u => u.role === 'tecnico').map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </optgroup>
+            )}
           </select>
         </div>
       </div>
@@ -188,9 +238,9 @@ export function NewTicketForm({ clients, users, createdById }: Props) {
         >
           {isPending ? 'Creando…' : 'Crear ticket'}
         </button>
-        <a href="/tickets" className="text-sm text-gray-500 hover:text-gray-700 transition">
+        <Link href="/tickets" className="text-sm text-gray-500 hover:text-gray-700 transition">
           Cancelar
-        </a>
+        </Link>
       </div>
     </form>
   )

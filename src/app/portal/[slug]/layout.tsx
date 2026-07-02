@@ -3,8 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import { PortalPushPrompt } from '@/components/tickets/portal-push-prompt'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: any }) {
+export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await Promise.resolve(params)
 
   const client = await prisma.client.findUnique({
@@ -23,6 +22,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
       {/* Google Fonts as <link> — @import inside <style> may be ignored in body */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
       <style>{`
 

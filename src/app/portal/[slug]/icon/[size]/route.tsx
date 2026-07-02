@@ -4,8 +4,7 @@ import { prisma } from '@/lib/prisma'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function GET(_req: Request, { params }: { params: any }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ slug: string; size: string }> }) {
   const { slug, size } = await Promise.resolve(params)
   const sz = Math.min(Math.max(parseInt(size) || 192, 32), 512)
 

@@ -15,9 +15,11 @@ interface Props {
   documentType: 'propuesta' | 'informe'
   // When editing an existing doc, pass its id to PATCH instead of POST
   existingDocId?: string
+  // Link the saved document to a ticket (stored in metadata.ticketId)
+  ticketId?: string
 }
 
-export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentType, existingDocId }: Props) {
+export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentType, existingDocId, ticketId }: Props) {
   const [open, setOpen] = useState(false)
   const [clientId, setClientId] = useState('')
   const [title, setTitle] = useState(defaultTitle)
@@ -52,10 +54,15 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
         })
       } else {
         // Create new document
+        const metadata: Record<string, string> = {}
+        if (ticketId) metadata.ticketId = ticketId
         res = await fetch('/api/client-documents', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clientId, type: documentType, title: title.trim(), dataJson: data }),
+          body: JSON.stringify({
+            clientId, type: documentType, title: title.trim(), dataJson: data,
+            ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+          }),
         })
       }
 

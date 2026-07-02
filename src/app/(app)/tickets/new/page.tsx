@@ -19,8 +19,8 @@ export default async function NewTicketPage() {
       orderBy: { name: 'asc' },
     }),
     prisma.user.findMany({
-      where: { ...tenantScope(actor), role: { in: ['super', 'supervisor'] }, active: true },
-      select: { id: true, name: true },
+      where: { ...tenantScope(actor), role: { in: ['super', 'supervisor', 'tecnico'] }, active: true },
+      select: { id: true, name: true, role: true },
       orderBy: { name: 'asc' },
     }),
   ])

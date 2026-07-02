@@ -3,8 +3,7 @@ import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function GET(_req: Request, { params }: { params: any }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await Promise.resolve(params)
 
   const client = await prisma.client.findUnique({

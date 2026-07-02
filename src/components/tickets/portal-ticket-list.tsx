@@ -96,6 +96,45 @@ function datePart(s: string) { return String(s).substring(0, 10) }
 type Preset = ''|'today'|'yesterday'|'week'|'month'
 type Grupo  = ''|'abiertos'|'cerrados'|'vencidos'
 
+function FilterDropdown({ label, options, selected, onChange, primary, cardBg, textColor, bg }: {
+  label: string; options: {v:string;l:string}[]; selected: Set<string>; onChange: (v:string)=>void
+  primary: string; cardBg: string; textColor: string; bg: string
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setOpen(!open)} style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        padding: '6px 10px', borderRadius: C.r,
+        border: `1px solid ${selected.size ? primary : C.bd2}`,
+        background: selected.size ? `${primary}18` : cardBg,
+        color: selected.size ? primary : C.t2,
+        fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+      }}>
+        {label}
+        {selected.size > 0 && <span style={{ background: primary, color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 10, display: 'grid', placeItems: 'center', fontWeight: 700 }}>{selected.size}</span>}
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 100, background: cardBg, border: `1px solid ${C.bd}`, borderRadius: C.r2, boxShadow: C.sh2, minWidth: 160, overflow: 'hidden' }}>
+          {options.map(({ v, l }) => (
+            <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', cursor: 'pointer', fontSize: 12, color: textColor, borderBottom: `1px solid ${C.bd}`, background: cardBg }}>
+              <input type="checkbox" checked={selected.has(v)} onChange={() => onChange(v)} style={{ accentColor: primary, width: 14, height: 14 }} />
+              {l}
+            </label>
+          ))}
+          <div style={{ padding: '6px 8px', display: 'flex', gap: 4, background: cardBg }}>
+            <button onClick={() => { options.forEach(o => onChange(o.v)); setOpen(false) }}
+              style={{ flex: 1, padding: 4, fontSize: 11, background: bg, border: `1px solid ${C.bd}`, borderRadius: C.r, cursor: 'pointer', fontFamily: 'inherit', color: C.t2 }}>Todos</button>
+            <button onClick={() => { selected.forEach(v => onChange(v)); setOpen(false) }}
+              style={{ flex: 1, padding: 4, fontSize: 11, background: bg, border: `1px solid ${C.bd}`, borderRadius: C.r, cursor: 'pointer', fontFamily: 'inherit', color: C.t2 }}>Ninguno</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C.card, textColor = C.tx, isAdmin }: Props) {
   const [q, setQ]           = useState('')
   const [statuses, setSt]   = useState<Set<string>>(new Set())
@@ -146,42 +185,6 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
     )
   }
 
-  function FilterDropdown({ label, options, selected, onChange }: { label: string; options: {v:string;l:string}[]; selected: Set<string>; onChange: (v:string)=>void }) {
-    const [open, setOpen] = useState(false)
-    return (
-      <div style={{ position: 'relative' }}>
-        <button onClick={() => setOpen(!open)} style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          padding: '6px 10px', borderRadius: C.r,
-          border: `1px solid ${selected.size ? primary : C.bd2}`,
-          background: selected.size ? `${primary}18` : cardBg,
-          color: selected.size ? primary : C.t2,
-          fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-        }}>
-          {label}
-          {selected.size > 0 && <span style={{ background: primary, color: '#fff', borderRadius: '50%', width: 16, height: 16, fontSize: 10, display: 'grid', placeItems: 'center', fontWeight: 700 }}>{selected.size}</span>}
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-        </button>
-        {open && (
-          <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 100, background: cardBg, border: `1px solid ${C.bd}`, borderRadius: C.r2, boxShadow: C.sh2, minWidth: 160, overflow: 'hidden' }}>
-            {options.map(({ v, l }) => (
-              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', cursor: 'pointer', fontSize: 12, color: textColor, borderBottom: `1px solid ${C.bd}`, background: cardBg }}>
-                <input type="checkbox" checked={selected.has(v)} onChange={() => onChange(v)} style={{ accentColor: primary, width: 14, height: 14 }} />
-                {l}
-              </label>
-            ))}
-            <div style={{ padding: '6px 8px', display: 'flex', gap: 4, background: cardBg }}>
-              <button onClick={() => { options.forEach(o => onChange(o.v)); setOpen(false) }}
-                style={{ flex: 1, padding: 4, fontSize: 11, background: bg, border: `1px solid ${C.bd}`, borderRadius: C.r, cursor: 'pointer', fontFamily: 'inherit', color: C.t2 }}>Todos</button>
-              <button onClick={() => { selected.forEach(v => onChange(v)); setOpen(false) }}
-                style={{ flex: 1, padding: 4, fontSize: 11, background: bg, border: `1px solid ${C.bd}`, borderRadius: C.r, cursor: 'pointer', fontFamily: 'inherit', color: C.t2 }}>Ninguno</button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div style={{ padding: '20px 22px', background: bg, color: textColor, minHeight: '100%' }}>
 
@@ -201,9 +204,9 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
               color: textColor, outline: 'none', fontFamily: 'inherit',
             }} />
           </div>
-          <FilterDropdown label="Estado"   options={allStatuses.map(s => ({ v: s, l: STATUS_LABEL[s] ?? s }))} selected={statuses}  onChange={v => setSt(toggleSet(statuses, v))} />
-          <FilterDropdown label="Urgencia" options={[{v:'emergencia',l:'Emergencia'},{v:'urgencia',l:'Urgente'},{v:'no_urgente',l:'Normal'},{v:'preventivo',l:'Preventivo'}]} selected={urgencies} onChange={v => setUr(toggleSet(urgencies, v))} />
-          {allBranches.length > 1 && <FilterDropdown label="Sucursal" options={allBranches.map(b => ({ v: b, l: b }))} selected={branches} onChange={v => setBr(toggleSet(branches, v))} />}
+          <FilterDropdown label="Estado"   options={allStatuses.map(s => ({ v: s, l: STATUS_LABEL[s] ?? s }))} selected={statuses}  onChange={v => setSt(toggleSet(statuses, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />
+          <FilterDropdown label="Urgencia" options={[{v:'emergencia',l:'Emergencia'},{v:'urgencia',l:'Urgente'},{v:'no_urgente',l:'Normal'},{v:'preventivo',l:'Preventivo'}]} selected={urgencies} onChange={v => setUr(toggleSet(urgencies, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />
+          {allBranches.length > 1 && <FilterDropdown label="Sucursal" options={allBranches.map(b => ({ v: b, l: b }))} selected={branches} onChange={v => setBr(toggleSet(branches, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />}
           {hasFilters && <button onClick={clearAll} style={{ padding: '6px 10px', borderRadius: C.r, border: `1px solid ${C.bd2}`, background: cardBg, color: C.t2, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>× Limpiar</button>}
         </div>
 

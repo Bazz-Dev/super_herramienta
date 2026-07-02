@@ -80,6 +80,7 @@ export function TicketListView({ tickets, clients, users }: Props) {
     return m
   }, [tickets])
 
+  const [nowMs] = useState<number>(Date.now)
   const hasFilters = q || status || clientId || userId
   const clearAll = () => { setQ(''); setStatus(''); setCli(''); setUser('') }
 
@@ -165,7 +166,7 @@ export function TicketListView({ tickets, clients, users }: Props) {
                   const st = ticket.status as TicketStatusId
                   const urg = ticket.urgency as TicketUrgencyId
                   const overdue = ticket.estimatedDate &&
-                    new Date(ticket.estimatedDate).getTime() < Date.now() &&
+                    new Date(ticket.estimatedDate).getTime() < nowMs &&
                     !['resuelto', 'cancelado', 'fusionado'].includes(ticket.status)
                   return (
                     <tr

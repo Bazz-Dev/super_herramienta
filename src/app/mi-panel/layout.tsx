@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { auth, signOut } from '@/auth'
 import { redirect } from 'next/navigation'
 import { Logo } from '@/components/ui/logo'
+import { NotificationBell } from '@/components/ui/notification-bell'
 
 export default async function MiPanelLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
@@ -31,10 +32,9 @@ export default async function MiPanelLayout({ children }: { children: React.Reac
         <Link href="/mi-panel" aria-label="Mi panel">
           <Logo className="text-xl" />
         </Link>
-        <div className="flex items-center gap-4">
-          <span className="hidden sm:block text-sm text-gray-500">
-            {session.user.name}
-          </span>
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:block text-sm text-gray-500">{session.user.name}</span>
+          <NotificationBell />
           {logout}
         </div>
       </header>

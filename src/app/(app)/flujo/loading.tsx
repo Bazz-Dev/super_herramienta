@@ -15,8 +15,8 @@ export default function Loading() {
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm animate-pulse">
         <div className="mb-4 h-4 w-40 rounded bg-gray-200" />
         <div className="flex items-end gap-2 h-40">
-          {[...Array(12)].map((_, i) => (
-            <div key={i} className="flex-1 rounded-t bg-gray-200" style={{ height: `${30 + Math.random() * 70}%` }} />
+          {[45,70,30,80,55,65,40,75,50,85,35,60].map((h, i) => (
+            <div key={i} className="flex-1 rounded-t bg-gray-200" style={{ height: `${h}%` }} />
           ))}
         </div>
       </div>
