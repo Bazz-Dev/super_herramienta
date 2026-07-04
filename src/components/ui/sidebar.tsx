@@ -84,7 +84,7 @@ export function Sidebar({
                   href={href}
                   onClick={() => setOpen(false)}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+                  className={`interactive flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors duration-150 ${
                     active ? 'bg-brand text-ink shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-ink'
                   }`}
                 >
@@ -109,7 +109,7 @@ export function Sidebar({
                   key={portalSlug}
                   href={href}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+                  className={`interactive flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors duration-150 ${
                     active ? 'bg-brand text-ink shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-ink'
                   }`}
                 >
@@ -122,8 +122,8 @@ export function Sidebar({
         )}
       </nav>
 
-      <div className="border-t border-gray-200 px-5 py-4 text-sm">
-        <a href="/perfil" className="group flex items-center gap-2 hover:opacity-80">
+      <div className="safe-b border-t border-gray-200 px-5 py-4 text-sm">
+        <a href="/perfil" className="interactive group flex min-h-11 items-center gap-2 py-1 hover:opacity-80">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-ink">
             {user.name.charAt(0).toUpperCase()}
           </div>
@@ -153,7 +153,7 @@ export function Sidebar({
             type="button"
             onClick={() => setOpen(true)}
             aria-label="Abrir menú"
-            className="cursor-pointer rounded-md border border-gray-300 p-2 text-gray-600 hover:bg-gray-50"
+            className="interactive flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-50"
           >
             <MenuIcon />
           </button>

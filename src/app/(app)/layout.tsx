@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { Sidebar } from '@/components/ui/sidebar'
 import { NotificationBell } from '@/components/ui/notification-bell'
+import { TopProgress } from '@/components/ui/top-progress'
 
 const ROLE_LABELS: Record<string, string> = {
   super: 'Super Admin',
@@ -46,7 +47,7 @@ export default async function AppLayout({
     >
       <button
         type="submit"
-        className="w-full cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+        className="interactive w-full cursor-pointer rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
       >
         Salir
       </button>
@@ -55,6 +56,7 @@ export default async function AppLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <TopProgress />
       <Sidebar
         user={{
           name: user.name ?? 'Usuario',
@@ -65,11 +67,12 @@ export default async function AppLayout({
         portalClients={portalClients}
       />
       <main className="md:pl-60">
-        {/* Topbar with notification bell */}
+        {/* Topbar with notification bell — desktop only */}
         <div className="sticky top-0 z-30 hidden items-center justify-end border-b border-gray-200 bg-white/90 px-6 py-2 backdrop-blur md:flex">
           <NotificationBell />
         </div>
-        <div className="p-6">{children}</div>
+        {/* Page content — tighter on mobile, roomier on desktop */}
+        <div className="safe-b px-4 py-4 sm:p-6">{children}</div>
       </main>
     </div>
   )

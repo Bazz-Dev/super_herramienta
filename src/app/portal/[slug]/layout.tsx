@@ -105,12 +105,14 @@ export default async function PortalLayout({ children, params }: { children: Rea
         .psb-section-label { font-size: 9px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: rgba(255,255,255,0.22); padding: 12px 10px 5px; }
         .psb-link {
           display: flex; align-items: center; gap: 9px;
-          padding: 9px 11px; border-radius: var(--r);
+          padding: 12px 11px; border-radius: var(--r);
           color: rgba(255,255,255,0.42); font-size: 13px; font-weight: 500;
-          text-decoration: none; transition: all 0.12s;
+          text-decoration: none; transition: background 0.12s, color 0.12s, transform 0.07s;
           border: none; background: none; cursor: pointer; width: 100%;
+          min-height: 44px; -webkit-tap-highlight-color: transparent;
         }
         .psb-link:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.82); }
+        .psb-link:active:not(.active) { transform: scale(0.98); }
         .psb-link.active { background: rgba(212,32,48,0.18); color: #fff; font-weight: 600; box-shadow: inset 2px 0 0 var(--acc); }
         .psb-footer { padding: 10px; border-top: 1px solid rgba(255,255,255,0.07); }
         .psb-user {
@@ -123,8 +125,9 @@ export default async function PortalLayout({ children, params }: { children: Rea
         .psb-role { display: inline-block; font-size: 8px; font-weight: 700; padding: 1px 6px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; background: rgba(212,32,48,0.25); color: #fca5a5; }
         .psb-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.52); z-index: 39; backdrop-filter: blur(2px); }
         .psb-overlay.open { display: block; }
-        .psb-hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--t3); padding: 6px; border-radius: var(--r); transition: background 0.12s; }
+        .psb-hamburger { display: none; background: none; border: none; cursor: pointer; color: var(--t3); padding: 10px; border-radius: var(--r); transition: background 0.12s; min-height: 44px; min-width: 44px; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
         .psb-hamburger:hover { background: var(--s3); }
+        .psb-hamburger:active { background: var(--s2) !important; }
 
         /* ── Main content ── */
         .portal-content { margin-left: 216px; min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }
@@ -142,8 +145,9 @@ export default async function PortalLayout({ children, params }: { children: Rea
 
         /* ── Cards — hardcoded values so dark-mode can't override ── */
         .pcard { background: ${theme.card} !important; color: ${theme.text} !important; border: 1px solid #e0ddd8; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 0 0 1px rgba(0,0,0,0.04); }
-        .pcard-hover { transition: box-shadow 0.15s, border-color 0.15s; cursor: pointer; }
+        .pcard-hover { transition: box-shadow 0.15s, border-color 0.15s, transform 0.07s; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .pcard-hover:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.10), 0 0 0 1px rgba(0,0,0,0.05); border-color: #ccc8c2; }
+        .pcard-hover:active { transform: scale(0.99); }
         .kpi-card { background: ${theme.card} !important; color: ${theme.text} !important; border: 1px solid #e0ddd8; border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); padding: 16px 18px; }
 
         /* ── Badges ── */
@@ -199,6 +203,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
           width: 100%; border-radius: var(--r2); border: 1px solid var(--bd2);
           background: var(--s1); padding: 10px 14px; font-size: 13px; color: var(--tx);
           font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s; outline: none;
+          min-height: 44px;
         }
         .pinput:focus { border-color: var(--acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 15%, transparent); }
         .pinput::placeholder { color: var(--t4); }
@@ -207,10 +212,13 @@ export default async function PortalLayout({ children, params }: { children: Rea
         /* ── Buttons ── */
         .pbtn {
           display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-          padding: 9px 18px; border-radius: var(--r2);
-          font-size: 13px; font-weight: 700; cursor: pointer;
-          border: none; transition: all 0.12s; text-decoration: none; white-space: nowrap; font-family: inherit;
+          padding: 12px 18px; border-radius: var(--r2);
+          font-size: 13px; font-weight: 700; cursor: pointer; min-height: 44px;
+          border: none; transition: transform 0.07s ease, background 0.12s, opacity 0.12s;
+          text-decoration: none; white-space: nowrap; font-family: inherit;
+          -webkit-tap-highlight-color: transparent;
         }
+        .pbtn:active:not(:disabled) { transform: scale(0.97); }
         .pbtn-primary { background: var(--acc); color: #fff; }
         .pbtn-primary:hover { background: color-mix(in srgb, var(--acc) 88%, #000); }
         .pbtn-ghost { background: var(--s1); color: var(--t2); border: 1px solid var(--bd); }
@@ -220,8 +228,9 @@ export default async function PortalLayout({ children, params }: { children: Rea
         /* ── Misc ── */
         .mono { font-family: 'JetBrains Mono', monospace; }
         .pdivider { height: 1px; background: var(--bd); }
-        .prow-link { transition: background 0.1s; }
+        .prow-link { transition: background 0.1s; cursor: pointer; -webkit-tap-highlight-color: transparent; }
         .prow-link:hover { background: var(--s2) !important; }
+        .prow-link:active { background: var(--s3) !important; }
 
         /* ── Empty state ── */
         .pempty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 24px; text-align: center; }

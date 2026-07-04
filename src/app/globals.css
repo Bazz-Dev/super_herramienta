@@ -38,13 +38,22 @@
   color-scheme: light;
 }
 
+/* ── Mobile base resets ─────────────────────────────────────────────────── */
+html {
+  /* Prevent iOS from auto-scaling text on orientation change */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background-color: #fafafa;
   color: var(--color-ink);
+  /* Remove the grey tap flash in mobile Safari/Chrome */
+  -webkit-tap-highlight-color: transparent;
+  tap-highlight-color: transparent;
 }
 
-/* Portal pages: override any dark-mode defaults at document level.
-   The inline colorScheme script runs first, this is the CSS fallback. */
+/* Portal pages: override any dark-mode defaults at document level */
 html[style*="color-scheme: light"] body {
   background-color: transparent !important;
   color: inherit !important;
@@ -59,4 +68,76 @@ html[style*="color-scheme: light"] body {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── Interactive defaults ───────────────────────────────────────────────── */
+button,
+[role="button"],
+label[for],
+summary {
+  cursor: pointer;
+}
+
+/* Tap feedback — scale down slightly on touch so the button "presses" */
+.interactive {
+  @apply transition-transform duration-75 active:scale-[0.97];
+}
+
+/* ── Safe area utilities (notch + home indicator on iOS/Android) ─────────── */
+.safe-b { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.safe-l { padding-left:  env(safe-area-inset-left,   0px); }
+.safe-r { padding-right: env(safe-area-inset-right,  0px); }
+
+/* ── Focus rings — consistent across the internal app ───────────────────── */
+/* All standard form elements */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  @apply outline-none ring-2 ring-brand/50;
+}
+
+/* Buttons and links */
+button:focus-visible,
+a:focus-visible {
+  @apply outline-none ring-2 ring-brand/50 ring-offset-1;
+}
+
+/* ── Route progress bar ─────────────────────────────────────────────────── */
+/* Controlled by TopProgress component via CSS class transitions */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #f5b100 0%, #fbbf24 60%, #f5b100 100%);
+  z-index: 9999;
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.route-progress.loading {
+  opacity: 1;
+  transform: scaleX(0.75);
+  transition: transform 1.8s cubic-bezier(0.05, 0.6, 0.6, 1), opacity 0.15s ease;
+}
+
+.route-progress.done {
+  opacity: 1;
+  transform: scaleX(1);
+  transition: transform 0.12s ease-out, opacity 0.2s ease;
+}
+
+.route-progress.fade {
+  opacity: 0;
+  transform: scaleX(1);
+  transition: opacity 0.3s ease 0.08s;
+}
+
+/* ── Spinner keyframe (used by Spinner component) ───────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
