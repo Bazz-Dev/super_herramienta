@@ -17,7 +17,12 @@ export function formatMoney(amount: number, currency: 'CLP' | 'UF' | 'USD'): str
 }
 
 export function formatDate(value: string): string {
-  const d = new Date(value)
+  // Parse 'YYYY-MM-DD' as local date — new Date('YYYY-MM-DD') is UTC midnight,
+  // which shifts to the previous day in UTC-4 (Chile).
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  const d = ymd
+    ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3])
+    : new Date(value)
   if (Number.isNaN(d.getTime())) return value
   return d.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })
 }

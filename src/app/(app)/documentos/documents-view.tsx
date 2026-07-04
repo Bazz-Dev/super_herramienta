@@ -30,7 +30,9 @@ const TYPE_LABEL: Record<string, string> = {
 }
 
 function relDate(iso: string) {
-  return new Date(iso).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso)
+  const d = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date(iso)
+  return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function DownloadPdfButton({ docId, docType, title }: { docId: string; docType: string; title: string }) {

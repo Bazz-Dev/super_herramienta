@@ -19,9 +19,13 @@ function daysUntil(d: Date | null | undefined): number | null {
   return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
 }
 
-function formatDate(d: Date | null | undefined): string {
+function formatDate(d: Date | string | null): string {
   if (!d) return '—'
-  return new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const val = d instanceof Date ? d.toISOString().slice(0, 10) : String(d)
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(val)
+  const dt = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date(val)
+  if (Number.isNaN(dt.getTime())) return '—'
+  return dt.toLocaleDateString('es-CL', { dateStyle: 'medium' })
 }
 
 function calcAge(birthDate: Date | null | undefined): number | null {
