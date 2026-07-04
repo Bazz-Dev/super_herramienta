@@ -120,11 +120,11 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
     { l:'Vencidos',        n: vnc.length,          c: vnc.length ? '#ef4444' : C.success, s: vnc.length ? 'Fuera de plazo' : 'Al día', alert: vnc.length > 0 },
   ]
 
-  const btnNuevo = (
+  const btnNuevo = !isStaff ? (
     <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration:'none', fontSize:'13px', padding:'7px 16px' }}>
       + Nueva solicitud
     </Link>
-  )
+  ) : undefined
 
   return (
     <PortalShell slug={slug} clientName={client.name} userName={session!.user.name??'Usuario'}
@@ -204,7 +204,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
               </div>
               {act.length === 0 ? (
                 <div style={{ padding:'32px 16px', textAlign:'center', color:T.t3, fontSize:'13px' }}>
-                  Sin activos. <Link href={`/portal/${slug}/tickets/new`} style={{ color:acc, fontWeight:'600' }}>Crear uno →</Link>
+                  Sin activos.{!isStaff && <> <Link href={`/portal/${slug}/tickets/new`} style={{ color:acc, fontWeight:'600' }}>Crear uno →</Link></>}
                 </div>
               ) : act.slice(0,8).map((t, i) => (
                 <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
@@ -270,7 +270,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
             <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'14px 16px' }}>
               <div style={{ fontSize:'10px', fontWeight:'700', color:T.t3, marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1px' }}>Acciones</div>
               <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                <Link href={`/portal/${slug}/tickets/new`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:acc, color:'#fff', textDecoration:'none', fontSize:'13px', fontWeight:'700' }}>+ Nueva solicitud</Link>
+                {!isStaff && <Link href={`/portal/${slug}/tickets/new`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:acc, color:'#fff', textDecoration:'none', fontSize:'13px', fontWeight:'700' }}>+ Nueva solicitud</Link>}
                 <Link href={`/portal/${slug}/tickets`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Todos los tickets</Link>
                 <Link href={`/portal/${slug}/informes`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Informes técnicos</Link>
                 <Link href={`/portal/${slug}/reportes`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Ver reportes</Link>

@@ -249,73 +249,103 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
           Sin resultados para los filtros seleccionados.
         </div>
       ) : (
-        <div style={{ background: cardBg, border: `1px solid ${C.bd}`, borderRadius: 12, boxShadow: C.sh, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: `2px solid ${C.bd}`, background: bg }}>
-                  {['ID','Título','Sucursal','Urgencia','Estado','Docs','Fecha'].map(h => (
-                    <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                  <th style={{ width: 32 }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((t, i) => {
-                  const isOpen = OPEN.includes(t.status)
-                  const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
-                  return (
-                    <tr key={t.id}
-                      onClick={() => window.location.href = `/portal/${slug}/tickets/${t.id}`}
-                      style={{ borderBottom: i < filtered.length-1 ? `1px solid ${C.bd}` : 'none', cursor: 'pointer', borderLeft: `3px solid ${URG_COLOR[t.urgency] ?? 'transparent'}`, background: cardBg }}
-                      onMouseEnter={e => (e.currentTarget.style.background = bg)}
-                      onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
-                    >
-                      <td style={{ padding: '10px 14px' }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.t3 }}>{t.ticketCode}</span>
-                      </td>
-                      <td style={{ padding: '10px 14px', maxWidth: 260 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                        {t.assignedTo && <div style={{ fontSize: 11, color: C.t3, marginTop: 1 }}>Téc: {t.assignedTo.name}</div>}
-                      </td>
-                      <td style={{ padding: '10px 14px', fontSize: 12, color: C.t2, whiteSpace: 'nowrap' }}>{t.branch?.name ?? '—'}</td>
-                      <td style={{ padding: '10px 14px' }}><UrgDot u={t.urgency} /></td>
-                      <td style={{ padding: '10px 14px' }}><StatusDot s={t.status} /></td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        {(t._count.documents > 0 || t._count.items > 0) ? (
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
-                            {t._count.documents > 0 && (
-                              <span title={`${t._count.documents} adjunto${t._count.documents !== 1 ? 's' : ''}`}
-                                style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: C.t2, background: bg, border: `1px solid ${C.bd}`, borderRadius: 10, padding: '1px 7px' }}>
-                                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 2H3a1 1 0 00-1 1v7a1 1 0 001 1h6a1 1 0 001-1V5L7 2z"/><path d="M7 2v3h3M4 7h4M4 9h2"/></svg>
-                                {t._count.documents}
-                              </span>
-                            )}
-                            {t._count.items > 0 && (
-                              <span title={`${t._count.items} ítem${t._count.items !== 1 ? 's' : ''}`}
-                                style={{ fontSize: 11, fontWeight: 600, color: C.t2, background: bg, border: `1px solid ${C.bd}`, borderRadius: 10, padding: '1px 7px' }}>
-                                ☑ {t._count.items}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span style={{ color: C.t4, fontSize: 11 }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                        <div style={{ fontSize: 11, color: C.t3 }}>{new Date(t.createdAt).toLocaleDateString('es-CL')}</div>
-                        {overdue && <div style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>{Math.abs(daysBetween(t.estimatedDate!))}d vencido</div>}
-                      </td>
-                      <td style={{ padding: '10px 14px' }}>
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: C.bd2 }}><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+        <>
+          {/* Mobile cards — hidden on md+ */}
+          <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filtered.map(t => {
+              const isOpen = OPEN.includes(t.status)
+              const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
+              return (
+                <a key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
+                  style={{ display: 'block', background: cardBg, border: `1px solid ${C.bd}`, borderLeft: `4px solid ${URG_COLOR[t.urgency] ?? C.bd}`, borderRadius: 12, padding: '12px 14px', textDecoration: 'none', boxShadow: C.sh }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{t.title}</div>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: C.bd2, flexShrink: 0, marginTop: 2 }}><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', fontSize: 11 }}>
+                    <StatusDot s={t.status} />
+                    <UrgDot u={t.urgency} />
+                    {t.branch && <span style={{ color: C.t3 }}>{t.branch.name}</span>}
+                    {t.assignedTo && <span style={{ color: C.t3 }}>Téc: {t.assignedTo.name.split(' ')[0]}</span>}
+                    <span style={{ marginLeft: 'auto', color: C.t4, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>{t.ticketCode}</span>
+                  </div>
+                  {overdue && (
+                    <div style={{ marginTop: 5, fontSize: 10, fontWeight: 700, color: '#ef4444' }}>{Math.abs(daysBetween(t.estimatedDate!))}d vencido</div>
+                  )}
+                </a>
+              )
+            })}
           </div>
-        </div>
+
+          {/* Desktop table — hidden on mobile */}
+          <div className="hidden md:block" style={{ background: cardBg, border: `1px solid ${C.bd}`, borderRadius: 12, boxShadow: C.sh, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: `2px solid ${C.bd}`, background: bg }}>
+                    {['ID','Título','Sucursal','Urgencia','Estado','Docs','Fecha'].map(h => (
+                      <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                    <th style={{ width: 32 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((t, i) => {
+                    const isOpen = OPEN.includes(t.status)
+                    const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
+                    return (
+                      <tr key={t.id}
+                        onClick={() => window.location.href = `/portal/${slug}/tickets/${t.id}`}
+                        style={{ borderBottom: i < filtered.length-1 ? `1px solid ${C.bd}` : 'none', cursor: 'pointer', borderLeft: `3px solid ${URG_COLOR[t.urgency] ?? 'transparent'}`, background: cardBg }}
+                        onMouseEnter={e => (e.currentTarget.style.background = bg)}
+                        onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
+                      >
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.t3 }}>{t.ticketCode}</span>
+                        </td>
+                        <td style={{ padding: '10px 14px', maxWidth: 260 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
+                          {t.assignedTo && <div style={{ fontSize: 11, color: C.t3, marginTop: 1 }}>Téc: {t.assignedTo.name}</div>}
+                        </td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: C.t2, whiteSpace: 'nowrap' }}>{t.branch?.name ?? '—'}</td>
+                        <td style={{ padding: '10px 14px' }}><UrgDot u={t.urgency} /></td>
+                        <td style={{ padding: '10px 14px' }}><StatusDot s={t.status} /></td>
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          {(t._count.documents > 0 || t._count.items > 0) ? (
+                            <div style={{ display: 'flex', gap: 4, justifyContent: 'center', alignItems: 'center' }}>
+                              {t._count.documents > 0 && (
+                                <span title={`${t._count.documents} adjunto${t._count.documents !== 1 ? 's' : ''}`}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: C.t2, background: bg, border: `1px solid ${C.bd}`, borderRadius: 10, padding: '1px 7px' }}>
+                                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 2H3a1 1 0 00-1 1v7a1 1 0 001 1h6a1 1 0 001-1V5L7 2z"/><path d="M7 2v3h3M4 7h4M4 9h2"/></svg>
+                                  {t._count.documents}
+                                </span>
+                              )}
+                              {t._count.items > 0 && (
+                                <span title={`${t._count.items} ítem${t._count.items !== 1 ? 's' : ''}`}
+                                  style={{ fontSize: 11, fontWeight: 600, color: C.t2, background: bg, border: `1px solid ${C.bd}`, borderRadius: 10, padding: '1px 7px' }}>
+                                  ☑ {t._count.items}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: C.t4, fontSize: 11 }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 11, color: C.t3 }}>{new Date(t.createdAt).toLocaleDateString('es-CL')}</div>
+                          {overdue && <div style={{ fontSize: 10, color: '#ef4444', fontWeight: 600 }}>{Math.abs(daysBetween(t.estimatedDate!))}d vencido</div>}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: C.bd2 }}><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
