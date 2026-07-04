@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { canViewPortal } from '@/lib/portal-auth'
+import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import { PortalInformeList } from '@/components/tickets/portal-informe-list'
@@ -17,6 +17,7 @@ export default async function PortalInformesPage({ params }: { params: Promise<{
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
+  const isStaff = isStaffViewing(session)
   const docs = await prisma.clientDocument.findMany({
     where: { clientId: client.id, type: 'informe' },
     orderBy: { createdAt: 'desc' },
@@ -57,6 +58,7 @@ export default async function PortalInformesPage({ params }: { params: Promise<{
       activeHref={`/portal/${slug}/informes`}
       topbarTitle="Informes Técnicos"
       topbarSub={`${docs.length} informe${docs.length !== 1 ? 's' : ''} disponible${docs.length !== 1 ? 's' : ''}`}
+      isAdmin={isStaff}
     >
       <PortalInformeList
         docs={serialized}

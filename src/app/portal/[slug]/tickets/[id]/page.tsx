@@ -174,7 +174,8 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   return (
     <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'} primary={acc}
       bg={theme.bg} cardBg={theme.card} textColor={theme.text}
-      activeHref={`/portal/${slug}/tickets`} topbarTitle={ticket.title} topbarSub={ticket.ticketCode} topbarRight={backLink}>
+      activeHref={`/portal/${slug}/tickets`} topbarTitle={ticket.title} topbarSub={ticket.ticketCode} topbarRight={backLink}
+      isAdmin={isStaffViewing(session)}>
 
       <div className="pg" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 

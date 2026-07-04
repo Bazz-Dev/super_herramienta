@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getClientTickets } from '@/lib/tickets/tickets'
-import { canViewPortal } from '@/lib/portal-auth'
+import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import {
@@ -67,6 +67,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
+  const isStaff = isStaffViewing(session)
   const tickets = await getClientTickets(client.id)
   const theme   = resolvePortalTheme(client.portalTheme)
   const acc     = theme.primary
@@ -129,7 +130,8 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
     <PortalShell slug={slug} clientName={client.name} userName={session!.user.name??'Usuario'}
       primary={acc} bg={theme.bg} cardBg={theme.card ?? '#ffffff'} textColor={theme.text}
       activeHref={`/portal/${slug}/dashboard`}
-      topbarTitle="Panel" topbarSub={`${tickets.length} solicitudes · ${act.length} activas`} topbarRight={btnNuevo}>
+      topbarTitle="Panel" topbarSub={`${tickets.length} solicitudes · ${act.length} activas`} topbarRight={btnNuevo}
+      isAdmin={isStaff}>
       <div className="pg">
 
         {/* Greeting */}

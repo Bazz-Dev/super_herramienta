@@ -18,6 +18,7 @@ interface Props {
   topbarTitle?: string
   topbarSub?: string
   topbarRight?: React.ReactNode
+  isAdmin?: boolean
 }
 
 const SB = '#121110'         // sidebar always dark
@@ -66,6 +67,7 @@ export function PortalShell({
   slug, clientName, userName, primary,
   bg = '#f4f3f1', cardBg = '#ffffff', textColor = '#18130e',
   activeHref, children, topbarTitle, topbarSub, topbarRight,
+  isAdmin = false,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [navHover, setNavHover] = useState<string | null>(null)
@@ -91,6 +93,10 @@ export function PortalShell({
   }, [])
 
   const SB_WIDTH = 216
+
+  const visibleNav = isAdmin
+    ? NAV.filter(item => !item.href(slug).endsWith('/tickets/new'))
+    : NAV
 
   return (
     // Root wrapper — inline background prevents ANY external CSS from overriding
@@ -130,7 +136,7 @@ export function PortalShell({
           <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '1.8px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.22)', padding: '12px 10px 5px' }}>
             Menu
           </div>
-          {NAV.map(({ href, label, Icon }) => {
+          {visibleNav.map(({ href, label, Icon }) => {
             const to = href(slug)
             const active = activeHref === to
             const hover = navHover === to

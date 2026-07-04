@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getClientTickets } from '@/lib/tickets/tickets'
-import { canViewPortal } from '@/lib/portal-auth'
+import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 
@@ -39,6 +39,7 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
+  const isStaff = isStaffViewing(session)
   const tickets: Ticket[] = await getClientTickets(client.id)
   const theme = resolvePortalTheme(client.portalTheme)
 
@@ -100,7 +101,8 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
     <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'}
       primary={theme.primary} bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/reportes`}
-      topbarTitle="Reportes" topbarSub="Resumen estadístico de solicitudes">
+      topbarTitle="Reportes" topbarSub="Resumen estadístico de solicitudes"
+      isAdmin={isStaff}>
       <div style={{ padding: '20px 28px' }}>
 
         {/* Header strip */}

@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { canViewPortal } from '@/lib/portal-auth'
+import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 
@@ -47,6 +47,7 @@ export default async function PortalCronogramaPage({ params }: { params: Promise
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
+  const isStaff = isStaffViewing(session)
   const theme = resolvePortalTheme(client.portalTheme)
 
   // All assignments for this client, ordered by date desc
@@ -92,6 +93,7 @@ export default async function PortalCronogramaPage({ params }: { params: Promise
       activeHref={`/portal/${slug}/cronograma`}
       topbarTitle="Cronograma"
       topbarSub={`Trabajos programados · ${client.name}`}
+      isAdmin={isStaff}
     >
       <div className="pg">
         {/* KPIs */}
