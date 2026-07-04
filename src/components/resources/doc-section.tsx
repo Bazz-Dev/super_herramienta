@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { DOC_TYPE, DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
 import { deleteDocument } from '@/app/(app)/recursos/tecnicos/actions'
+import { Spinner } from '@/components/ui/spinner'
 
 type Doc = {
   id: string
@@ -231,8 +232,9 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
                   <button
                     onClick={() => handleDelete(d.id)}
                     disabled={isPending}
-                    className="rounded-md border border-red-200 px-2 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-60"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-red-200 px-2 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-60"
                   >
+                    {isPending && <Spinner size={12} />}
                     Eliminar
                   </button>
                 </div>

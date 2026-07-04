@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { upsertPayroll, updatePayrollStatus, deletePayroll } from '@/lib/rrhh/actions'
 import { PAYROLL_STATUS_BADGE, PAYROLL_STATUS_LABEL, MONTH_NAMES, formatClp } from '@/lib/rrhh/labels'
+import { Spinner } from '@/components/ui/spinner'
 
 interface PayrollItem {
   id: string
@@ -153,7 +154,8 @@ export function PayrollView({ payrolls, technicians, defaultNew, defaultTechId }
           )}
           <div className="mt-4 flex justify-end gap-2">
             <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-semibold text-gray-500 hover:bg-gray-50">Cancelar</button>
-            <button onClick={submitForm} disabled={isPending || !form.technicianId || !form.baseSalary} className="rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brand/90 disabled:opacity-50">
+            <button onClick={submitForm} disabled={isPending || !form.technicianId || !form.baseSalary} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brand/90 disabled:opacity-50">
+              {isPending && <Spinner size={14} />}
               {isPending ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
@@ -195,12 +197,12 @@ export function PayrollView({ payrolls, technicians, defaultNew, defaultTechId }
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1.5">
                       {p.status === 'borrador' && (
-                        <button onClick={() => startTransition(async () => { await updatePayrollStatus(p.id, 'emitido'); router.refresh() })} disabled={isPending} className="rounded px-2 py-1 text-[11px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">Emitir</button>
+                        <button onClick={() => startTransition(async () => { await updatePayrollStatus(p.id, 'emitido'); router.refresh() })} disabled={isPending} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">{isPending && <Spinner size={10} />}Emitir</button>
                       )}
                       {p.status === 'emitido' && (
-                        <button onClick={() => startTransition(async () => { await updatePayrollStatus(p.id, 'pagado'); router.refresh() })} disabled={isPending} className="rounded px-2 py-1 text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">Pagado</button>
+                        <button onClick={() => startTransition(async () => { await updatePayrollStatus(p.id, 'pagado'); router.refresh() })} disabled={isPending} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">{isPending && <Spinner size={10} />}Pagado</button>
                       )}
-                      <button onClick={() => { if (confirm('¿Eliminar?')) startTransition(async () => { await deletePayroll(p.id); router.refresh() }) }} disabled={isPending} className="rounded px-2 py-1 text-[11px] text-gray-400 hover:bg-gray-100">✕</button>
+                      <button onClick={() => { if (confirm('¿Eliminar?')) startTransition(async () => { await deletePayroll(p.id); router.refresh() }) }} disabled={isPending} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] text-gray-400 hover:bg-gray-100">{isPending && <Spinner size={10} />}✕</button>
                     </div>
                   </td>
                 </tr>

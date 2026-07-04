@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { signDocument, rejectDocument } from './actions'
+import { Spinner } from '@/components/ui/spinner'
 
 interface SignReq {
   id: string
@@ -87,7 +88,8 @@ function DocumentModal({ req, onClose }: { req: SignReq; onClose: () => void }) 
             {error && <p style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>{error}</p>}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
               <button onClick={() => setStep('view')} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'transparent', cursor: 'pointer', fontSize: '13px' }}>Volver</button>
-              <button onClick={doReject} disabled={isPending} style={{ padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '13px', opacity: isPending ? 0.7 : 1 }}>
+              <button onClick={doReject} disabled={isPending} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '13px', opacity: isPending ? 0.7 : 1 }}>
+                {isPending && <Spinner size={13} />}
                 {isPending ? 'Rechazando…' : 'Confirmar rechazo'}
               </button>
             </div>
@@ -136,7 +138,8 @@ function DocumentModal({ req, onClose }: { req: SignReq; onClose: () => void }) 
                   <button onClick={() => setStep('view')} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'transparent', cursor: 'pointer', fontSize: '13px' }}>
                     Volver
                   </button>
-                  <button onClick={doSign} disabled={isPending} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#15803d', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: isPending ? 0.7 : 1 }}>
+                  <button onClick={doSign} disabled={isPending} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#15803d', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: isPending ? 0.7 : 1 }}>
+                    {isPending && <Spinner size={13} />}
                     {isPending ? 'Firmando…' : 'Confirmar firma'}
                   </button>
                 </div>

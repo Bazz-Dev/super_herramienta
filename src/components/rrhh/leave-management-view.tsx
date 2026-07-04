@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createLeaveRequest, updateLeaveStatus, deleteLeaveRequest } from '@/lib/rrhh/actions'
 import { LEAVE_TYPE_LABEL, LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL } from '@/lib/rrhh/labels'
+import { Spinner } from '@/components/ui/spinner'
 
 interface LeaveItem {
   id: string
@@ -139,7 +140,8 @@ export function LeaveManagementView({ leaves, technicians, defaultNew, defaultTe
             <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-semibold text-gray-500 hover:bg-gray-50">
               Cancelar
             </button>
-            <button onClick={submitForm} disabled={isPending || daysCount() <= 0} className="rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brand/90 disabled:opacity-50">
+            <button onClick={submitForm} disabled={isPending || daysCount() <= 0} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brand/90 disabled:opacity-50">
+              {isPending && <Spinner size={14} />}
               {isPending ? 'Guardando…' : 'Guardar solicitud'}
             </button>
           </div>
@@ -183,8 +185,8 @@ export function LeaveManagementView({ leaves, technicians, defaultNew, defaultTe
                     <div className="flex items-center justify-end gap-1.5">
                       {l.status === 'pendiente' && (
                         <>
-                          <button onClick={() => approve(l.id)} disabled={isPending} className="rounded px-2 py-1 text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">Aprobar</button>
-                          <button onClick={() => reject(l.id)} disabled={isPending} className="rounded px-2 py-1 text-[11px] font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">Rechazar</button>
+                          <button onClick={() => approve(l.id)} disabled={isPending} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200">{isPending && <Spinner size={10} />}Aprobar</button>
+                          <button onClick={() => reject(l.id)} disabled={isPending} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">{isPending && <Spinner size={10} />}Rechazar</button>
                         </>
                       )}
                       <button onClick={() => remove(l.id)} disabled={isPending} className="rounded px-2 py-1 text-[11px] text-gray-400 hover:bg-gray-100">✕</button>

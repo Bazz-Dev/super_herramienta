@@ -2,6 +2,7 @@
 
 import { useRef, useTransition } from 'react'
 import { Button, Field, TextInput, Select } from '@/components/quotes/ui'
+import { Spinner } from '@/components/ui/spinner'
 
 export function BranchForm({
   action,
@@ -61,7 +62,8 @@ export function BranchForm({
       </div>
 
       <div>
-        <Button type="submit" disabled={pending} aria-busy={pending}>
+        <Button type="submit" disabled={pending} aria-busy={pending} className="min-h-11">
+          {pending && <Spinner size={14} />}
           {pending ? 'Guardando…' : 'Guardar sucursal'}
         </Button>
       </div>

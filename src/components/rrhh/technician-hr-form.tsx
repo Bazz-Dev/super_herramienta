@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { updateTechnicianHRFields } from '@/lib/rrhh/actions'
+import { Spinner } from '@/components/ui/spinner'
 
 interface Props {
   techId: string
@@ -82,8 +83,9 @@ export function TechnicianHRForm(props: Props) {
           <button
             onClick={save}
             disabled={isPending}
-            className="flex-1 rounded-lg bg-brand py-1.5 text-xs font-semibold text-ink hover:bg-brand/90 disabled:opacity-60"
+            className="inline-flex flex-1 items-center justify-center gap-2 min-h-11 rounded-lg bg-brand py-1.5 text-xs font-semibold text-ink hover:bg-brand/90 disabled:opacity-60"
           >
+            {isPending && <Spinner size={14} />}
             {isPending ? 'Guardando…' : 'Guardar'}
           </button>
         </div>

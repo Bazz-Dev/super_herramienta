@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Spinner } from '@/components/ui/spinner'
 
 interface Doc {
   id: string
@@ -104,12 +105,14 @@ function DeleteDocButton({ docId, onDeleted }: { docId: string; onDeleted: () =>
     <button
       onClick={doDelete}
       disabled={isPending}
-      className="flex items-center gap-1 rounded-lg border border-transparent px-2 py-1.5 text-xs font-semibold text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+      className="flex min-h-11 items-center gap-1 rounded-lg border border-transparent px-2 py-1.5 text-xs font-semibold text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
       title="Eliminar"
     >
-      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M1.5 3h8M4 3V2h3v1M4.5 5v3M6.5 5v3M2 3l.75 6.5h6.5L10 3"/>
-      </svg>
+      {isPending ? <Spinner size={11} /> : (
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1.5 3h8M4 3V2h3v1M4.5 5v3M6.5 5v3M2 3l.75 6.5h6.5L10 3"/>
+        </svg>
+      )}
     </button>
   )
 }

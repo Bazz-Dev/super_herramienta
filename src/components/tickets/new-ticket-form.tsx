@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createTicket } from '@/app/(app)/tickets/actions'
 import { URGENCY_LABEL, type TicketUrgencyId } from '@/lib/tickets/labels'
+import { Spinner } from '@/components/ui/spinner'
 
 type Branch = { id: string; name: string }
 type Client = { id: string; name: string; branches: Branch[] }
@@ -234,8 +235,9 @@ export function NewTicketForm({ clients, users, createdById }: Props) {
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-lg bg-brand px-6 py-2 text-sm font-semibold text-ink shadow-sm transition hover:opacity-90 disabled:opacity-50"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-6 py-2 text-sm font-semibold text-ink shadow-sm transition hover:opacity-90 disabled:opacity-50"
         >
+          {isPending && <Spinner size={14} />}
           {isPending ? 'Creando…' : 'Crear ticket'}
         </button>
         <Link href="/tickets" className="text-sm text-gray-500 hover:text-gray-700 transition">

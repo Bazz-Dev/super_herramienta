@@ -3,6 +3,7 @@
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Field, TextInput, Select, Button } from '@/components/quotes/ui'
+import { Spinner } from '@/components/ui/spinner'
 import { COST_CATEGORY_LABELS } from '@/lib/cashflow/labels'
 import { clp } from '@/lib/cashflow/format'
 import { toDateInput } from '@/lib/cashflow/dates'
@@ -87,7 +88,7 @@ export function CostList({
                       title="Eliminar costo"
                       className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md border border-gray-300 text-gray-400 transition-colors duration-150 hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:opacity-40"
                     >
-                      ×
+                      {pending ? <Spinner size={12} /> : '×'}
                     </button>
                   </td>
                 </tr>
