@@ -212,7 +212,7 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
             {linkedUser && (
               <Link
                 href={`/tickets?usuario=${linkedUser.id}`}
-                className="inline-flex min-h-8 items-center text-xs font-medium text-brand-700 hover:underline"
+                className="inline-flex min-h-11 items-center text-xs font-medium text-brand-700 hover:underline"
               >
                 Ver todos →
               </Link>
@@ -249,7 +249,7 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
             <h2 className="text-sm font-semibold text-ink">Próximas asignaciones</h2>
             <Link
               href={`/cronograma?tecnico=${tech.id}`}
-              className="inline-flex min-h-8 items-center text-xs font-medium text-brand-700 hover:underline"
+              className="inline-flex min-h-11 items-center text-xs font-medium text-brand-700 hover:underline"
             >
               Ver cronograma →
             </Link>
