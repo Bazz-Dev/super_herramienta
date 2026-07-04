@@ -56,7 +56,7 @@ export async function getTicket(actor: TenantActor, id: string) {
     include: {
       client: { select: { id: true, name: true, portalSlug: true } },
       branch: { select: { id: true, name: true, city: true } },
-      assignedTo: { select: { id: true, name: true } },
+      assignedTo: { select: { id: true, name: true, technician: { select: { id: true } } } },
       createdBy: { select: { id: true, name: true } },
       collaborators: { include: { technician: { select: { id: true, name: true } } } },
       items: { orderBy: { order: 'asc' } },

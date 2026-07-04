@@ -114,9 +114,19 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </div>
           <div>
             <p className="text-gray-400">Asignado a</p>
-            <p className={`font-medium ${ticket.assignedTo ? 'text-gray-700' : 'text-amber-600'}`}>
-              {ticket.assignedTo?.name ?? 'Sin asignar'}
-            </p>
+            {ticket.assignedTo?.technician?.id ? (
+              <Link
+                href={`/recursos/tecnicos/${ticket.assignedTo.technician.id}`}
+                className="inline-flex items-center gap-1 font-medium text-brand-700 hover:underline"
+              >
+                {ticket.assignedTo.name}
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 6h8M6 2l4 4-4 4"/></svg>
+              </Link>
+            ) : (
+              <p className={`font-medium ${ticket.assignedTo ? 'text-gray-700' : 'text-amber-600'}`}>
+                {ticket.assignedTo?.name ?? 'Sin asignar'}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-gray-400">Fecha estimada</p>
