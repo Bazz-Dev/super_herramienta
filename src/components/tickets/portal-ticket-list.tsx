@@ -251,7 +251,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
       ) : (
         <>
           {/* Mobile cards — hidden on md+ */}
-          <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="flex flex-col md:hidden" style={{ gap: 8 }}>
             {filtered.map(t => {
               const isOpen = OPEN.includes(t.status)
               const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
