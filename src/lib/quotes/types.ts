@@ -2,17 +2,15 @@ import { z } from 'zod'
 
 // Data model for a quote ("cotización"). A4 paginated, multi-template.
 
-export const TEMPLATES = ['clasico', 'minimal'] as const
+export const TEMPLATES = ['clasico'] as const
 export type TemplateId = (typeof TEMPLATES)[number]
 
 export const TEMPLATE_LABELS: Record<TemplateId, string> = {
   clasico: 'Clásico',
-  minimal: 'Minimal',
 }
 
 export const TEMPLATE_DESCRIPTIONS: Record<TemplateId, string> = {
-  clasico: 'Bandas de sección, formal',
-  minimal: 'Limpio, mucho espacio en blanco',
+  clasico: 'Bandas de sección, presentación formal',
 }
 
 export const quoteImageSchema = z.object({

@@ -48,7 +48,5 @@ async function rasterize(label: string, data: QuoteData) {
 }
 
 await rasterize('clasico-base', { ...sampleQuote, template: 'clasico' })
-await rasterize('minimal-base', { ...sampleQuote, template: 'minimal' })
 await rasterize('clasico-stress', { ...stress, template: 'clasico' })
-await rasterize('minimal-stress', { ...stress, template: 'minimal' })
 console.log('Listo.')

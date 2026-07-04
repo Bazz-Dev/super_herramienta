@@ -23,12 +23,6 @@ test('PDF base clásico: válido y ≤ 2 páginas (sin portada vacía)', { timeo
   assert.ok((await pageCount(buf)) <= 2, 'la portada ya no debe ocupar una página completa')
 })
 
-test('PDF base minimal: válido y ≤ 2 páginas', { timeout: TIMEOUT }, async () => {
-  const buf = await generateQuotePdf({ ...sampleQuote, template: 'minimal' })
-  assert.ok(isPdf(buf))
-  assert.ok((await pageCount(buf)) <= 2)
-})
-
 test('PDF borde: datos vacíos no rompen la generación', { timeout: TIMEOUT }, async () => {
   const empty: QuoteData = {
     ...sampleQuote,

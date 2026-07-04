@@ -118,21 +118,7 @@ function baseStyles(): string {
   .tpl-clasico .cover { padding: 4px 0 0; }
   .tpl-clasico .cover .logo { font-size: 34px; }
 
-  /* ===== Template: Minimal ===== */
-  .tpl-minimal .section-header {
-    background: transparent; color: var(--color-black); border-left: none;
-    border-bottom: 2px solid var(--color-primary); padding: 0 0 6px;
-    border-radius: 0;
-  }
-  .tpl-minimal .cover .logo { font-size: 22px; }
-  .tpl-minimal .cover-title { font-size: 40px; font-weight: 300; color: var(--color-black); margin-top: 40px; letter-spacing: -0.02em; }
-  .tpl-minimal .stripe { width: 64px; height: 4px; }
-  .tpl-minimal table.prices thead th { background: #ffffff; color: var(--color-black); border-bottom: 2px solid var(--color-black); }
-  .tpl-minimal .doc-footer { background: #ffffff; color: var(--color-text); border-top: 2px solid var(--color-black); }
-  .tpl-minimal .doc-footer .logo { color: var(--color-black); }
-  .tpl-minimal .doc-footer .contact { opacity: 1; color: var(--color-muted); }
-
-  /* ===== Optional cover banner (both templates) ===== */
+  /* ===== Optional cover banner ===== */
   .cover-banner {
     height: 44mm; margin: 0 0 16px; background-size: cover; background-position: center;
     position: relative; overflow: hidden; border-radius: 3px;
@@ -164,18 +150,7 @@ function renderCover(data: QuoteData): string {
     ? `<div class="cover-banner" style="background-image:url('${data.coverImageUrl}')"></div>`
     : ''
 
-  if (data.template === 'minimal') {
-    return `<header class="cover">
-      ${banner}
-      <div class="logo">INGEGAR<span class="dot">.</span></div>
-      <div class="tagline">${esc(data.tagline)}</div>
-      <div class="cover-title">Cotización</div>
-      <div class="stripe"></div>
-      ${info}
-    </header>`
-  }
-
-  // clásico
+  // clásico template (minimal was removed)
   return `<header class="cover">
     ${banner}
     <div class="logo">INGEGAR<span class="dot">.</span></div>
@@ -234,6 +209,9 @@ function sectionHeader(title: string): string {
 }
 
 export function renderQuoteHTML(data: QuoteData): string {
+  // Removed templates (e.g. 'minimal') fall back to clasico
+  if (data.template !== 'clasico') data = { ...data, template: 'clasico' }
+
   const totals = computeTotals(data)
   const taxPct = Math.round(data.taxRate * 100)
 
