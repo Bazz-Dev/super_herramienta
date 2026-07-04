@@ -210,7 +210,7 @@ export default async function DashboardPage() {
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
             <h2 className="text-sm font-semibold text-ink">Alertas de vehículos</h2>
-            <Link href="/recursos/vehiculos" className="text-xs text-brand-700 hover:underline font-medium">Ver todos →</Link>
+            <Link href="/recursos/vehiculos" className="inline-flex min-h-11 items-center text-xs text-brand-700 hover:underline font-medium">Ver todos →</Link>
           </div>
           {vehicleAlerts.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-gray-400">Sin alertas. Todos los documentos al día.</p>
@@ -237,7 +237,7 @@ export default async function DashboardPage() {
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
             <h2 className="text-sm font-semibold text-ink">Tickets sin asignar</h2>
-            <Link href="/tickets" className="text-xs text-brand-700 hover:underline font-medium">Ver todos →</Link>
+            <Link href="/tickets" className="inline-flex min-h-11 items-center text-xs text-brand-700 hover:underline font-medium">Ver todos →</Link>
           </div>
           {unassigned.length === 0 ? (
             <p className="px-5 py-8 text-center text-sm text-gray-400">Todos los tickets tienen técnico asignado.</p>

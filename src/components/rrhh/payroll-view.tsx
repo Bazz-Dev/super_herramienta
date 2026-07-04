@@ -153,7 +153,7 @@ export function PayrollView({ payrolls, technicians, defaultNew, defaultTechId }
             </p>
           )}
           <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setShowForm(false)} className="rounded-lg border border-gray-200 px-4 py-1.5 text-sm font-semibold text-gray-500 hover:bg-gray-50">Cancelar</button>
+            <button onClick={() => setShowForm(false)} className="interactive rounded-lg border border-gray-200 px-4 py-2.5 min-h-11 text-sm font-semibold text-gray-500 hover:bg-gray-50">Cancelar</button>
             <button onClick={submitForm} disabled={isPending || !form.technicianId || !form.baseSalary} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brand/90 disabled:opacity-50">
               {isPending && <Spinner size={14} />}
               {isPending ? 'Guardando…' : 'Guardar'}

@@ -51,14 +51,14 @@ export function BranchEditForm({
       <button
         type="submit"
         disabled={pending}
-        className="rounded bg-brand px-2.5 py-1 text-xs font-semibold text-ink disabled:opacity-60"
+        className="interactive inline-flex min-h-11 items-center gap-1.5 rounded bg-brand px-2.5 py-1.5 text-xs font-semibold text-ink disabled:opacity-60"
       >
         {pending ? '…' : 'Guardar'}
       </button>
       <button
         type="button"
         onClick={() => setEditing(false)}
-        className="text-xs text-gray-400 hover:text-gray-700"
+        className="interactive min-h-11 px-2 text-xs text-gray-400 hover:text-gray-700"
       >
         Cancelar
       </button>

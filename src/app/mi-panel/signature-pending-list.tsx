@@ -77,7 +77,7 @@ function DocumentModal({ req, onClose }: { req: SignReq; onClose: () => void }) 
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
             <p style={{ fontSize: '16px', fontWeight: '700', color: '#15803d' }}>Documento firmado</p>
             <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '6px' }}>Tu firma ha sido registrada con timestamp e IP.</p>
-            <button onClick={onClose} style={{ marginTop: '20px', padding: '9px 20px', borderRadius: '8px', border: 'none', background: '#f5b100', color: '#111', fontWeight: '600', cursor: 'pointer' }}>
+            <button onClick={onClose} style={{ marginTop: '20px', minHeight: '44px', padding: '9px 20px', borderRadius: '8px', border: 'none', background: '#f5b100', color: '#111', fontWeight: '600', cursor: 'pointer' }}>
               Cerrar
             </button>
           </div>
@@ -87,7 +87,7 @@ function DocumentModal({ req, onClose }: { req: SignReq; onClose: () => void }) 
             <textarea value={rejectNote} onChange={e => setRejectNote(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} placeholder="Motivo del rechazo…" />
             {error && <p style={{ color: '#dc2626', fontSize: '13px', marginTop: '8px' }}>{error}</p>}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
-              <button onClick={() => setStep('view')} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'transparent', cursor: 'pointer', fontSize: '13px' }}>Volver</button>
+              <button onClick={() => setStep('view')} style={{ minHeight: '44px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'transparent', cursor: 'pointer', fontSize: '13px' }}>Volver</button>
               <button onClick={doReject} disabled={isPending} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#dc2626', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '13px', opacity: isPending ? 0.7 : 1 }}>
                 {isPending && <Spinner size={13} />}
                 {isPending ? 'Rechazando…' : 'Confirmar rechazo'}
@@ -105,14 +105,14 @@ function DocumentModal({ req, onClose }: { req: SignReq; onClose: () => void }) 
 
             {step === 'view' && (
               <div style={{ padding: '16px 24px', display: 'flex', gap: '10px', justifyContent: 'space-between' }}>
-                <button onClick={() => setStep('reject')} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #fca5a5', color: '#dc2626', background: '#fef2f2', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
+                <button onClick={() => setStep('reject')} style={{ minHeight: '44px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #fca5a5', color: '#dc2626', background: '#fef2f2', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>
                   Rechazar
                 </button>
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'transparent', fontSize: '13px', cursor: 'pointer', color: '#374151' }}>
                     Cancelar
                   </button>
-                  <button onClick={() => setStep('confirm')} style={{ padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#f5b100', color: '#111', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
+                  <button onClick={() => setStep('confirm')} style={{ minHeight: '44px', padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#f5b100', color: '#111', fontWeight: '700', fontSize: '13px', cursor: 'pointer' }}>
                     Firmar ✍️
                   </button>
                 </div>
@@ -135,7 +135,7 @@ function DocumentModal({ req, onClose }: { req: SignReq; onClose: () => void }) 
                   Al confirmar, quedará registrado: tu sesión autenticada, RUT ingresado, hash del documento, timestamp ({new Date().toLocaleString('es-CL')}) e IP de conexión.
                 </p>
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                  <button onClick={() => setStep('view')} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'transparent', cursor: 'pointer', fontSize: '13px' }}>
+                  <button onClick={() => setStep('view')} style={{ minHeight: '44px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'transparent', cursor: 'pointer', fontSize: '13px' }}>
                     Volver
                   </button>
                   <button onClick={doSign} disabled={isPending} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 20px', borderRadius: '8px', border: 'none', background: '#15803d', color: '#fff', fontWeight: '700', fontSize: '13px', cursor: 'pointer', opacity: isPending ? 0.7 : 1 }}>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Spinner } from '@/components/ui/spinner'
 
 interface ClientOption {
   id: string
@@ -93,7 +94,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
   const isUpdate = !!existingDocId
   const btnBase: React.CSSProperties = {
     display: 'inline-flex', alignItems: 'center', gap: '6px',
-    padding: '7px 14px', borderRadius: '7px', fontSize: '13px',
+    minHeight: '44px', padding: '10px 16px', borderRadius: '7px', fontSize: '13px',
     fontWeight: '600', cursor: 'pointer', border: 'none',
   }
 
@@ -101,7 +102,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
     <>
       <button
         onClick={openModal}
-        className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
+        className="interactive flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
         title={`Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'} en carpeta del cliente`}
       >
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -170,6 +171,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
                     disabled={isPending || status === 'saving'}
                     style={{ ...btnBase, background: '#f5b100', color: '#111', opacity: (isPending || status === 'saving') ? 0.7 : 1 }}
                   >
+                    {(isPending || status === 'saving') && <Spinner size={14} />}
                     {status === 'saving' ? 'Guardando…' : isUpdate ? 'Guardar cambios' : 'Guardar'}
                   </button>
                 </div>

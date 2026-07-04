@@ -71,11 +71,11 @@ function DownloadPdfButton({ docId, docType, title }: { docId: string; docType: 
     <button
       onClick={download}
       disabled={state === 'loading'}
-      className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+      className="interactive flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
       title="Descargar como PDF"
     >
       {state === 'loading' ? (
-        <span className="text-gray-400">Generando…</span>
+        <><Spinner size={12} /><span className="text-gray-400">Generando…</span></>
       ) : state === 'error' ? (
         <span className="text-red-500">Error</span>
       ) : (
@@ -173,7 +173,7 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             <button
               key={t}
               onClick={() => setFilterType(t)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filterType === t ? 'bg-brand text-ink' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              className={`interactive rounded-lg px-3 py-2.5 min-h-11 text-xs font-semibold transition-colors ${filterType === t ? 'bg-brand text-ink' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             >
               {t === 'all' ? 'Todos' : TYPE_LABEL[t]}
             </button>
@@ -191,7 +191,7 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             {/* Folder header */}
             <button
               onClick={() => setOpenFolder(v => v === folder.id ? null : folder.id)}
-              className="flex w-full items-center justify-between px-5 py-3.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+              className="interactive flex w-full items-center justify-between px-5 py-3.5 min-h-11 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
             >
               <div className="flex items-center gap-3">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="#f5b100" stroke="#d4900e" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">

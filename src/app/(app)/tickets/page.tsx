@@ -82,7 +82,7 @@ export default async function TicketsPage() {
         </div>
         <Link
           href="/tickets/new"
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:opacity-90"
+          className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-ink shadow-sm transition hover:opacity-90"
         >
           + Nuevo ticket
         </Link>

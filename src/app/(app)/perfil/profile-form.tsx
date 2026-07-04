@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import { updateProfile, changePassword } from './actions'
+import { Spinner } from '@/components/ui/spinner'
 
 const inputCls = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20'
 const labelCls = 'flex flex-col gap-1 text-sm'
@@ -43,8 +44,9 @@ export function ProfileForm({ name, username, email }: { name: string; username:
           <button
             type="submit"
             disabled={profilePending}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-ink transition hover:bg-brand-600 disabled:opacity-60"
+            className="interactive inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-brand-600 disabled:opacity-60"
           >
+            {profilePending && <Spinner size={14} />}
             {profilePending ? 'Guardando…' : 'Guardar cambios'}
           </button>
         </form>
@@ -78,8 +80,9 @@ export function ProfileForm({ name, username, email }: { name: string; username:
           <button
             type="submit"
             disabled={pwPending}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-ink transition hover:bg-brand-600 disabled:opacity-60"
+            className="interactive inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-brand-600 disabled:opacity-60"
           >
+            {pwPending && <Spinner size={14} />}
             {pwPending ? 'Actualizando…' : 'Actualizar contraseña'}
           </button>
         </form>

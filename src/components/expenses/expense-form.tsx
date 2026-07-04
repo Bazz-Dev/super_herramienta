@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition, type ChangeEvent } from 'react'
 import { createExpense } from '@/app/(app)/gastos/actions'
+import { Spinner } from '@/components/ui/spinner'
 
 const CATEGORY_LABELS: Record<string, string> = {
   combustible: 'Combustible',
@@ -166,8 +167,9 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-md bg-brand px-4 py-2 text-sm font-semibold text-ink transition hover:bg-brand/80 disabled:opacity-60 cursor-pointer"
+        className="interactive inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md bg-brand px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-brand/80 disabled:opacity-60"
       >
+        {isPending && <Spinner size={14} />}
         {isPending ? 'Enviando…' : 'Registrar gasto'}
       </button>
     </form>

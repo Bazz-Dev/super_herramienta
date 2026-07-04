@@ -126,12 +126,12 @@ export function TicketListView({ tickets, clients, users }: Props) {
         {/* Status pills */}
         <div className="flex flex-wrap gap-1.5">
           <button onClick={() => setStatus('')}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition ${!status ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            className={`rounded-full px-3 py-2.5 min-h-11 text-xs font-semibold transition ${!status ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
             Todos <span className="ml-1 opacity-60">{tickets.length}</span>
           </button>
           {STATUS_COLS.map(col => (
             <button key={col.v} onClick={() => setStatus(status === col.v ? '' : col.v)}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${status === col.v ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              className={`rounded-full px-3 py-2.5 min-h-11 text-xs font-semibold transition ${status === col.v ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {col.label}
               {byStatus[col.v] ? <span className="ml-1 opacity-60">{byStatus[col.v]}</span> : null}
             </button>

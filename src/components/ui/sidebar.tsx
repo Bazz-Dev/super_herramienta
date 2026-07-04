@@ -144,7 +144,7 @@ export function Sidebar({
     <>
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5 md:hidden">
-        <Link href="/dashboard" aria-label="Ir al inicio">
+        <Link href="/dashboard" aria-label="Ir al inicio" className="flex min-h-11 items-center">
           <Logo className="text-lg" />
         </Link>
         <div className="flex items-center gap-1">

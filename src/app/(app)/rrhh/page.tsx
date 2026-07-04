@@ -46,7 +46,7 @@ export default async function RRHHPage() {
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
             <h2 className="text-sm font-semibold">Equipo activo</h2>
-            <Link href="/recursos/tecnicos" className="text-xs font-medium text-brand hover:underline">Gestionar →</Link>
+            <Link href="/recursos/tecnicos" className="inline-flex min-h-11 items-center text-xs font-medium text-brand hover:underline">Gestionar →</Link>
           </div>
           <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
             {active.length === 0 && (
@@ -73,7 +73,7 @@ export default async function RRHHPage() {
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
             <h2 className="text-sm font-semibold">Permisos recientes</h2>
-            <Link href="/rrhh/vacaciones" className="text-xs font-medium text-brand hover:underline">Ver todos →</Link>
+            <Link href="/rrhh/vacaciones" className="inline-flex min-h-11 items-center text-xs font-medium text-brand hover:underline">Ver todos →</Link>
           </div>
           <div className="divide-y divide-gray-50">
             {recentLeaves.length === 0 && (

@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { Spinner } from '@/components/ui/spinner'
 
 const inputBase =
   'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-ink placeholder:text-gray-400 outline-none transition-colors duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30'
@@ -59,7 +60,7 @@ export function IconButton({
       aria-label={label}
       title={label}
       {...rest}
-      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-gray-300 text-gray-500 transition-colors duration-150 hover:bg-gray-50 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
+      className="interactive inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-md border border-gray-300 text-gray-500 transition-colors duration-150 hover:bg-gray-50 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {children}
     </button>
@@ -81,8 +82,10 @@ export function AddButton({ children, ...rest }: React.ButtonHTMLAttributes<HTML
 export function Button({
   children,
   variant = 'primary',
+  'aria-busy': ariaBusy,
   ...rest
 }: { variant?: 'primary' | 'ghost' } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  const isLoading = ariaBusy === true || ariaBusy === 'true'
   const styles =
     variant === 'primary'
       ? 'bg-brand text-ink hover:bg-brand-600'
@@ -90,9 +93,11 @@ export function Button({
   return (
     <button
       type="button"
+      aria-busy={ariaBusy}
       {...rest}
-      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${rest.className ?? ''}`}
+      className={`interactive inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-60 ${styles} ${rest.className ?? ''}`}
     >
+      {isLoading && <Spinner size={14} />}
       {children}
     </button>
   )

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useActionState } from 'react'
 import { authenticate, type LoginState } from './actions'
+import { Spinner } from '@/components/ui/spinner'
 
 const initialState: LoginState = {}
 const REMEMBER_KEY = 'ingegar.login.credential'
@@ -58,7 +59,7 @@ export function LoginForm() {
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
             title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-            className="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-gray-400 transition-colors hover:text-gray-700"
+            className="absolute inset-y-0 right-0 flex min-h-11 min-w-11 cursor-pointer items-center justify-center px-3 text-gray-400 transition-colors hover:text-gray-700"
           >
             {showPassword ? <EyeOffIcon /> : <EyeIcon />}
           </button>
@@ -84,8 +85,9 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={isPending}
-        className="mt-2 cursor-pointer rounded-md bg-brand px-4 py-2 font-semibold text-ink transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+        className="interactive mt-2 inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-brand px-4 py-3 font-semibold text-ink transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
       >
+        {isPending && <Spinner size={16} />}
         {isPending ? 'Ingresando…' : 'Ingresar'}
       </button>
     </form>
