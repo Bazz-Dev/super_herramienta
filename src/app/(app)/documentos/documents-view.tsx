@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/ui/spinner'
+import { renderQuoteHTML } from '@/lib/quotes/template'
+import { renderReportHTML } from '@/lib/reports/template'
 
 interface Doc {
   id: string
@@ -127,6 +129,32 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
   const [filterType, setFilterType] = useState<string>('all')
   const [search, setSearch] = useState('')
   const router = useRouter()
+  const [preview, setPreview] = useState<{ html: string; title: string } | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreview(null) }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [preview])
+
+  async function handlePreview(docId: string, docTitle: string, docType: string) {
+    setPreviewLoading(true)
+    try {
+      const res = await fetch(`/api/client-documents?id=${docId}`)
+      if (!res.ok) return
+      const data = await res.json()
+      const dataJson = data.doc?.dataJson ?? data.dataJson
+      if (!dataJson) return
+      const json = JSON.parse(dataJson)
+      const html = docType === 'informe' ? renderReportHTML(json) : renderQuoteHTML(json)
+      setPreview({ html, title: docTitle })
+    } catch {
+      // silently fail — preview is optional
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   function removeDoc(docId: string) {
     setFolders(prev =>
@@ -243,6 +271,19 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
                         </svg>
                         Editar
                       </a>
+                      {/* Vista previa inline */}
+                      <button
+                        onClick={() => handlePreview(doc.id, doc.title, doc.type)}
+                        disabled={previewLoading}
+                        className="interactive inline-flex min-h-9 items-center gap-1.5 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                        title="Vista previa"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        Vista previa
+                      </button>
                       {/* Download PDF on-demand */}
                       <DownloadPdfButton docId={doc.id} docType={doc.type} title={doc.title} />
                       {/* Delete */}
@@ -255,6 +296,40 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
           </div>
         ))}
       </div>
+
+      {/* Preview overlay */}
+      {preview && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/70"
+          onClick={() => setPreview(null)}
+        >
+          {/* Header bar */}
+          <div
+            className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-3"
+            onClick={e => e.stopPropagation()}
+          >
+            <span className="text-sm font-semibold text-gray-800 truncate max-w-[60vw]">{preview.title}</span>
+            <button
+              onClick={() => setPreview(null)}
+              className="interactive ml-4 flex min-h-9 min-w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+              aria-label="Cerrar vista previa"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+                <path d="M3 3l10 10M13 3L3 13"/>
+              </svg>
+            </button>
+          </div>
+          {/* iframe */}
+          <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <iframe
+              srcDoc={preview.html}
+              className="h-full w-full border-0 bg-white"
+              title={preview.title}
+              sandbox="allow-same-origin"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
