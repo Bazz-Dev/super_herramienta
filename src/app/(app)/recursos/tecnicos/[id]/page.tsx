@@ -12,6 +12,11 @@ import {
   type AssetStatusId,
   type ContractTypeId,
 } from '@/lib/resources/labels'
+import {
+  STATUS_DOT,
+  STATUS_LABEL,
+  type TicketStatusId,
+} from '@/lib/tickets/labels'
 import { updateTechnician } from '../actions'
 
 function daysUntil(d: Date | null | undefined): number | null {
@@ -79,6 +84,41 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
   ])
   if (!tech) notFound()
 
+  const [recentTickets, upcomingAssignments] = await Promise.all([
+    linkedUser
+      ? prisma.ticket.findMany({
+          where: { assignedToId: linkedUser.id, tenantId: actor.tenantId },
+          select: {
+            id: true, ticketCode: true, title: true, status: true, urgency: true, createdAt: true,
+            client: { select: { name: true } },
+            branch: { select: { name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        })
+      : Promise.resolve([]),
+    prisma.assignmentAssignee.findMany({
+      where: {
+        technicianId: tech.id,
+        assignment: {
+          tenantId: actor.tenantId,
+          status: { in: ['scheduled', 'in_progress'] },
+          start: { gte: new Date() },
+        },
+      },
+      include: {
+        assignment: {
+          select: {
+            id: true, title: true, status: true, start: true,
+            client: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { assignment: { start: 'asc' } },
+      take: 3,
+    }),
+  ])
+
   const contractType = (tech.contractType ?? 'indefinido') as ContractTypeId
   const contractDays = daysUntil(tech.contractEndDate)
   const contractExpired = contractDays != null && contractDays < 0
@@ -119,20 +159,118 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Estadísticas */}
+      {/* Estadísticas — linked */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: 'Trabajos asignados', value: assignmentStats.total, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'En agenda', value: assignmentStats.scheduled + assignmentStats.in_progress, color: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Completados', value: assignmentStats.done, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Tickets asignados', value: ticketStats.total, color: 'text-purple-600', bg: 'bg-purple-50' },
+          {
+            label: 'Trabajos asignados',
+            value: assignmentStats.total,
+            color: 'text-blue-600',
+            bg: 'bg-blue-50',
+            href: `/cronograma?tecnico=${tech.id}`,
+          },
+          {
+            label: 'En agenda',
+            value: assignmentStats.scheduled + assignmentStats.in_progress,
+            color: 'text-amber-600',
+            bg: 'bg-amber-50',
+            href: `/cronograma?tecnico=${tech.id}`,
+          },
+          {
+            label: 'Completados',
+            value: assignmentStats.done,
+            color: 'text-green-600',
+            bg: 'bg-green-50',
+            href: `/cronograma?tecnico=${tech.id}`,
+          },
+          {
+            label: 'Tickets asignados',
+            value: ticketStats.total,
+            color: 'text-purple-600',
+            bg: 'bg-purple-50',
+            href: linkedUser ? `/tickets?usuario=${linkedUser.id}` : '/tickets',
+          },
         ].map((stat) => (
-          <div key={stat.label} className={`rounded-xl border border-gray-200 ${stat.bg} p-3 text-center`}>
+          <Link
+            key={stat.label}
+            href={stat.href}
+            className={`group rounded-xl border border-gray-200 ${stat.bg} p-3 text-center transition hover:shadow-md hover:scale-[1.02]`}
+          >
             <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            <p className="mt-0.5 text-xs text-gray-500">{stat.label}</p>
-          </div>
+            <p className="mt-0.5 text-xs text-gray-500 group-hover:text-gray-700 transition-colors">
+              {stat.label} <span className="opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+            </p>
+          </Link>
         ))}
       </div>
+
+      {/* Tickets recientes */}
+      {recentTickets.length > 0 && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Tickets recientes</h2>
+            {linkedUser && (
+              <Link
+                href={`/tickets?usuario=${linkedUser.id}`}
+                className="inline-flex min-h-8 items-center text-xs font-medium text-brand-700 hover:underline"
+              >
+                Ver todos →
+              </Link>
+            )}
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {recentTickets.map(t => (
+              <li key={t.id}>
+                <Link
+                  href={`/tickets/${t.id}`}
+                  className="flex items-center justify-between gap-3 py-2.5 hover:bg-gray-50 -mx-1 px-1 rounded transition"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-800">{t.title}</p>
+                    <p className="text-xs text-gray-500">
+                      {t.client.name}{t.branch ? ` · ${t.branch.name}` : ''}
+                    </p>
+                  </div>
+                  <span className="shrink-0 inline-flex items-center gap-1 text-xs font-semibold whitespace-nowrap">
+                    <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[t.status as TicketStatusId] ?? 'bg-gray-300'}`} />
+                    {STATUS_LABEL[t.status as TicketStatusId] ?? t.status}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Próximas asignaciones */}
+      {upcomingAssignments.length > 0 && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Próximas asignaciones</h2>
+            <Link
+              href={`/cronograma?tecnico=${tech.id}`}
+              className="inline-flex min-h-8 items-center text-xs font-medium text-brand-700 hover:underline"
+            >
+              Ver cronograma →
+            </Link>
+          </div>
+          <ul className="divide-y divide-gray-100">
+            {upcomingAssignments.map((row) => (
+              <li key={row.assignment.id} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-800">{row.assignment.title}</p>
+                  <p className="text-xs text-gray-500">{row.assignment.client?.name ?? '—'}</p>
+                </div>
+                <span className="shrink-0 text-xs font-medium text-gray-500 whitespace-nowrap">
+                  {new Date(row.assignment.start).toLocaleDateString('es-CL', {
+                    day: 'numeric', month: 'short',
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Desglose tickets por estado */}
       {ticketStats.total > 0 && (
