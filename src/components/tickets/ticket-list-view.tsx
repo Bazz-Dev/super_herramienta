@@ -93,7 +93,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
     return m
   }, [tickets])
 
-  const [nowMs] = useState<number>(Date.now)
+  const [nowMs] = useState<number>(Date.now())
   const hasFilters = q || status || clientId || userId
   const clearAll = () => { setQ(''); setStatus(''); setCli(''); setUser('') }
 

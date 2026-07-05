@@ -36,6 +36,7 @@ export function QuoteEditor({ initial, clients = [], docId }: { initial: QuoteDa
   }, [data])
 
   const [zoom, setZoom] = useState(1)
+  const [showPreview, setShowPreview] = useState(false)
   function openInTab() {
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
     window.open(url, '_blank')
@@ -208,10 +209,24 @@ export function QuoteEditor({ initial, clients = [], docId }: { initial: QuoteDa
         <SectionCard title="Condiciones comerciales">
           <StringListEditor items={data.commercialConditions} onChange={(commercialConditions) => set({ commercialConditions })} addLabel="Agregar condición" placeholder="Condición" />
         </SectionCard>
+
+        {/* Mobile preview toggle — hidden on lg+ where both panels always show */}
+        <div className="lg:hidden mt-2 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setShowPreview((v) => !v)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2 text-sm font-semibold text-gray-600 shadow-sm hover:bg-gray-50 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            {showPreview ? 'Ocultar vista previa' : 'Ver vista previa'}
+          </button>
+        </div>
       </div>
 
       {/* ---------- Preview (sticky) ---------- */}
-      <div className="lg:sticky lg:top-6 lg:self-start">
+      <div className={`lg:sticky lg:top-6 lg:self-start ${showPreview ? 'block' : 'hidden'} lg:block`}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <span className="text-sm font-semibold text-gray-600">Vista previa</span>
