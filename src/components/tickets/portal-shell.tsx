@@ -94,9 +94,7 @@ export function PortalShell({
 
   const SB_WIDTH = 216
 
-  const visibleNav = isAdmin
-    ? NAV.filter(item => !item.href(slug).endsWith('/tickets/new'))
-    : NAV
+  const visibleNav = NAV
 
   return (
     // Root wrapper — inline background prevents ANY external CSS from overriding
@@ -168,13 +166,13 @@ export function PortalShell({
         {/* Footer */}
         <div style={{ padding: 10, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: primary, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: isAdmin ? '#3b82f6' : primary, display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
               {userInitials}
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.82)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</div>
-              <div style={{ display: 'inline-block', fontSize: 8, fontWeight: 700, padding: '1px 6px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 1, background: `rgba(${hexToRgb(primary)}, 0.25)`, color: '#fca5a5' }}>
-                cliente
+              <div style={{ display: 'inline-block', fontSize: 8, fontWeight: 700, padding: '1px 6px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: 1, background: isAdmin ? 'rgba(59,130,246,0.25)' : `rgba(${hexToRgb(primary)}, 0.25)`, color: isAdmin ? '#93c5fd' : '#fca5a5' }}>
+                {isAdmin ? 'INGEGAR' : 'cliente'}
               </div>
             </div>
             <button
@@ -242,6 +240,26 @@ export function PortalShell({
           {children}
         </main>
       </div>
+
+      {/* Floating action button — mobile only, not on new-ticket page */}
+      {isMobile && activeHref !== `/portal/${slug}/tickets/new` && (
+        <a
+          href={`/portal/${slug}/tickets/new`}
+          aria-label="Nueva solicitud"
+          style={{
+            position: 'fixed', bottom: 20, right: 20, zIndex: 50,
+            width: 52, height: 52, borderRadius: '50%',
+            background: primary, color: '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
+            textDecoration: 'none', fontSize: 26, fontWeight: 700,
+            WebkitTapHighlightColor: 'transparent',
+            transition: 'transform 0.1s, box-shadow 0.1s',
+          }}
+        >
+          <IconPlus />
+        </a>
+      )}
 
       {/* Push notification opt-in */}
       <PortalPushPrompt primary={primary} slug={slug} />

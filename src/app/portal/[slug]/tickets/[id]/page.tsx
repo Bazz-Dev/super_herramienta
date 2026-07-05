@@ -165,7 +165,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   const fileDocs  = signedDocs.filter(d => !isMedia(d.mimeType))
 
   const backLink = (
-    <Link href={`/portal/${slug}/tickets`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--p-t2)', textDecoration: 'none', fontWeight: '500' }}>
+    <Link href={`/portal/${slug}/tickets`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--t2)', textDecoration: 'none', fontWeight: '500' }}>
       <IconArrowLeft />
       Mis solicitudes
     </Link>
@@ -185,8 +185,8 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           {/* Título + badges */}
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px', marginBottom: '16px' }}>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '4px' }}>{ticket.ticketCode}</p>
-              <h1 style={{ fontSize: '17px', fontWeight: '700', color: 'var(--p-text)', lineHeight: '1.35', margin: 0 }}>{ticket.title}</h1>
+              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '4px' }}>{ticket.ticketCode}</p>
+              <h1 style={{ fontSize: '17px', fontWeight: '700', color: 'var(--tx)', lineHeight: '1.35', margin: 0 }}>{ticket.title}</h1>
             </div>
             <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flexShrink: 0 }}>
               <span className={UB[ticket.urgency] ?? 'badge'} style={{ fontSize: '11px' }}>{UL[ticket.urgency] ?? ticket.urgency}</span>
@@ -196,24 +196,24 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
 
           {/* Chips: técnico + fecha estimada */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', background: 'var(--p-bg)', borderRadius: '40px', border: '1px solid var(--p-bd)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', background: 'var(--bg)', borderRadius: '40px', border: '1px solid var(--bd)' }}>
               <IconUser />
-              <span style={{ fontSize: '13px', color: ticket.assignedTo ? 'var(--p-text)' : 'var(--p-t3)', fontWeight: '500' }}>
+              <span style={{ fontSize: '13px', color: ticket.assignedTo ? 'var(--tx)' : 'var(--t3)', fontWeight: '500' }}>
                 {ticket.assignedTo?.name ?? 'Por asignar'}
               </span>
             </div>
             {ticket.estimatedDate && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '8px 14px', background: `color-mix(in srgb, ${acc} 10%, white)`, borderRadius: '40px', border: `1px solid color-mix(in srgb, ${acc} 25%, transparent)` }}>
                 <IconCalendar />
-                <span style={{ fontSize: '13px', color: 'var(--p-text)', fontWeight: '600' }}>
+                <span style={{ fontSize: '13px', color: 'var(--tx)', fontWeight: '600' }}>
                   {new Date(ticket.estimatedDate).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'long' })}
                 </span>
               </div>
             )}
             {ticket.branch?.name && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--p-bg)', borderRadius: '40px', border: '1px solid var(--p-bd)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', background: 'var(--bg)', borderRadius: '40px', border: '1px solid var(--bd)' }}>
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="7" cy="5.5" r="2"/><path d="M7 13S2.5 9.5 2.5 5.5a4.5 4.5 0 019 0C11.5 9.5 7 13 7 13z"/></svg>
-                <span style={{ fontSize: '13px', color: 'var(--p-t2)', fontWeight: '500' }}>{ticket.branch.name}</span>
+                <span style={{ fontSize: '13px', color: 'var(--t2)', fontWeight: '500' }}>{ticket.branch.name}</span>
               </div>
             )}
           </div>
@@ -221,27 +221,27 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
 
         {/* ── DETALLES DEL REQUERIMIENTO ─────────────────────────────── */}
         <div className="pcard" style={{ padding: '18px 22px' }}>
-          <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+          <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
             Detalles del requerimiento
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
             <div>
-              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Código</p>
-              <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--p-text)', fontFamily: 'ui-monospace, monospace' }}>{ticket.ticketCode}</p>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Código</p>
+              <p style={{ fontSize: '13px', fontWeight: '600', color: 'var(--tx)', fontFamily: 'ui-monospace, monospace' }}>{ticket.ticketCode}</p>
             </div>
             <div>
-              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>N° OT</p>
-              <p style={{ fontSize: '13px', fontWeight: '600', color: ticket.otNumber ? 'var(--p-text)' : 'var(--p-t3)' }}>{ticket.otNumber ?? '—'}</p>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>N° OT</p>
+              <p style={{ fontSize: '13px', fontWeight: '600', color: ticket.otNumber ? 'var(--tx)' : 'var(--t3)' }}>{ticket.otNumber ?? '—'}</p>
             </div>
             {ticket.category && (
               <div>
-                <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Categoría</p>
-                <p style={{ fontSize: '13px', fontWeight: '500', color: 'var(--p-text)' }}>{ticket.category}</p>
+                <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Categoría</p>
+                <p style={{ fontSize: '13px', fontWeight: '500', color: 'var(--tx)' }}>{ticket.category}</p>
               </div>
             )}
             <div>
-              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Fecha de solicitud</p>
-              <p style={{ fontSize: '13px', fontWeight: '500', color: 'var(--p-text)' }}>
+              <p style={{ fontSize: '10px', fontWeight: '700', color: 'var(--t3)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Fecha de solicitud</p>
+              <p style={{ fontSize: '13px', fontWeight: '500', color: 'var(--tx)' }}>
                 {new Date(ticket.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
             </div>
@@ -251,7 +251,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
         {/* ── PROGRESO ─────────────────────────────────────────────────── */}
         {si >= 0 && !isResolved && (
           <div className="pcard" style={{ padding: '18px 22px' }}>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               Estado del requerimiento
             </p>
             <div className="psteps">
@@ -272,7 +272,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
 
         {/* ── RESUELTO / CANCELADO ─────────────────────────────────────── */}
         {ticket.status === 'resuelto' && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 'var(--p-r2)', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 'var(--r2)', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#22c55e', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <svg width="20" height="20" viewBox="0 0 18 18" fill="none"><path d="M3.5 9l3.5 4L14.5 5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
@@ -283,7 +283,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           </div>
         )}
         {isCancelled && (
-          <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 'var(--p-r2)', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 'var(--r2)', padding: '18px 20px', display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#9ca3af', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4L4 12" stroke="#fff" strokeWidth="2" strokeLinecap="round"/></svg>
             </div>
@@ -296,11 +296,11 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
 
         {/* ── RESUMEN DEL TRABAJO ──────────────────────────────────────── */}
         {ticket.workSummary && (
-          <div style={{ background: `color-mix(in srgb, ${acc} 7%, white)`, border: `1px solid color-mix(in srgb, ${acc} 20%, transparent)`, borderRadius: 'var(--p-r2)', padding: '18px 20px' }}>
+          <div style={{ background: `color-mix(in srgb, ${acc} 7%, white)`, border: `1px solid color-mix(in srgb, ${acc} 20%, transparent)`, borderRadius: 'var(--r2)', padding: '18px 20px' }}>
             <p style={{ fontSize: '11px', fontWeight: '700', color: acc, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               Resumen del trabajo realizado
             </p>
-            <p style={{ fontSize: '14px', color: 'var(--p-text)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.workSummary}</p>
+            <p style={{ fontSize: '14px', color: 'var(--tx)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.workSummary}</p>
           </div>
         )}
 
@@ -309,14 +309,14 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           <div className="pcard" style={{ padding: '18px 20px' }}>
             {ticket.description && (
               <>
-                <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Descripción</p>
-                <p style={{ fontSize: '14px', color: 'var(--p-text)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.description}</p>
+                <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Descripción</p>
+                <p style={{ fontSize: '14px', color: 'var(--tx)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.description}</p>
               </>
             )}
             {ticket.clientComment && (
-              <div style={{ marginTop: ticket.description ? '14px' : '0', paddingTop: ticket.description ? '14px' : '0', borderTop: ticket.description ? '1px solid var(--p-bd)' : 'none' }}>
-                <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Comentario adicional</p>
-                <p style={{ fontSize: '14px', color: 'var(--p-text)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.clientComment}</p>
+              <div style={{ marginTop: ticket.description ? '14px' : '0', paddingTop: ticket.description ? '14px' : '0', borderTop: ticket.description ? '1px solid var(--bd)' : 'none' }}>
+                <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Comentario adicional</p>
+                <p style={{ fontSize: '14px', color: 'var(--tx)', lineHeight: '1.65', whiteSpace: 'pre-wrap' }}>{ticket.clientComment}</p>
               </div>
             )}
           </div>
@@ -326,16 +326,16 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
         {(ticket.items.length > 0 || canAddItems) && (
           <div className="pcard" style={{ padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Trabajos</p>
+              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Trabajos</p>
               {ticket.items.length > 0 && (
-                <span style={{ fontSize: '11px', color: 'var(--p-t3)', fontWeight: '600' }}>
+                <span style={{ fontSize: '11px', color: 'var(--t3)', fontWeight: '600' }}>
                   {ticket.items.filter(i => i.status === 'resuelto').length}/{ticket.items.length} completados
                 </span>
               )}
             </div>
             {ticket.items.length > 0 && (
               <>
-                <div style={{ height: '5px', background: 'var(--p-bd)', borderRadius: '5px', marginBottom: '14px', overflow: 'hidden' }}>
+                <div style={{ height: '5px', background: 'var(--bd)', borderRadius: '5px', marginBottom: '14px', overflow: 'hidden' }}>
                   <div style={{
                     height: '100%', borderRadius: '5px',
                     background: `linear-gradient(90deg, ${acc}, color-mix(in srgb, ${acc} 70%, #22c55e))`,
@@ -348,8 +348,8 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
                     <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                       <div style={{
                         width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0, marginTop: '1px',
-                        background: item.status === 'resuelto' ? '#22c55e' : 'var(--p-bg)',
-                        border: item.status === 'resuelto' ? '2px solid #22c55e' : '2px solid var(--p-bd2)',
+                        background: item.status === 'resuelto' ? '#22c55e' : 'var(--bg)',
+                        border: item.status === 'resuelto' ? '2px solid #22c55e' : '2px solid var(--bd2)',
                         display: 'grid', placeItems: 'center',
                       }}>
                         {item.status === 'resuelto' && (
@@ -357,10 +357,10 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
                         )}
                       </div>
                       <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: '13px', color: item.status === 'resuelto' ? 'var(--p-t3)' : 'var(--p-text)', fontWeight: '500', textDecoration: item.status === 'resuelto' ? 'line-through' : 'none', lineHeight: '1.4' }}>
+                        <p style={{ fontSize: '13px', color: item.status === 'resuelto' ? 'var(--t3)' : 'var(--tx)', fontWeight: '500', textDecoration: item.status === 'resuelto' ? 'line-through' : 'none', lineHeight: '1.4' }}>
                           {item.title}
                         </p>
-                        {item.description && <p style={{ fontSize: '12px', color: 'var(--p-t3)', marginTop: '2px' }}>{item.description}</p>}
+                        {item.description && <p style={{ fontSize: '12px', color: 'var(--t3)', marginTop: '2px' }}>{item.description}</p>}
                       </div>
                     </li>
                   ))}
@@ -368,7 +368,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
               </>
             )}
             {ticket.items.length === 0 && canAddItems && (
-              <p style={{ fontSize: '13px', color: 'var(--p-t3)', marginBottom: '12px' }}>Sin sub-tareas aún.</p>
+              <p style={{ fontSize: '13px', color: 'var(--t3)', marginBottom: '12px' }}>Sin sub-tareas aún.</p>
             )}
             {canAddItems && (
               <PortalTicketActions ticketId={ticket.id} canEdit={false} canAddItems={true}
@@ -385,9 +385,9 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
         {/* ── FOTOS Y VIDEOS ──────────────────────────────────────────── */}
         {mediaDocs.length > 0 && (
           <div className="pcard" style={{ padding: '18px 20px' }}>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '14px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               Fotos y videos
-              <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--p-t3)', background: 'var(--p-bg)', border: '1px solid var(--p-bd)', borderRadius: '10px', padding: '1px 7px' }}>
+              <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--t3)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '10px', padding: '1px 7px' }}>
                 {mediaDocs.length}
               </span>
             </p>
@@ -401,18 +401,18 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
         {/* ── ARCHIVOS ADJUNTOS ───────────────────────────────────────── */}
         {fileDocs.length > 0 && (
           <div className="pcard" style={{ padding: '18px 20px' }}>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               Archivos adjuntos
-              <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--p-t3)', background: 'var(--p-bg)', border: '1px solid var(--p-bd)', borderRadius: '10px', padding: '1px 7px' }}>
+              <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--t3)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '10px', padding: '1px 7px' }}>
                 {fileDocs.length}
               </span>
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {fileDocs.map(doc => (
-                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--p-bg)', borderRadius: 'var(--p-r)', gap: '10px' }}>
+                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg)', borderRadius: 'var(--r)', gap: '10px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
                     <span style={{ fontSize: '18px', flexShrink: 0 }}>{fileIcon(doc.mimeType, doc.name)}</span>
-                    <span style={{ fontSize: '13px', color: 'var(--p-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
+                    <span style={{ fontSize: '13px', color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
                   </div>
                   <a href={doc.viewUrl} target="_blank" rel="noopener noreferrer"
                     style={{ fontSize: '12px', fontWeight: '600', color: acc, textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -428,9 +428,9 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
         {/* ── INFORMES TÉCNICOS ───────────────────────────────────────── */}
         {linkedInformes.length > 0 && (
           <div className="pcard" style={{ padding: '18px 20px' }}>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
               Informes técnicos
-              <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--p-t3)', background: 'var(--p-bg)', border: '1px solid var(--p-bd)', borderRadius: '10px', padding: '1px 7px' }}>
+              <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--t3)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '10px', padding: '1px 7px' }}>
                 {linkedInformes.length}
               </span>
             </p>
@@ -453,10 +453,10 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           const visibleHistory = filterPortalHistory(ticket.history)
           return (
             <div className="pcard" style={{ padding: '18px 20px' }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                 Actividad
                 {visibleHistory.length > 0 && (
-                  <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--p-t3)', background: 'var(--p-bg)', border: '1px solid var(--p-bd)', borderRadius: '10px', padding: '1px 7px' }}>
+                  <span style={{ marginLeft: '6px', fontSize: '10px', fontWeight: '600', color: 'var(--t3)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '10px', padding: '1px 7px' }}>
                     {visibleHistory.length}
                   </span>
                 )}
@@ -469,7 +469,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
               )}
 
               {visibleHistory.length === 0 ? (
-                <p style={{ fontSize: '13px', color: 'var(--p-t3)' }}>Sin actividad registrada aún.</p>
+                <p style={{ fontSize: '13px', color: 'var(--t3)' }}>Sin actividad registrada aún.</p>
               ) : (
                 <div className="timeline" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {visibleHistory.map((h, i) => {
@@ -496,16 +496,16 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
                             </p>
                           )}
                           {isStatusUpdate && fromLabel !== toLabel && (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--p-bg)', border: '1px solid var(--p-bd)', borderRadius: '20px', padding: '3px 10px', marginBottom: displayNote ? '6px' : '0' }}>
-                              <span style={{ fontSize: '11px', color: 'var(--p-t3)' }}>{fromLabel}</span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '20px', padding: '3px 10px', marginBottom: displayNote ? '6px' : '0' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--t3)' }}>{fromLabel}</span>
                               <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 5h6M6 2l3 3-3 3"/></svg>
-                              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-text)' }}>{toLabel}</span>
+                              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--tx)' }}>{toLabel}</span>
                             </div>
                           )}
                           {displayNote && (
-                            <p style={{ fontSize: '13px', color: 'var(--p-text)', lineHeight: '1.55', whiteSpace: 'pre-wrap' }}>{displayNote}</p>
+                            <p style={{ fontSize: '13px', color: 'var(--tx)', lineHeight: '1.55', whiteSpace: 'pre-wrap' }}>{displayNote}</p>
                           )}
-                          <p style={{ fontSize: '11px', color: 'var(--p-t3)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <p style={{ fontSize: '11px', color: 'var(--t3)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <IconClock />
                             {relativeTime(new Date(h.createdAt))}
                             {h.user?.name && !isMyMsg && <span style={{ marginLeft: '4px' }}>· {h.user.name}</span>}

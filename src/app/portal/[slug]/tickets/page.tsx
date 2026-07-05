@@ -39,11 +39,7 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
 
   const open = raw.filter(t => !['resuelto','cancelado','fusionado'].includes(t.status))
 
-  const btn = isStaff ? (
-    <Link href="/tickets" style={{ textDecoration: 'none', fontSize: '12px', padding: '6px 14px', borderRadius: '6px', background: 'rgba(255,255,255,0.12)', color: '#fff', fontWeight: '600' }}>
-      ← Volver a INGEGAR
-    </Link>
-  ) : (
+  const btn = (
     <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration: 'none', fontSize: '13px', padding: '8px 18px' }}>
       + Nueva solicitud
     </Link>

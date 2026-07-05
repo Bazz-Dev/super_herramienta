@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 export interface PortalTicket {
   id: string
@@ -144,6 +144,14 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
   const [grupo, setGr]      = useState<Grupo>('')
   const [desde, setDe]      = useState('')
   const [hasta, setHa]      = useState('')
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    setIsMobile(mq.matches)
+    const fn = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', fn)
+    return () => mq.removeEventListener('change', fn)
+  }, [])
 
   const allBranches = useMemo(() => [...new Set(tickets.map(t => t.branch?.name).filter(Boolean) as string[])].sort(), [tickets])
   const allStatuses = useMemo(() => [...new Set(tickets.map(t => t.status))].filter(s => s !== 'fusionado'), [tickets])
@@ -186,54 +194,57 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
   }
 
   return (
-    <div style={{ padding: '20px 22px', background: bg, color: textColor, minHeight: '100%' }}>
+    <div style={{ padding: isMobile ? '16px 14px 80px' : '20px 22px', background: bg, color: textColor, minHeight: '100%' }}>
 
       {/* ── Filter bar ── */}
-      <div style={{ background: cardBg, border: `1px solid ${C.bd}`, borderRadius: 12, padding: '12px 16px', marginBottom: 12, boxShadow: C.sh }}>
+      <div style={{ background: cardBg, border: `1px solid ${C.bd}`, borderRadius: 12, padding: isMobile ? '10px 12px' : '12px 16px', marginBottom: 10, boxShadow: C.sh }}>
+        {/* Row 1: search + dropdowns */}
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-          {/* Search */}
-          <div style={{ position: 'relative', flex: 1, minWidth: 180, maxWidth: 280 }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: isMobile ? 0 : 180 }}>
             <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: C.t3, pointerEvents: 'none' }}
               width="13" height="13" viewBox="0 0 13 13" fill="none">
               <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.4"/>
               <path d="M9 9l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar ID, título, sucursal…" style={{
-              width: '100%', paddingLeft: 30, paddingRight: 10, paddingTop: 7, paddingBottom: 7,
-              border: `1px solid ${C.bd2}`, borderRadius: C.r, fontSize: 12, background: bg,
-              color: textColor, outline: 'none', fontFamily: 'inherit',
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar…" style={{
+              width: '100%', paddingLeft: 30, paddingRight: 10,
+              paddingTop: isMobile ? 10 : 7, paddingBottom: isMobile ? 10 : 7,
+              border: `1px solid ${C.bd2}`, borderRadius: C.r, fontSize: 13, background: bg,
+              color: textColor, outline: 'none', fontFamily: 'inherit', minHeight: 44,
             }} />
           </div>
           <FilterDropdown label="Estado"   options={allStatuses.map(s => ({ v: s, l: STATUS_LABEL[s] ?? s }))} selected={statuses}  onChange={v => setSt(toggleSet(statuses, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />
           <FilterDropdown label="Urgencia" options={[{v:'emergencia',l:'Emergencia'},{v:'urgencia',l:'Urgente'},{v:'no_urgente',l:'Normal'},{v:'preventivo',l:'Preventivo'}]} selected={urgencies} onChange={v => setUr(toggleSet(urgencies, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />
           {allBranches.length > 1 && <FilterDropdown label="Sucursal" options={allBranches.map(b => ({ v: b, l: b }))} selected={branches} onChange={v => setBr(toggleSet(branches, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />}
-          {hasFilters && <button onClick={clearAll} style={{ padding: '6px 10px', borderRadius: C.r, border: `1px solid ${C.bd2}`, background: cardBg, color: C.t2, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>× Limpiar</button>}
+          {hasFilters && <button onClick={clearAll} style={{ padding: '6px 10px', borderRadius: C.r, border: `1px solid ${C.bd2}`, background: cardBg, color: C.t2, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 36, whiteSpace: 'nowrap' }}>× Limpiar</button>}
         </div>
 
-        {/* Pills + date range */}
+        {/* Row 2: quick pills */}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
           {[
-            { l:'Todo',    v:'' as Preset,      fn: () => { setPr(''); setDe(''); setHa(''); setGr('') }, active: !preset && !desde && !hasta && !grupo },
-            { l:'Hoy',     v:'today' as Preset,     fn: () => { setPr('today');     setDe(''); setHa(''); setGr('') }, active: preset==='today' },
-            { l:'Ayer',    v:'yesterday' as Preset,  fn: () => { setPr('yesterday'); setDe(''); setHa(''); setGr('') }, active: preset==='yesterday' },
-            { l:'7 días',  v:'week' as Preset,      fn: () => { setPr('week');      setDe(''); setHa(''); setGr('') }, active: preset==='week' },
-            { l:'30 días', v:'month' as Preset,     fn: () => { setPr('month');     setDe(''); setHa(''); setGr('') }, active: preset==='month' },
+            { l:'Todo',    fn: () => { setPr(''); setDe(''); setHa(''); setGr('') }, active: !preset && !desde && !hasta && !grupo },
+            { l:'Hoy',     fn: () => { setPr('today');     setDe(''); setHa(''); setGr('') }, active: preset==='today' },
+            { l:'7 días',  fn: () => { setPr('week');      setDe(''); setHa(''); setGr('') }, active: preset==='week' },
+            { l:'30 días', fn: () => { setPr('month');     setDe(''); setHa(''); setGr('') }, active: preset==='month' },
           ].map(p => <PillBtn key={p.l} label={p.l} active={p.active} onClick={p.fn} />)}
-          <div style={{ width: 1, height: 16, background: C.bd, margin: '0 3px' }} />
+          <div style={{ width: 1, height: 14, background: C.bd, margin: '0 2px' }} />
           {[
             { l:'Abiertos', g:'abiertos' as Grupo },
             { l:'Cerrados', g:'cerrados' as Grupo },
             { l:'Vencidos', g:'vencidos' as Grupo },
           ].map(p => <PillBtn key={p.l} label={p.l} active={grupo===p.g} onClick={() => { setGr(grupo===p.g ? '' : p.g); setPr('') }} />)}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, color: C.t3 }}>Desde</span>
-            <input type="date" value={desde} onChange={e => { setDe(e.target.value); setPr('') }}
-              style={{ padding: '4px 7px', fontSize: 11, border: `1px solid ${C.bd2}`, borderRadius: C.r, background: cardBg, color: textColor, fontFamily: 'inherit', width: 128 }} />
-            <span style={{ fontSize: 11, color: C.t3 }}>Hasta</span>
-            <input type="date" value={hasta} onChange={e => { setHa(e.target.value); setPr('') }}
-              style={{ padding: '4px 7px', fontSize: 11, border: `1px solid ${C.bd2}`, borderRadius: C.r, background: cardBg, color: textColor, fontFamily: 'inherit', width: 128 }} />
-            {(desde || hasta) && <button onClick={() => { setDe(''); setHa('') }} style={{ padding: '4px 7px', border: `1px solid ${C.bd2}`, borderRadius: C.r, background: cardBg, cursor: 'pointer', fontSize: 12, color: C.t3, fontFamily: 'inherit' }}>×</button>}
-          </div>
+          {/* Date range — desktop only */}
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginLeft: 'auto', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: C.t3 }}>Desde</span>
+              <input type="date" value={desde} onChange={e => { setDe(e.target.value); setPr('') }}
+                style={{ padding: '4px 7px', fontSize: 11, border: `1px solid ${C.bd2}`, borderRadius: C.r, background: cardBg, color: textColor, fontFamily: 'inherit', width: 128 }} />
+              <span style={{ fontSize: 11, color: C.t3 }}>Hasta</span>
+              <input type="date" value={hasta} onChange={e => { setHa(e.target.value); setPr('') }}
+                style={{ padding: '4px 7px', fontSize: 11, border: `1px solid ${C.bd2}`, borderRadius: C.r, background: cardBg, color: textColor, fontFamily: 'inherit', width: 128 }} />
+              {(desde || hasta) && <button onClick={() => { setDe(''); setHa('') }} style={{ padding: '4px 7px', border: `1px solid ${C.bd2}`, borderRadius: C.r, background: cardBg, cursor: 'pointer', fontSize: 12, color: C.t3, fontFamily: 'inherit' }}>×</button>}
+            </div>
+          )}
         </div>
       </div>
 
