@@ -54,6 +54,25 @@ function startOfWeek(date: Date): Date {
   return addDays(new Date(date.getFullYear(), date.getMonth(), date.getDate()), -mondayIndex(date))
 }
 
+function formatEventTime(isoDate: string): string {
+  return new Date(isoDate).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function agendaDayLabel(isoDate: string): string {
+  const d = new Date(isoDate)
+  const todayKey = dayKey(new Date())
+  const k = dayKey(d)
+  if (k === todayKey) return 'Hoy'
+  if (k === dayKey(addDays(new Date(), 1))) return 'Mañana'
+  return d.toLocaleDateString('es-CL', { weekday: 'short', day: '2-digit', month: 'short' })
+}
+
+/** Returns a solid hex color for the agenda left-border accent. */
+function agendaBorderColor(permissionRequested: boolean, status: AssignmentStatusId): string {
+  if (status === 'cancelled') return '#d1d5db' // gray-300
+  return permissionRequested ? '#86efac' : '#fcd34d' // green-300 : amber-300
+}
+
 export function ScheduleCalendar({
   events,
   options,
@@ -89,6 +108,21 @@ export function ScheduleCalendar({
       map.set(k, arr)
     }
     return map
+  }, [filtered])
+
+  // Agenda: upcoming events for the next 60 days, grouped by day, for mobile list view
+  const agendaGroups = useMemo(() => {
+    const now = new Date()
+    const limit = addDays(now, 60)
+    const upcoming = filtered
+      .filter((e) => new Date(e.start) <= limit)
+      .sort((a, b) => a.start.localeCompare(b.start))
+    const grouped = new Map<string, CalendarEvent[]>()
+    for (const e of upcoming) {
+      const k = dayKey(new Date(e.start))
+      grouped.set(k, [...(grouped.get(k) ?? []), e])
+    }
+    return Array.from(grouped.entries()).map(([k, evts]) => ({ key: k, label: agendaDayLabel(evts[0].start), events: evts }))
   }, [filtered])
 
   function openCreateAt(date: Date) {
@@ -163,9 +197,77 @@ export function ScheduleCalendar({
         </div>
       </div>
 
-      {view === 'month' && <MonthView cursor={cursor} byDay={byDay} today={today} onCreate={openCreateAt} onSelect={setDetail} />}
-      {view === 'week' && <TimeGridView days={Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i))} byDay={byDay} onCreate={openCreateAt} onSelect={setDetail} />}
-      {view === 'day' && <TimeGridView days={[cursor]} byDay={byDay} onCreate={openCreateAt} onSelect={setDetail} />}
+      {/* Mobile agenda list — visible only on < md; calendar renders below (hidden md:block) */}
+      <div className="md:hidden">
+        {agendaGroups.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-sm text-gray-400">Sin asignaciones próximas</p>
+            <button
+              type="button"
+              onClick={() => openCreateAt(new Date())}
+              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-5 py-2 text-sm font-semibold text-ink hover:opacity-90 transition-opacity"
+            >
+              + Nueva asignación
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => openCreateAt(new Date())}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-ink hover:opacity-90 transition-opacity"
+              >
+                + Nueva
+              </button>
+            </div>
+            {agendaGroups.map(({ key, label, events: dayEvents }) => (
+              <div key={key}>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+                <div className="space-y-2">
+                  {dayEvents.map((evt) => (
+                    <button
+                      key={evt.id}
+                      type="button"
+                      onClick={() => setDetail(evt)}
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm hover:bg-gray-50 transition-colors"
+                      style={{ borderLeft: `4px solid ${agendaBorderColor(evt.permissionRequested, evt.status)}` }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-ink">{evt.title}</p>
+                          {evt.client && (
+                            <p className="mt-0.5 truncate text-xs text-gray-500">{evt.client}</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                          {ASSIGNMENT_STATUS_LABELS[evt.status] ?? evt.status}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+                        <span>{formatEventTime(evt.start)} – {formatEventTime(evt.end)}</span>
+                        {evt.assignees.length > 0 && (
+                          <span>{evt.assignees.map((a) => a.name.split(' ')[0]).join(', ')}</span>
+                        )}
+                        {evt.ticketCode && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">{evt.ticketCode}</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Calendar grid — hidden on mobile, visible on md+ */}
+      <div className="hidden md:block">
+        {view === 'month' && <MonthView cursor={cursor} byDay={byDay} today={today} onCreate={openCreateAt} onSelect={setDetail} />}
+        {view === 'week' && <TimeGridView days={Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i))} byDay={byDay} onCreate={openCreateAt} onSelect={setDetail} />}
+        {view === 'day' && <TimeGridView days={[cursor]} byDay={byDay} onCreate={openCreateAt} onSelect={setDetail} />}
+      </div>
 
       {/* Legend */}
       <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
