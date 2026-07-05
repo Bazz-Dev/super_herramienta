@@ -1,7 +1,7 @@
 # INGEGAR Platform — Arquitectura y Contexto
 
 > Documento de referencia para navegación rápida. Actualizar al agregar módulos o cambiar modelos.
-> Última actualización: junio 2026 — v1.7.0
+> Última actualización: julio 2026 — v1.8.0
 
 ---
 
@@ -41,12 +41,13 @@ Superficie de autoservicio para `role=tecnico`. Sin sidebar. Firma electrónica 
 
 ---
 
-## Módulos actuales (v1.7.0)
+## Módulos actuales (v1.8.0)
 
 ### Cronograma (`/cronograma`)
 **Para qué**: Calendario de trabajos en terreno.
 **Modelos**: `Assignment`, `AssignmentAssignee`
 **Vistas**: Día/Semana/Mes + Por técnico (swimlane) + Carga laboral.
+**Mobile**: vista agenda list (< md) — asignaciones próximas agrupadas por día, ordenadas por fecha, click abre modal de detalle.
 **Vinculación**: `Assignment.ticketId` — un trabajo puede estar vinculado a un ticket.
 
 ### Tickets (`/tickets`) — Staff + Portal cliente
@@ -65,6 +66,8 @@ Superficie de autoservicio para `role=tecnico`. Sin sidebar. Firma electrónica 
 **Flujo**: Editor → preview vivo → guardar como JSON editable en `ClientDocument` → PDF generado on-demand.
 **Re-editar**: `/cotizador?docId=xxx` carga el JSON guardado en el editor.
 **No requiere R2**: el JSON se guarda en `ClientDocument.dataJson` (DB). `fileKey="inline"`.
+**Templates activos**: solo `clasico` (template `minimal` eliminado en v1.8.0, docs legados normalizados).
+**Bug timezone resuelto**: `formatDate('YYYY-MM-DD')` ahora parsea como fecha local (no UTC) evitando el desfase de 1 día en zona UTC-4.
 
 ### Carpetas de clientes (`/documentos`)
 **Para qué**: Ver todas las propuestas e informes guardados, organizados por cliente.
@@ -74,6 +77,9 @@ Superficie de autoservicio para `role=tecnico`. Sin sidebar. Firma electrónica 
 **Para qué**: Técnicos, vehículos, activos, cuadrillas, clientes.
 **Modelos**: `Technician`, `Vehicle`, `Asset`, `Crew`, `Client`, `TechnicianDocument`
 **Relaciones**: Técnico ↔ Vehículo 1:1, Vehículo → Activos 1:N, Cuadrilla ↔ Técnicos M:N.
+**Perfil técnico**: navegación por tabs (Resumen / Datos / Vehículo / Documentos). Resumen: stats de cronograma + stats de tickets + tickets recientes + próximas asignaciones. Links accionables a `/tickets?usuario=id` y `/cronograma?tecnico=id`.
+**ContractType enum**: `indefinido | plazo_fijo | ayudante | no_renovado | despedido`. Los dos últimos = desvinculados (sección separada en lista, auto-inactivan).
+**Documentos**: `DocSection` lista archivos con preview inline vía signed-URL proxy (`/api/files?key=...`).
 
 ### Gastos (`/gastos`)
 **Para qué**: Control de gastos operacionales por técnico (combustible, viáticos, materiales).
@@ -88,9 +94,13 @@ Superficie de autoservicio para `role=tecnico`. Sin sidebar. Firma electrónica 
 **Acceso**: solo `super` y `supervisor`.
 
 ### Portal cliente (`/portal/[slug]`)
-**Vistas**: Dashboard, Tickets (filterable), Reportes, Nueva solicitud.
+**Vistas**: Dashboard, Tickets (lista filterable + tabs Activos/Cerrados), Detalle de ticket, Nueva solicitud.
 **PWA**: manifest dinámico, push notifications (web-push + VAPID), service worker.
 **Sesión**: separada de la app interna, `role=client`.
+**Mobile-first**: portal íntegramente diseñado para celular (inline styles, sin Tailwind en shell).
+**Feedback de estado**: todos los botones usan `useTransition` + `isPending` para deshabilitar + texto "Enviando…" / "Guardando…".
+**Privacidad**: cada cliente ve solo sus propios tickets (`getClientTickets(clientId)`, nunca cross-tenant).
+**Staff en portal**: puede crear tickets en nombre del cliente (redirige a `/tickets/{id}` al enviar). `isStaffViewing()` muestra banner "Creando en nombre de {cliente}" en el form. El dashboard oculta el CTA "Nueva solicitud" para staff (ya que pueden entrar directo desde el form).
 
 ---
 
@@ -204,12 +214,32 @@ git push origin main      # → Vercel auto-deploy (hook pre-push corre typechec
 
 ---
 
-## Pendientes prioritarios (v1.8.0)
+## Pendientes prioritarios (v1.9.0)
 
-1. **Pipeline**: cotizaciones enviadas, estados (enviada/vista/aceptada/rechazada), alertas de seguimiento.
-2. **Import histórico Flujo de Caja a Turso prod** (`scripts/import-flujo.ts` contra `DATABASE_URL` de producción).
-3. **Estadísticas por técnico**: trabajos ejecutados, horas, distribución semanal.
-4. **Migración JB desde GAS**: tickets históricos al portal nuevo.
+### 🔴 UX críticos portal cliente
+- **Portal ticket list**: mobile UX todavía inferior a ingegar-one internal. Falta densidad visual, jerarquía tipográfica fuerte, cards con más contexto (sucursal, técnico, urgencia en una línea).
+- **Portal detalle ticket**: layout no aprovecha espacio en desktop. Sección de progreso (steps) es estática, sin timestamps en cada paso. Falta: botón directo para llamar al técnico o enviar WhatsApp.
+- **Botones en general**: los `useTransition` + `isPending` existen en forms de portal, pero navegación por `<a href>` en `portal-ticket-list` no tiene feedback de loading al entrar al detalle (es una navegación de página completa sin spinner).
+- **App interna — sidebar mobile**: no colapsa correctamente en viewports < 640px. Tabs y tablas internas no son mobile-first.
+- **Portal ticket detail**: usa `var(--p-*)` en inline styles (legacy, funciona por aliases en layout pero viola convención). Migrar a vars canónicas `var(--tx)`, `var(--bg)`, etc.
+- **Portal tickets en cronograma**: mantenciones preventivas (`urgency=preventivo`) no aparecen en cronograma del portal — solo aparecen `Assignment` records.
+
+### 🟠 Desconexiones entre entidades (pendientes de UI)
+- **Ticket ↔ Assignment**: `Assignment.ticketId` existe en DB pero el calendario no muestra el ticket vinculado en el evento. Desde detalle de ticket, no hay forma de ver si hay un trabajo agendado asociado.
+- **Ticket ↔ Job (Flujo de Caja)**: un ticket ejecutado no genera automáticamente un `Job`. Son mundos separados. Oportunidad: al resolver un ticket, ofrecer crear el Job con monto/costos.
+- **Técnico ↔ Tickets — link profundo**: stats OK, pero no hay vista "todos los tickets de este técnico" con filtro en `/tickets?assignedTo=id`.
+
+### 🟡 Valor diferencial pendiente
+- **Portal: mini dashboard "resumen del mes"**: tickets abiertos/resueltos, tiempo promedio de respuesta, % SLA cumplido. Primer dato que valida el servicio al cliente.
+- **Dashboard interno**: KPIs sin tendencia temporal. Sin tiempo promedio de resolución. Sin alertas de SLA vencido.
+- **Mi Panel (técnicos)**: subdesarrollado. Falta vista semanal de agenda, tickets asignados, historial de trabajos. Toda la data existe.
+- **Estadísticas por técnico**: histograma semanal de trabajos, carga vs capacidad, comparativa entre técnicos.
+
+### ⬜ Features nuevos
+- **Pipeline**: cotizaciones enviadas, estados (enviada/vista/aceptada/rechazada), alertas de seguimiento.
+- **Import histórico Flujo de Caja a Turso prod** (`scripts/import-flujo.ts` contra `DATABASE_URL` de producción).
+- **Migración JB desde GAS**: tickets históricos al portal nuevo.
+- **Notificación al técnico**: cuando se le asigna un ticket desde la app interna, recibir push en Mi Panel.
 
 ---
 

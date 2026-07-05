@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { TechnicianForm } from '@/components/resources/technician-form'
 import { DocSection } from '@/components/resources/doc-section'
+import { TechnicianProfileShell } from '@/components/resources/technician-profile-shell'
 import { requireActor } from '@/lib/tenant'
 import { getTechnician } from '@/lib/resources/technicians'
 import { prisma } from '@/lib/prisma'
@@ -125,8 +126,8 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
   const contractWarn = contractDays != null && contractDays >= 0 && contractDays <= 30
   const age = calcAge(tech.birthDate)
 
-  return (
-    <div className="mx-auto max-w-2xl">
+  const header = (
+    <>
       <Link href="/recursos/tecnicos" className="text-xs text-gray-400 hover:text-gray-600">
         ← Técnicos
       </Link>
@@ -158,7 +159,11 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+    </>
+  )
 
+  const resumen = (
+    <>
       {/* Estadísticas — linked */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -285,59 +290,72 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
           </div>
         </div>
       )}
+    </>
+  )
 
-      {/* Camioneta asignada + inventario */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">
-            Camioneta e inventario
-            {tech.vehicle && <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">{tech.vehicle.plate}</span>}
-          </h2>
-          {tech.vehicle ? (
-            <Link href={`/recursos/vehiculos/${tech.vehicle.id}`} className="text-xs text-brand-600 hover:underline">
-              Ver camioneta
-            </Link>
-          ) : (
-            <Link href="/recursos/vehiculos/new" className="text-xs text-brand-600 hover:underline">
-              + Asignar camioneta
-            </Link>
-          )}
-        </div>
-        {!tech.vehicle ? (
-          <p className="text-xs text-gray-400">
-            Este técnico no tiene camioneta. En <strong>Vehículos</strong>, crea o edita una y asígnasela.
-          </p>
-        ) : tech.vehicle.assets.length === 0 ? (
-          <p className="text-xs text-gray-400">
-            La camioneta {tech.vehicle.plate} no tiene herramientas. En <strong>Maquinaria / activos</strong>, asígnalas.
-          </p>
+  const datos = (
+    <TechnicianForm action={updateTechnician.bind(null, tech.id)} initial={tech} submitLabel="Guardar cambios" />
+  )
+
+  const vehiculo = (
+    <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-ink">
+          Camioneta e inventario
+          {tech.vehicle && <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">{tech.vehicle.plate}</span>}
+        </h2>
+        {tech.vehicle ? (
+          <Link href={`/recursos/vehiculos/${tech.vehicle.id}`} className="text-xs text-brand-600 hover:underline">
+            Ver camioneta
+          </Link>
         ) : (
-          <ul className="divide-y divide-gray-100 text-sm">
-            {tech.vehicle.assets.map((a) => (
-              <li key={a.id} className="flex items-center justify-between py-2">
-                <span className="text-ink">
-                  {a.name}
-                  {a.code && <span className="ml-2 text-xs text-gray-400">{a.code}</span>}
-                </span>
-                <span className="text-xs text-gray-500">{ASSET_STATUS_LABELS[a.status as AssetStatusId]}</span>
-              </li>
-            ))}
-          </ul>
+          <Link href="/recursos/vehiculos/new" className="text-xs text-brand-600 hover:underline">
+            + Asignar camioneta
+          </Link>
         )}
       </div>
-
-      {/* Edit form */}
-      <h2 className="mb-4 text-lg font-semibold text-ink">Editar datos</h2>
-      <TechnicianForm action={updateTechnician.bind(null, tech.id)} initial={tech} submitLabel="Guardar cambios" />
-
-      {/* Documents */}
-      <DocSection
-        technicianId={tech.id}
-        initial={(tech.documents ?? []).map((d) => ({
-          ...d,
-          expiryDate: d.expiryDate ?? null,
-        }))}
-      />
+      {!tech.vehicle ? (
+        <p className="text-xs text-gray-400">
+          Este técnico no tiene camioneta. En <strong>Vehículos</strong>, crea o edita una y asígnasela.
+        </p>
+      ) : tech.vehicle.assets.length === 0 ? (
+        <p className="text-xs text-gray-400">
+          La camioneta {tech.vehicle.plate} no tiene herramientas. En <strong>Maquinaria / activos</strong>, asígnalas.
+        </p>
+      ) : (
+        <ul className="divide-y divide-gray-100 text-sm">
+          {tech.vehicle.assets.map((a) => (
+            <li key={a.id} className="flex items-center justify-between py-2">
+              <span className="text-ink">
+                {a.name}
+                {a.code && <span className="ml-2 text-xs text-gray-400">{a.code}</span>}
+              </span>
+              <span className="text-xs text-gray-500">{ASSET_STATUS_LABELS[a.status as AssetStatusId]}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
+  )
+
+  const documentos = (
+    <DocSection
+      technicianId={tech.id}
+      initial={(tech.documents ?? []).map((d) => ({
+        ...d,
+        expiryDate: d.expiryDate ?? null,
+      }))}
+    />
+  )
+
+  return (
+    <TechnicianProfileShell
+      header={header}
+      resumen={resumen}
+      datos={datos}
+      vehiculo={vehiculo}
+      documentos={documentos}
+      hasVehicle={!!tech.vehicle}
+    />
   )
 }
