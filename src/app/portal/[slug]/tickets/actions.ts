@@ -18,7 +18,10 @@ function buildTicketCode(urgency: string, branchName: string, clientPrefix: stri
 
 export async function createPortalTicket(fd: FormData) {
   const session = await auth()
-  if (!session?.user || session.user.role !== 'client') return { success: false }
+  const role = session?.user?.role
+  const isStaff = role === 'super' || role === 'supervisor'
+  const isClient = role === 'client'
+  if (!session?.user || (!isStaff && !isClient)) return { success: false }
 
   const clientId      = String(fd.get('clientId') ?? '')
   const createdById   = String(fd.get('createdById') ?? session.user.id)
@@ -31,8 +34,8 @@ export async function createPortalTicket(fd: FormData) {
 
   if (!title || !clientId) return { success: false }
 
-  // Verify clientId matches session
-  if (session.user.clientId !== clientId) return { success: false }
+  // Client: must match their own clientId
+  if (isClient && session.user.clientId !== clientId) return { success: false }
 
   const [branch, client] = await Promise.all([
     branchId ? prisma.branch.findUnique({ where: { id: branchId }, select: { name: true } }) : Promise.resolve(null),
@@ -40,10 +43,12 @@ export async function createPortalTicket(fd: FormData) {
   ])
   if (!client) return { success: false }
 
+  // Staff: can only create for clients belonging to their tenant
+  if (isStaff && client.tenantId !== session.user.tenantId) return { success: false }
+
   const clientPrefix = client.portalSlug ?? client.name.split(' ')[0]
   const ticketCode = buildTicketCode(urgency, branch?.name ?? 'SUCURSAL', clientPrefix)
 
-  // Ensure unique code
   const existing = await prisma.ticket.findUnique({ where: { ticketCode }, select: { id: true } })
   const finalCode = existing ? `${ticketCode}-${Date.now().toString(36).slice(-4)}` : ticketCode
 
@@ -68,19 +73,20 @@ export async function createPortalTicket(fd: FormData) {
       ticketId: ticket.id,
       userId: createdById,
       toStatus: 'nuevo',
-      note: 'Solicitud creada por cliente',
+      note: isStaff
+        ? `Solicitud registrada por INGEGAR en nombre de ${client.name}`
+        : 'Solicitud creada por cliente',
       isInternal: false,
     },
   })
 
-  // Notify all INGEGAR staff about the new portal ticket
   const urgencyLabel: Record<string, string> = { emergencia: '🚨 EMERGENCIA', urgencia: '⚠️ Urgente', no_urgente: 'Normal', preventivo: 'Preventivo' }
   await notifyTenantStaff(client.tenantId, {
     type: 'ticket_new',
     title: `Nuevo ticket — ${client.name}`,
     body: `${urgencyLabel[urgency] ?? urgency}: ${title}${branch ? ` · ${branch.name}` : ''}`,
     href: `/tickets/${ticket.id}`,
-  }).catch(() => {}) // Non-blocking — don't fail the ticket creation if push fails
+  }).catch(() => {})
 
   return { success: true, id: ticket.id }
 }

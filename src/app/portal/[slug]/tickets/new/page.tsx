@@ -13,34 +13,49 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
 
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true, branches: { where: { active: true }, select: { id: true, name: true, city: true }, orderBy: { name: 'asc' } } },
+    select: {
+      id: true, name: true, portalTheme: true,
+      branches: { where: { active: true }, select: { id: true, name: true, city: true }, orderBy: { name: 'asc' } },
+    },
   })
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
-  // Staff can preview the portal but cannot create tickets on behalf of the client
-  if (isStaffViewing(session)) redirect(`/portal/${slug}/tickets`)
 
+  const isStaff = isStaffViewing(session)
   const theme = resolvePortalTheme(client.portalTheme)
 
   const backLink = (
-    <Link href={`/portal/${slug}/tickets`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--p-t2)', textDecoration: 'none', fontWeight: '500' }}>
+    <Link
+      href={`/portal/${slug}/tickets`}
+      style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'rgba(24,19,14,0.55)', textDecoration: 'none', fontWeight: '500' }}
+    >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 11L5 7l4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
       Volver
     </Link>
   )
 
   return (
-    <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'} primary={theme.primary}
-      bg={theme.bg} cardBg={theme.card} textColor={theme.text}
-      activeHref={`/portal/${slug}/tickets/new`} topbarTitle="Nueva solicitud" topbarSub="Completa el formulario para crear un requerimiento" topbarRight={backLink}>
+    <PortalShell
+      slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'}
+      primary={theme.primary} bg={theme.bg} cardBg={theme.card} textColor={theme.text}
+      activeHref={`/portal/${slug}/tickets/new`}
+      topbarTitle="Nueva solicitud"
+      topbarSub="Completa el formulario para crear un requerimiento"
+      topbarRight={backLink}
+    >
       <div style={{ padding: '24px 28px', maxWidth: '680px' }}>
         <div className="pcard" style={{ padding: '24px 26px' }}>
           <PortalNewTicketForm
             slug={slug}
             clientId={client.id}
+            clientName={client.name}
             createdById={session!.user.id}
             branches={client.branches}
             primary={theme.primary}
+            bg={theme.bg ?? '#f4f3f1'}
+            cardBg={theme.card ?? '#ffffff'}
+            textColor={theme.text ?? '#18130e'}
+            isStaff={isStaff}
           />
         </div>
       </div>
