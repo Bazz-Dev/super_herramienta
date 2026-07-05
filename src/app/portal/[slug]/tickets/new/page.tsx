@@ -53,7 +53,6 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
             branches={client.branches}
             primary={theme.primary}
             bg={theme.bg ?? '#f4f3f1'}
-            cardBg={theme.card ?? '#ffffff'}
             textColor={theme.text ?? '#18130e'}
             isStaff={isStaff}
           />

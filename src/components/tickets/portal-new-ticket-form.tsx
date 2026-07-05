@@ -12,7 +12,6 @@ interface Props {
   branches: { id: string; name: string; city: string | null }[]
   primary: string
   bg: string
-  cardBg: string
   textColor: string
   isStaff?: boolean
 }

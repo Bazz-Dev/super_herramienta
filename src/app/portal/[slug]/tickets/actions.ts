@@ -38,7 +38,7 @@ export async function createPortalTicket(fd: FormData) {
   if (isClient && session.user.clientId !== clientId) return { success: false }
 
   const [branch, client] = await Promise.all([
-    branchId ? prisma.branch.findUnique({ where: { id: branchId }, select: { name: true } }) : Promise.resolve(null),
+    branchId ? prisma.branch.findUnique({ where: { id: branchId, clientId }, select: { name: true } }) : Promise.resolve(null),
     prisma.client.findUnique({ where: { id: clientId }, select: { tenantId: true, portalSlug: true, name: true } }),
   ])
   if (!client) return { success: false }

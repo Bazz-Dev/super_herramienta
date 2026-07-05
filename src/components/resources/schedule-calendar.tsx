@@ -115,7 +115,7 @@ export function ScheduleCalendar({
     const now = new Date()
     const limit = addDays(now, 60)
     const upcoming = filtered
-      .filter((e) => new Date(e.start) <= limit)
+      .filter((e) => new Date(e.start) >= now && new Date(e.start) <= limit)
       .sort((a, b) => a.start.localeCompare(b.start))
     const grouped = new Map<string, CalendarEvent[]>()
     for (const e of upcoming) {
