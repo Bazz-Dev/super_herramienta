@@ -47,6 +47,9 @@ function IconCalendar() {
 function IconLogout() {
   return <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2M9 10l3-3-3-3M12 7H5"/></svg>
 }
+function IconUser() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6"/></svg>
+}
 function IconMenu() {
   return <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
 }
@@ -61,6 +64,7 @@ const NAV = [
   { href: (s: string) => `/portal/${s}/informes`,    label: 'Inf. Técnicos',     Icon: IconDocument },
   { href: (s: string) => `/portal/${s}/reportes`,    label: 'Reportes',          Icon: IconReports },
   { href: (s: string) => `/portal/${s}/cronograma`,  label: 'Cronograma',        Icon: IconCalendar },
+  { href: (s: string) => `/portal/${s}/cuenta`,      label: 'Mi cuenta',         Icon: IconUser },
 ]
 
 export function PortalShell({

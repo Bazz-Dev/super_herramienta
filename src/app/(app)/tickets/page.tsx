@@ -28,7 +28,7 @@ export default async function TicketsPage() {
     prisma.ticket.findMany({
       where: { tenantId: actor.tenantId, status: { in: ['resuelto', 'cancelado'] } },
       select: {
-        id: true, ticketCode: true, title: true, status: true, closedDate: true,
+        id: true, ticketCode: true, title: true, description: true, status: true, closedDate: true,
         client: { select: { name: true } },
         branch: { select: { name: true } },
         assignedTo: { select: { name: true } },
@@ -53,6 +53,7 @@ export default async function TicketsPage() {
     id: t.id,
     ticketCode: t.ticketCode,
     title: t.title,
+    description: t.description ?? null,
     status: t.status,
     urgency: t.urgency,
     createdAt: t.createdAt.toISOString(),
@@ -67,6 +68,7 @@ export default async function TicketsPage() {
     id: t.id,
     ticketCode: t.ticketCode,
     title: t.title,
+    description: t.description ?? null,
     status: t.status,
     closedDate: t.closedDate ? t.closedDate.toISOString() : null,
     client: t.client,

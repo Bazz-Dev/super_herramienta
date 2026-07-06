@@ -25,6 +25,9 @@ const CLIENT_SLUG = 'justburger'
 function cell(row: ExcelJS.Row, i: number): unknown {
   const v = (row.values as unknown[])[i]
   if (v == null) return null
+  // Date objects must be checked before the generic object branch — typeof Date === 'object'
+  // so without this guard they'd be converted to null via o.result ?? o.text ?? null.
+  if (v instanceof Date) return v
   if (typeof v === 'object') {
     const o = v as { result?: unknown; text?: unknown }
     return o.result ?? o.text ?? null
@@ -214,7 +217,7 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
 
   const existing = await prisma.ticket.findUnique({
     where: { ticketCode },
-    select: { id: true, assignedToId: true, internalNotes: true },
+    select: { id: true, assignedToId: true, internalNotes: true, createdAt: true, closedDate: true },
   })
 
   if (existing) {
@@ -224,7 +227,15 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
     const hasDriveNote  = existing.internalNotes?.includes('[Carpeta Drive:')
     const needsDrive    = driveUrl && !hasDriveNote
 
-    if (needsAssignee || needsDrive) {
+    // Patch dates if the stored value was set to today (import bug) instead of the Excel date
+    const excelCreatedAt  = asDate(cell(row, 2))
+    const excelClosedDate = asDate(cell(row, 9))
+    const storedMs = existing.createdAt.getTime()
+    // Consider it wrong if Excel has a date and stored value is within 2 days of NOW (import bug)
+    const importBugThreshold = Date.now() - 2 * 86_400_000
+    const needsDatePatch = excelCreatedAt && storedMs > importBugThreshold
+
+    if (needsAssignee || needsDrive || needsDatePatch) {
       await prisma.ticket.update({
         where: { id: existing.id },
         data: {
@@ -233,6 +244,11 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
             internalNotes: existing.internalNotes
               ? `${existing.internalNotes}\n[Carpeta Drive: ${driveUrl}]`
               : `[Carpeta Drive: ${driveUrl}]`,
+          } : {}),
+          ...(needsDatePatch ? {
+            createdAt: excelCreatedAt,
+            updatedAt: asDate(cell(row, 15)) ?? excelCreatedAt,
+            ...(excelClosedDate && !existing.closedDate ? { closedDate: excelClosedDate } : {}),
           } : {}),
         },
       })

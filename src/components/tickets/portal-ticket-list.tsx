@@ -6,6 +6,7 @@ export interface PortalTicket {
   id: string
   ticketCode: string
   title: string
+  description: string | null
   status: string
   urgency: string
   createdAt: string
@@ -269,10 +270,13 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
               return (
                 <a key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
                   style={{ display: 'block', background: cardBg, border: `1px solid ${C.bd}`, borderLeft: `4px solid ${URG_COLOR[t.urgency] ?? C.bd}`, borderRadius: 12, padding: '12px 14px', textDecoration: 'none', boxShadow: C.sh }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{t.title}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: t.description ? 4 : 6 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: C.bd2, flexShrink: 0, marginTop: 2 }}><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </div>
+                  {t.description && (
+                    <div style={{ fontSize: 11, color: C.t3, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+                  )}
                   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px', fontSize: 11 }}>
                     <StatusDot s={t.status} />
                     <UrgDot u={t.urgency} />
@@ -314,9 +318,10 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
                         <td style={{ padding: '10px 14px' }}>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.t3 }}>{t.ticketCode}</span>
                         </td>
-                        <td style={{ padding: '10px 14px', maxWidth: 260 }}>
+                        <td style={{ padding: '10px 14px', maxWidth: 280 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                          {t.assignedTo && <div style={{ fontSize: 11, color: C.t3, marginTop: 1 }}>Téc: {t.assignedTo.name}</div>}
+                          {t.description && <div style={{ fontSize: 11, color: C.t3, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>}
+                          {!t.description && t.assignedTo && <div style={{ fontSize: 11, color: C.t3, marginTop: 1 }}>Téc: {t.assignedTo.name}</div>}
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: C.t2, whiteSpace: 'nowrap' }}>{t.branch?.name ?? '—'}</td>
                         <td style={{ padding: '10px 14px' }}><UrgDot u={t.urgency} /></td>

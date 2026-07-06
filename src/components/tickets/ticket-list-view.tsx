@@ -35,6 +35,7 @@ export interface ListTicket {
   id: string
   ticketCode: string
   title: string
+  description: string | null
   status: string
   urgency: string
   createdAt: string
@@ -49,6 +50,7 @@ export interface ClosedTicket {
   id: string
   ticketCode: string
   title: string
+  description: string | null
   status: string
   closedDate: string | null
   client: { name: string }
@@ -193,14 +195,17 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                   return (
                     <a key={ticket.id} href={`/tickets/${ticket.id}`}
                       className="block rounded-xl border border-gray-200 bg-white p-3 shadow-sm active:scale-[0.98] transition-transform">
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <p className="font-semibold text-sm text-gray-800 line-clamp-2 flex-1">{ticket.title}</p>
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <p className="font-semibold text-sm text-gray-800 line-clamp-1 flex-1">{ticket.title}</p>
                         <span
                           className="shrink-0 mt-0.5 h-2.5 w-2.5 rounded-full"
                           style={{ background: URG_DOT[ticket.urgency] ?? '#ccc' }}
                           title={URGENCY_LABEL[ticket.urgency as TicketUrgencyId]}
                         />
                       </div>
+                      {ticket.description && (
+                        <p className="text-xs text-gray-400 line-clamp-1 mb-1.5">{ticket.description}</p>
+                      )}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
                         <span className="inline-flex items-center gap-1 font-semibold text-gray-700">
                           <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[st] ?? 'bg-gray-300'}`} />
@@ -256,9 +261,12 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                               <span className="font-mono text-[10px] text-gray-400">{ticket.ticketCode}</span>
                             </td>
 
-                            {/* Title */}
-                            <td className="max-w-65 px-3 py-3">
+                            {/* Title + description */}
+                            <td className="max-w-72 px-3 py-3">
                               <p className="truncate font-medium text-gray-800">{ticket.title}</p>
+                              {ticket.description && (
+                                <p className="truncate text-[11px] text-gray-400 mt-0.5">{ticket.description}</p>
+                              )}
                             </td>
 
                             {/* Branch */}
@@ -383,8 +391,9 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                             {t.ticketCode}
                           </a>
                         </td>
-                        <td className="max-w-60 px-4 py-2.5">
+                        <td className="max-w-72 px-4 py-2.5">
                           <a href={`/tickets/${t.id}`} className="line-clamp-1 text-gray-700 hover:text-brand">{t.title}</a>
+                          {t.description && <p className="truncate text-[11px] text-gray-400 mt-0.5">{t.description}</p>}
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-gray-600">{t.client.name}</td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-gray-500">{t.branch?.name ?? '—'}</td>
