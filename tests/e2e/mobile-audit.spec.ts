@@ -201,3 +201,58 @@ test('perfil: form buttons ≥44px with spinner pattern', async ({ page }) => {
   const small = await smallTargets(page)
   expect(small, `Small elements on /perfil: ${JSON.stringify(small)}`).toHaveLength(0)
 })
+
+// ─── PORTAL JB (mobile) ────────────────────────────────────────────────────
+async function loginPortal(page: Page, slug = 'justburger') {
+  await page.setViewportSize(MOBILE_VIEWPORT)
+  await page.goto(`/portal/${slug}`)
+  await page.waitForLoadState('networkidle')
+  // Use client credentials (adjust if needed)
+  const emailInput = page.locator('input[name="email"], input[type="email"]').first()
+  if (await emailInput.isVisible()) {
+    await emailInput.fill('carolina@justburger.cl')
+    const pwInput = page.locator('input[name="password"], input[type="password"]').first()
+    await pwInput.fill('justburger123')
+    await page.getByRole('button', { name: /Ingresar/i }).click()
+    await page.waitForLoadState('networkidle')
+  }
+}
+
+test('portal dashboard: no horizontal scroll on mobile', async ({ page }) => {
+  await loginPortal(page)
+  await page.goto('/portal/justburger/dashboard')
+  await page.waitForLoadState('networkidle')
+  expect(await noHorizontalScroll(page)).toBe(true)
+})
+
+test('portal dashboard: KPI grid is 2-col at 390px (not 4-col)', async ({ page }) => {
+  await loginPortal(page)
+  await page.goto('/portal/justburger/dashboard')
+  await page.waitForLoadState('networkidle')
+  // The kpi-grid-top must have at most 2 columns on mobile
+  const cols = await page.evaluate(() => {
+    const el = document.querySelector('.kpi-grid-top')
+    if (!el) return -1
+    const style = getComputedStyle(el)
+    const tpl = style.gridTemplateColumns
+    return tpl.split(' ').length
+  })
+  expect(cols).toBeLessThanOrEqual(2)
+})
+
+test('portal dashboard: sidebar hamburger visible and ≥44px', async ({ page }) => {
+  await loginPortal(page)
+  await page.goto('/portal/justburger/dashboard')
+  await page.waitForLoadState('networkidle')
+  const hamburger = page.getByRole('button', { name: /menú/i })
+  await expect(hamburger).toBeVisible()
+  const rect = await hamburger.boundingBox()
+  expect(rect!.height).toBeGreaterThanOrEqual(44)
+})
+
+test('portal tickets: no horizontal scroll on mobile', async ({ page }) => {
+  await loginPortal(page)
+  await page.goto('/portal/justburger/tickets')
+  await page.waitForLoadState('networkidle')
+  expect(await noHorizontalScroll(page)).toBe(true)
+})
