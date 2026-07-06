@@ -80,6 +80,17 @@ export async function toggleBranch(branchId: string, active: boolean): Promise<v
   revalidatePath(`/recursos/clientes/${branch.clientId}`)
 }
 
+export async function saveClientLogo(id: string, dataUrl: string | null): Promise<{ error?: string }> {
+  const actor = await requireActor()
+  const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })
+  if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'Sin permiso.' }
+  // Validate: must be a data URI image or null
+  if (dataUrl !== null && !dataUrl.startsWith('data:image/')) return { error: 'Formato de imagen inválido.' }
+  await prisma.client.update({ where: { id }, data: { logoUrl: dataUrl } })
+  revalidatePath(`/recursos/clientes/${id}`)
+  return {}
+}
+
 export async function deleteClient(id: string): Promise<void> {
   const actor = await requireActor()
   const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })

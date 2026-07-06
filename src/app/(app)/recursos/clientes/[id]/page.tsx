@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ClientForm } from '@/components/resources/client-form'
 import { BranchManager } from '@/components/resources/branch-manager'
+import { ClientLogoUpload } from '@/components/resources/client-logo-upload'
 import { requireActor } from '@/lib/tenant'
 import { getClientWithStats } from '@/lib/resources/clients'
 import { updateClient } from '../actions'
@@ -137,6 +138,13 @@ export default async function EditClientePage({
               + Nuevo trabajo →
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* Logo upload */}
+      {client.portalSlug && (
+        <div className="mb-6">
+          <ClientLogoUpload clientId={client.id} current={client.logoUrl ?? null} />
         </div>
       )}
 

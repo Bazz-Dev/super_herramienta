@@ -59,6 +59,7 @@ const migrations = [
   '20260630214131_client_documents_and_fes',
   '20260630222439_add_data_json_to_client_documents',
   '20260630223147_rrhh_module',
+  '20260706041156_add_client_logo_url',
 ]
 
 const pending = migrations.filter((m) => !applied.has(m))
