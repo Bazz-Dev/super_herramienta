@@ -7,6 +7,7 @@ import { requireActor } from '@/lib/tenant'
 import { assertRole } from '@/lib/policies'
 import { notify } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
+import { fromDateInput } from '@/lib/cashflow/dates'
 
 const createSchema = z.object({
   ticketCode: z.string().min(1),
@@ -70,7 +71,7 @@ export async function createTicket(_: unknown, fd: FormData) {
       assignedToId: assignedToId ?? null,
       internalNotes: internalNotes ?? null,
       otNumber: otNumber ?? null,
-      estimatedDate: estimatedDate ? new Date(estimatedDate) : null,
+      estimatedDate: fromDateInput(estimatedDate),
       tenantId: actor.tenantId,
       createdById: actor.id,
       status: initialStatus,
@@ -171,7 +172,7 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId },
-    select: { id: true, status: true, assignedToId: true },
+    select: { id: true, status: true, assignedToId: true, ticketCode: true, title: true },
   })
   if (!ticket) return { success: false }
 
@@ -184,13 +185,11 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
     autoStatus = 'en_revision'
   }
 
-  const updatedTicket = await prisma.ticket.findFirst({ where: { id: ticketId }, select: { ticketCode: true, title: true } })
-
   await prisma.ticket.update({
     where: { id: ticketId },
     data: {
       ...parsed,
-      estimatedDate: parsed.estimatedDate ? new Date(parsed.estimatedDate) : undefined,
+      estimatedDate: parsed.estimatedDate !== undefined ? fromDateInput(parsed.estimatedDate) : undefined,
       ...(autoStatus ? { status: autoStatus as never } : {}),
     },
   })
@@ -217,11 +216,11 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
   // Notify newly assigned user
   if (parsed.assignedToId && assigneeChanged) {
     const assignee = await prisma.user.findUnique({ where: { id: parsed.assignedToId }, select: { id: true, tenantId: true } })
-    if (assignee && updatedTicket) {
+    if (assignee) {
       notify(assignee.id, assignee.tenantId, {
         type: 'ticket_assigned',
-        title: `Ticket asignado: ${updatedTicket.ticketCode}`,
-        body: updatedTicket.title,
+        title: `Ticket asignado: ${ticket.ticketCode}`,
+        body: ticket.title,
         href: `/tickets/${ticketId}`,
       }).catch(() => {})
     }

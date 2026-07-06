@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { technicianInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
+import { fromDateInput } from '@/lib/cashflow/dates'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -30,8 +31,8 @@ function parse(formData: FormData) {
 function techData(p: ReturnType<typeof technicianInputSchema.parse>) {
   return {
     ...p,
-    contractEndDate: p.contractEndDate ? new Date(p.contractEndDate) : null,
-    birthDate: p.birthDate ? new Date(p.birthDate) : null,
+    contractEndDate: fromDateInput(p.contractEndDate),
+    birthDate: fromDateInput(p.birthDate),
   }
 }
 

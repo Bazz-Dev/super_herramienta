@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { tenantScope, requireActor } from '@/lib/tenant'
 import { revalidatePath } from 'next/cache'
+import { fromDateInput } from '@/lib/cashflow/dates'
 
 // ─── Leave Requests ────────────────────────────────────────────
 
@@ -28,8 +29,8 @@ export async function createLeaveRequest(data: {
       tenantId: scope.tenantId ?? actor.tenantId,
       technicianId: data.technicianId,
       type: data.type as never,
-      startDate: new Date(data.startDate),
-      endDate: new Date(data.endDate),
+      startDate: fromDateInput(data.startDate)!,
+      endDate: fromDateInput(data.endDate)!,
       days: data.days,
       note: data.note,
     },
@@ -125,7 +126,7 @@ export async function updateTechnicianHRFields(techId: string, data: {
   await prisma.technician.updateMany({
     where: { id: techId, ...scope },
     data: {
-      ...(data.hireDate !== undefined ? { hireDate: data.hireDate ? new Date(data.hireDate) : null } : {}),
+      ...(data.hireDate !== undefined ? { hireDate: fromDateInput(data.hireDate) } : {}),
       ...(data.baseSalary !== undefined ? { baseSalary: data.baseSalary } : {}),
       ...(data.address !== undefined ? { address: data.address } : {}),
       ...(data.emergencyContact !== undefined ? { emergencyContact: data.emergencyContact } : {}),
