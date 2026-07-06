@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { vehicleInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
+import { fromDateInput } from '@/lib/cashflow/dates'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -26,21 +27,15 @@ function parse(formData: FormData) {
   })
 }
 
-function toDate(s: string | undefined | null): Date | null {
-  if (!s) return null
-  const d = new Date(s)
-  return isNaN(d.getTime()) ? null : d
-}
-
 function vehicleData(p: ReturnType<typeof vehicleInputSchema.parse>) {
   const { revTecnicaExpiry, soapExpiry, permisoCirculacionExpiry, lastServiceDate, nextServiceDate, ...rest } = p
   return {
     ...rest,
-    revTecnicaExpiry: toDate(revTecnicaExpiry),
-    soapExpiry: toDate(soapExpiry),
-    permisoCirculacionExpiry: toDate(permisoCirculacionExpiry),
-    lastServiceDate: toDate(lastServiceDate),
-    nextServiceDate: toDate(nextServiceDate),
+    revTecnicaExpiry: fromDateInput(revTecnicaExpiry),
+    soapExpiry: fromDateInput(soapExpiry),
+    permisoCirculacionExpiry: fromDateInput(permisoCirculacionExpiry),
+    lastServiceDate: fromDateInput(lastServiceDate),
+    nextServiceDate: fromDateInput(nextServiceDate),
   }
 }
 

@@ -102,7 +102,7 @@ export function PortalShell({
 
   return (
     // Root wrapper — inline background prevents ANY external CSS from overriding
-    <div style={{ display: 'flex', minHeight: '100dvh', background: bg, color: textColor, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", WebkitFontSmoothing: 'antialiased' }}>
+    <div style={{ display: 'flex', minHeight: '100dvh', background: bg, color: textColor, fontFamily: "'Inter', system-ui, -apple-system, sans-serif", WebkitFontSmoothing: 'antialiased', overflowX: 'hidden' }}>
 
       {/* Mobile overlay */}
       {isMobile && open && (
@@ -202,7 +202,8 @@ export function PortalShell({
         display: 'flex',
         flexDirection: 'column',
         minWidth: 0,
-        background: bg,   // explicit — no CSS variable
+        maxWidth: isMobile ? '100vw' : `calc(100vw - ${SB_WIDTH}px)`,
+        background: bg,
         color: textColor,
       }}>
         {/* Topbar */}

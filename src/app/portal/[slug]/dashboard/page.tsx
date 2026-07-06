@@ -134,12 +134,10 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
         .trow { transition: background 0.1s; }
 
         @media (max-width:860px) {
-          .kpi-grid-top { grid-template-columns: 1fr 1fr !important; }
-          .kpi-val-lg   { font-size: 40px !important; }
+          .kpi-val-lg { font-size: 40px !important; }
         }
         @media (max-width:480px) {
-          .kpi-grid-top { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
-          .kpi-val-lg   { font-size: 34px !important; }
+          .kpi-val-lg { font-size: 34px !important; }
         }
       `}</style>
 
@@ -175,7 +173,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
           </div>
 
           {/* ── Primary KPIs — 4 col desktop, 2 col mobile ── */}
-          <div className="kpi-grid-top" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginBottom:'10px' }}>
+          <div className="kpi-grid-top" style={{ marginBottom:'10px' }}>
 
             {/* Activas — hero metric */}
             <Link href={`/portal/${slug}/tickets`} style={{ textDecoration:'none', gridColumn:'span 1' }}>

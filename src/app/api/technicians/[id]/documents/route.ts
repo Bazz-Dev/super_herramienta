@@ -3,6 +3,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { canAccessTenant } from '@/lib/tenant'
 import { uploadToR2, deleteFromR2, isR2Key } from '@/lib/r2'
+import { fromDateInput } from '@/lib/cashflow/dates'
 
 export const runtime = 'nodejs'
 
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       type: type as never,
       label,
       fileUrl: key,
-      expiryDate: expiryDate ? new Date(expiryDate) : null,
+      expiryDate: fromDateInput(expiryDate),
       notes,
     },
   })

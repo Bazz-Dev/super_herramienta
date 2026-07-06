@@ -76,7 +76,7 @@ export default async function PortalLayout({ children, params }: { children: Rea
         }
 
         .pw, .pw * { box-sizing: border-box; margin: 0; padding: 0; }
-        .pw { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; }
+        .pw { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
         .pw ::-webkit-scrollbar { width: 4px; height: 4px; }
         .pw ::-webkit-scrollbar-track { background: transparent; }
         .pw ::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 4px; }
@@ -259,10 +259,13 @@ export default async function PortalLayout({ children, params }: { children: Rea
         .pg { padding: 20px 22px; }
 
         /* ── Responsive layout utilities ── */
-        .pw-kpi   { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
-        .pw-dash  { display: grid; grid-template-columns: 1fr 280px; gap: 14px; align-items: start; }
-        .pw-2col  { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        .pw-3col  { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+        .pw-kpi      { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+        .kpi-grid-top{ display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+        .pw-dash     { display: grid; grid-template-columns: 1fr 280px; gap: 14px; align-items: start; }
+        .pw-2col     { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .pw-3col     { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+        /* prevent grid items from blowing out their column */
+        .pw-kpi > *, .kpi-grid-top > *, .pw-dash > *, .pw-2col > *, .pw-3col > * { min-width: 0; }
         .kpi-card { background: var(--s1); border: 1px solid var(--bd); border-radius: var(--r3); box-shadow: var(--sh); padding: 16px 18px; }
         .kpi-val  { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
         .kpi-lbl  { font-size: 11px; font-weight: 700; color: var(--tx); margin-bottom: 2px; }
@@ -281,16 +284,19 @@ export default async function PortalLayout({ children, params }: { children: Rea
           .portal-content { margin-left: 0 !important; }
           .ptopbar { padding: 0 14px; }
           .pg { padding: 16px 14px 80px; }
-          .pw-kpi  { grid-template-columns: 1fr 1fr; }
-          .pw-dash { grid-template-columns: 1fr; }
-          .pw-2col { grid-template-columns: 1fr; }
+          .pw-kpi       { grid-template-columns: 1fr 1fr; }
+          .kpi-grid-top { grid-template-columns: 1fr 1fr; }
+          .pw-dash      { grid-template-columns: 1fr; }
+          .pw-2col      { grid-template-columns: 1fr; }
           [data-ticket-detail] { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 480px) {
-          .ptopbar { height: 50px; min-height: 50px; }
-          .ptopbar-title { font-size: 14px; }
-          .pcard { border-radius: var(--r2); }
-          .pw-3col { grid-template-columns: 1fr 1fr; }
+          .ptopbar      { height: 50px; min-height: 50px; }
+          .ptopbar-title{ font-size: 14px; }
+          .pcard        { border-radius: var(--r2); }
+          .pw-3col      { grid-template-columns: 1fr 1fr; }
+          .kpi-grid-top { gap: 8px; }
+          .pw-kpi       { gap: 8px; }
         }
 
         /* ── Tablet/iPhone safe area ── */

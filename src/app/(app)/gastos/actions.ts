@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { assertOwns, assertRole, assertTechnicianOwns, canApproveExpense } from '@/lib/policies'
 import { notify } from '@/lib/push'
+import { fromDateInput } from '@/lib/cashflow/dates'
 import type { ExpenseStatus } from '@/generated/prisma/enums'
 
 const CreateExpenseSchema = z.object({
@@ -66,7 +67,7 @@ export async function createExpense(fd: FormData) {
       amount: data.amount,
       description: data.description || null,
       receiptUrl,
-      date: new Date(data.date),
+      date: fromDateInput(data.date) ?? new Date(),
       status: 'pendiente',
     },
   })
