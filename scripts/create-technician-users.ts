@@ -19,8 +19,8 @@ const TO_PROVISION: Array<{
   username: string     // nick de login
   password: string     // contraseña inicial
 }> = [
-  { search: 'jesus',      username: 'jesus',      password: 'Tecnico@2026' },
-  { search: 'gonzalez',   username: 'jgonzalez',  password: 'Ingegar2024!' },
+  { search: 'diaz',      username: 'jdiaz',      password: 'Tecnico@2026' },
+  { search: 'gonzalez',  username: 'jgonzales',  password: 'Ingegar2024!' },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────

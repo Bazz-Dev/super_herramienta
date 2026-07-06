@@ -27,6 +27,7 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
     id: t.id,
     ticketCode: t.ticketCode,
     title: t.title,
+    description: t.description ?? null,
     status: t.status,
     urgency: t.urgency,
     createdAt: t.createdAt.toISOString(),

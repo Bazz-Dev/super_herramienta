@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build",
+    "build": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\" && prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -26,6 +26,8 @@
     "db:migrate:bootstrap": "npx tsx --env-file=.env.production.local scripts/turso-migrate-bootstrap.ts",
     "db:seed:prod": "npx tsx --env-file=.env.production.local scripts/seed-prod.ts",
     "users:tecnico:prod": "npx tsx --env-file=.env.production.local scripts/create-technician-users.ts",
+    "users:fix:prod": "npx tsx --env-file=.env.production.local scripts/fix-user-accounts.ts",
+    "users:list:prod": "npx tsx --env-file=.env.production.local scripts/_list-users.ts",
     "setup:jb:prod": "npx tsx --env-file=.env.production.local scripts/setup-justburger-portal.ts",
     "import:jb:prod": "npx tsx --env-file=.env.production.local scripts/import-jb-tickets.ts",
     "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
