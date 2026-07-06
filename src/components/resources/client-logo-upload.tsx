@@ -34,6 +34,7 @@ export function ClientLogoUpload({ clientId, current }: Props) {
       const ctx = canvas.getContext('2d')!
       ctx.drawImage(img, 0, 0, w, h)
       const dataUrl = canvas.toDataURL('image/png')
+      if (dataUrl.length > 600_000) { setError('Imagen demasiado pesada. Intenta con un PNG más pequeño.'); return }
       setPreview(dataUrl)
       setSaved(false)
       URL.revokeObjectURL(img.src)
