@@ -45,7 +45,7 @@ export function PortalLoginForm({ slug, primaryColor, dark = false }: Props) {
       else          { localStorage.removeItem(LS_KEY(slug)) }
     } catch { /* ignore */ }
 
-    const res = await signIn('credentials', { email, password, redirect: false })
+    const res = await signIn('credentials', { login: email, password, redirect: false })
     setLoading(false)
     if (res?.error) { setError('Correo o contraseña incorrectos.'); return }
     router.push(`/portal/${slug}/dashboard`)
@@ -174,6 +174,20 @@ export function PortalLoginForm({ slug, primaryColor, dark = false }: Props) {
           <>Ingresar al portal →</>
         )}
       </button>
+
+      <div style={{ textAlign: 'center', marginTop: 2 }}>
+        <a
+          href="mailto:soporte@ingegarchile.cl?subject=Recuperar%20acceso%20portal"
+          style={{
+            fontSize: '12px', color: dark ? 'rgba(255,255,255,0.3)' : '#b0a89f',
+            textDecoration: 'none',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = primaryColor; e.currentTarget.style.textDecoration = 'underline' }}
+          onMouseLeave={e => { e.currentTarget.style.color = dark ? 'rgba(255,255,255,0.3)' : '#b0a89f'; e.currentTarget.style.textDecoration = 'none' }}
+        >
+          ¿Olvidaste tu contraseña?
+        </a>
+      </div>
 
       <style>{`@keyframes plspin { to { transform: rotate(360deg) } }`}</style>
     </form>

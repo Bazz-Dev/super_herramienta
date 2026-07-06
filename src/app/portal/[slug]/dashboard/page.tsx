@@ -15,6 +15,16 @@ import { URGENCY_COLORS as URG_COLOR, C } from '@/lib/portal-colors'
 const OPEN   = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
 const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
+const CATEGORY_LABELS: Record<string,string> = {
+  mantencion_correctiva: 'Correctivo',
+  mantencion_preventiva: 'Preventivo',
+  instalacion:           'Instalación',
+  inspeccion:            'Inspección',
+  emergencia:            'Emergencia',
+  garantia:              'Garantía',
+  otro:                  'Otro',
+}
+
 function daysBetween(d: string) {
   return Math.floor((new Date(d).getTime() - Date.now()) / 86400000)
 }
@@ -22,38 +32,35 @@ function localYearMonth() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 }
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const h = diff / 3600000
+  if (h < 1) return `${Math.round(diff/60000)}m`
+  if (h < 24) return `${Math.floor(h)}h`
+  const d = Math.floor(h/24)
+  if (d < 30) return `${d}d`
+  return `${Math.floor(d/30)}mo`
+}
 
-type Ticket = Awaited<ReturnType<typeof getClientTickets>>[number]
-
-function BarChart({ months, acc, t2, t3, bd }: {
-  months: { key:string; label:string; active:number; resolved:number; total:number }[]
-  acc: string; t2: string; t3: string; bd: string
-}) {
-  const W=480, H=100, PL=24, PR=8, PT=12, PB=22, GH=H-PT-PB
-  const maxV = Math.max(...months.map(m=>m.total), 1)
-  const bW = Math.floor((W-PL-PR)/months.length)
+function MiniBar({ months, acc }: { months: { key:string; label:string; active:number; resolved:number; total:number }[]; acc: string }) {
+  const maxV = Math.max(...months.map(m => m.total), 1)
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:'auto', display:'block' }}>
-      {[0,1,2,3,4].map(g => {
-        const y = PT+GH*(1-g/4)
-        return <g key={g}>
-          <line x1={PL} x2={W-PR} y1={y} y2={y} stroke={bd} strokeWidth="1" strokeDasharray={g?'3,3':''} />
-          {g>0 && <text x={PL-4} y={y+3} textAnchor="end" fontSize="8" fill={t3} fontFamily="Inter,sans-serif">{Math.round(maxV*g/4)}</text>}
-        </g>
+    <div style={{ display:'flex', alignItems:'flex-end', gap:'4px', height:'52px' }}>
+      {months.map(m => {
+        const activeH = m.active  ? Math.max((m.active/maxV)*44, 3) : 0
+        const resolvedH = m.resolved ? Math.max((m.resolved/maxV)*44, 3) : 0
+        return (
+          <div key={m.key} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:'2px' }}>
+            <div style={{ display:'flex', flexDirection:'column-reverse', alignItems:'center', gap:'1px', width:'100%' }}>
+              {activeH>0 && <div style={{ width:'100%', height:`${activeH}px`, background:acc, borderRadius:'3px 3px 0 0', opacity:0.9 }}/>}
+              {resolvedH>0 && <div style={{ width:'100%', height:`${resolvedH}px`, background:C.success, borderRadius:'3px 3px 0 0', opacity:0.7 }}/>}
+              {m.total===0 && <div style={{ width:'100%', height:'3px', background:'#e0ddd8', borderRadius:'2px' }}/>}
+            </div>
+            <div style={{ fontSize:'9px', color:'#8c857e', marginTop:'2px' }}>{m.label}</div>
+          </div>
+        )
       })}
-      {months.map((m,i) => {
-        const x=PL+i*bW+bW*0.12, bw=bW*0.76
-        const rh=m.resolved?Math.max((m.resolved/maxV)*GH,2):0
-        const ah=m.active?Math.max((m.active/maxV)*GH,2):0
-        return <g key={m.key}>
-          {rh>0 && <rect x={x} y={H-PB-rh-ah} width={bw} height={rh} fill={C.success} rx="2" opacity=".75"/>}
-          {ah>0 && <rect x={x} y={H-PB-ah} width={bw} height={ah} fill={acc} rx="2"/>}
-          {m.total===0 && <rect x={x} y={H-PB-2} width={bw} height={2} fill={bd} rx="1"/>}
-          {m.total>0 && <text x={x+bw/2} y={H-PB-(m.total/maxV)*GH-3} textAnchor="middle" fontSize="8.5" fontWeight="700" fill={t2} fontFamily="Inter,sans-serif">{m.total}</text>}
-          <text x={x+bw/2} y={H-PB+13} textAnchor="middle" fontSize="9" fill={t3} fontFamily="Inter,sans-serif">{m.label}</text>
-        </g>
-      })}
-    </svg>
+    </div>
   )
 }
 
@@ -70,31 +77,27 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   const isStaff = isStaffViewing(session)
   const tickets = await getClientTickets(client.id)
   const theme   = resolvePortalTheme(client.portalTheme)
-  const acc     = theme.primary
-  const T = { tx: theme.text, t2: '#4b4540', t3: '#8c857e', t4: '#beb7b0', bd: '#e0ddd8', s2: '#f8f7f5', s3: '#efedea' }
+  const acc = theme.primary
 
-  // ── KPI calculations (matching Excel v2 panel) ──
-  const act        = tickets.filter(t => OPEN.includes(t.status))
-  const inProc     = act.filter(t => t.status !== 'nuevo')
-  const mes        = localYearMonth()
-  const resMes     = tickets.filter(t => t.status==='resuelto' && t.closedDate && String(t.closedDate).startsWith(mes))
-  const vnc        = act.filter(t => t.estimatedDate && daysBetween(String(t.estimatedDate)) < 0)
-  const emg        = tickets.filter(t => t.urgency==='emergencia' && OPEN.includes(t.status))
-  // eslint-disable-next-line react-hooks/purity
-  const nowMs      = Date.now()
-  const todayStr   = new Date().toISOString().slice(0, 10)
-  const sinAbordar = act.filter(t => t.status==='nuevo' && (nowMs-new Date(t.createdAt).getTime()) > 86_400_000)
-  const hoy        = tickets.filter(t => String(t.createdAt).startsWith(todayStr))
+  // ── KPIs ──────────────────────────────────────────────────────────────────
+  const act     = tickets.filter(t => OPEN.includes(t.status))
+  const inProc  = act.filter(t => t.status !== 'nuevo')
+  const mes     = localYearMonth()
+  const resMes  = tickets.filter(t => t.status==='resuelto' && t.closedDate && String(t.closedDate).startsWith(mes))
+  const vnc     = act.filter(t => t.estimatedDate && daysBetween(String(t.estimatedDate)) < 0)
+  const emg     = tickets.filter(t => t.urgency==='emergencia' && OPEN.includes(t.status))
+  const sinAbordar = act.filter(t => t.status==='nuevo' && (Date.now()-new Date(t.createdAt).getTime()) > 86_400_000)
+  const hoy     = tickets.filter(t => String(t.createdAt).startsWith(new Date().toISOString().slice(0,10)))
   const sucursales = new Set(act.filter(t => t.branch).map(t => t.branch!.name)).size
 
-  // SLA: resolved tickets with date that closed on time
-  const withDate   = tickets.filter(t => t.status==='resuelto' && t.estimatedDate && t.closedDate)
-  const onTime     = withDate.filter(t => new Date(String(t.closedDate!)).getTime() <= new Date(String(t.estimatedDate!)).getTime())
-  const slaPct     = withDate.length ? Math.round((onTime.length/withDate.length)*100) : null
+  const withDate = tickets.filter(t => t.status==='resuelto' && t.estimatedDate && t.closedDate)
+  const onTime   = withDate.filter(t => new Date(String(t.closedDate!)).getTime() <= new Date(String(t.estimatedDate!)).getTime())
+  const slaPct   = withDate.length ? Math.round((onTime.length/withDate.length)*100) : null
 
   const nombre = (session?.user?.name ?? 'Cliente').split(' ')[0]
   const hoyStr = new Date().toLocaleDateString('es-CL', { weekday:'long', day:'numeric', month:'long' })
 
+  // 6 months chart data
   const now = new Date()
   const months = Array.from({length:6}, (_,i) => {
     const d = new Date(now); d.setMonth(d.getMonth()-(5-i))
@@ -105,201 +108,345 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   })
 
   const byBranch = act.reduce<Record<string,number>>((a,t)=>{ const n=t.branch?.name??'Sin sucursal'; a[n]=(a[n]??0)+1; return a }, {})
-  const branchList = Object.entries(byBranch).sort((a,b)=>b[1]-a[1]).slice(0,8)
+  const branchList = Object.entries(byBranch).sort((a,b)=>b[1]-a[1]).slice(0,6)
   const maxBranch = Math.max(...branchList.map(b=>b[1]), 1)
 
-  // 8 KPIs — same as Excel v2
-  const kpis = [
-    { l:'Hoy',             n: hoy.length,        c: acc,      s: 'creados hoy' },
-    { l:'En proceso',      n: inProc.length,      c: C.info,   s: 'INGEGAR trabajando' },
-    { l:'Sin abordar +24h', n: sinAbordar.length, c: sinAbordar.length ? '#ef4444' : C.success, s: sinAbordar.length ? 'Requieren atención' : 'Al día', alert: sinAbordar.length > 0 },
-    { l:'Emergencias',     n: emg.length,         c: emg.length ? '#ef4444' : C.success, s: emg.length ? 'Atención urgente' : 'Sin emergencias', alert: emg.length > 0 },
-    { l:'Resueltos mes',   n: resMes.length,      c: C.success, s: 'este mes' },
-    { l:'Cumpl. SLA',      n: slaPct !== null ? `${slaPct}%` : '—', c: slaPct !== null ? (slaPct >= 80 ? C.success : slaPct >= 50 ? '#f59e0b' : '#ef4444') : T.t3, s: slaPct !== null ? `${onTime.length}/${withDate.length} a tiempo` : 'sin datos' },
-    { l:'Sucursales',      n: sucursales,          c: '#6366f1', s: 'con activos' },
-    { l:'Vencidos',        n: vnc.length,          c: vnc.length ? '#ef4444' : C.success, s: vnc.length ? 'Fuera de plazo' : 'Al día', alert: vnc.length > 0 },
-  ]
-
-  const btnNuevo = (
-    <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration:'none', fontSize:'13px', padding:'7px 16px' }}>
-      + Nueva solicitud
-    </Link>
-  )
+  const hasAlerts = sinAbordar.length > 0 || vnc.length > 0 || emg.length > 0
 
   return (
-    <PortalShell slug={slug} clientName={client.name} userName={session!.user.name??'Usuario'}
-      primary={acc} bg={theme.bg} cardBg={theme.card ?? '#ffffff'} textColor={theme.text}
-      activeHref={`/portal/${slug}/dashboard`}
-      topbarTitle="Panel" topbarSub={`${tickets.length} solicitudes · ${act.length} activas`} topbarRight={btnNuevo}
-      isAdmin={isStaff}>
-      <div className="pg">
+    <>
+      <style>{`
+        @keyframes pulse-ring {
+          0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.35); }
+          70%  { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+          100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+        }
+        @keyframes pulse-ring-warn {
+          0%   { box-shadow: 0 0 0 0 rgba(245,158,11,0.3); }
+          70%  { box-shadow: 0 0 0 8px rgba(245,158,11,0); }
+          100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); }
+        }
+        .kpi-alert     { animation: pulse-ring 2.2s ease-out infinite; }
+        .kpi-alert-warn{ animation: pulse-ring-warn 2.2s ease-out infinite; }
 
-        {/* Greeting */}
-        <div style={{ marginBottom:'14px' }}>
-          <div style={{ fontSize:'17px', fontWeight:'800', color:T.tx, letterSpacing:'-0.3px' }}>Hola, {nombre} 👋</div>
-          <div style={{ fontSize:'12px', color:T.t3, marginTop:'3px', textTransform:'capitalize' }}>{hoyStr}</div>
-        </div>
+        .trow:hover { background: #f8f7f5 !important; }
+        .trow:active { background: #efedea !important; }
+        .trow { transition: background 0.1s; }
 
-        {/* Alert banners */}
-        {sinAbordar.length > 0 && (
-          <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:'8px', padding:'10px 16px', display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L14.5 13H1.5L8 1.5z" fill="#ef4444"/><path d="M8 6v3.5M8 11.5v.5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            <strong style={{ color:'#b91c1c', fontSize:'13px' }}>{sinAbordar.length} ticket{sinAbordar.length>1?'s':''} sin abordar (+24h en Nuevo).</strong>
-            <Link href={`/portal/${slug}/tickets`} style={{ marginLeft:'auto', fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none', flexShrink:0 }}>Ver →</Link>
-          </div>
-        )}
-        {vnc.length > 0 && (
-          <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:'8px', padding:'10px 16px', display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px' }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="#f59e0b" strokeWidth="1.5"/><path d="M8 5v3.5M8 10.5v.5" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round"/></svg>
-            <strong style={{ color:'#92400e', fontSize:'13px' }}>{vnc.length} requerimiento{vnc.length>1?'s':''} fuera de plazo. Revisar fechas estimadas.</strong>
-            <Link href={`/portal/${slug}/tickets`} style={{ marginLeft:'auto', fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none', flexShrink:0 }}>Ver →</Link>
-          </div>
-        )}
+        @media (max-width:860px) {
+          .kpi-grid-top { grid-template-columns: 1fr 1fr !important; }
+          .kpi-val-lg   { font-size: 40px !important; }
+        }
+        @media (max-width:480px) {
+          .kpi-grid-top { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .kpi-val-lg   { font-size: 34px !important; }
+        }
+      `}</style>
 
-        {/* KPI grid — 4 cols desktop, 2 cols mobile (matches Excel v2) */}
-        <div className="pw-kpi" style={{ marginBottom:'18px', gridTemplateColumns:'repeat(4, 1fr)' }}>
-          {kpis.map(({ l, n, c, s, alert }) => (
-            <Link key={l} href={`/portal/${slug}/tickets`} style={{ textDecoration:'none' }}>
-            <div style={{
-              background: theme.card,
-              border: `1px solid ${alert ? '#fecaca' : T.bd}`,
-              borderRadius:'14px',
-              boxShadow: alert ? '0 0 0 3px rgba(239,68,68,0.08)' : '0 1px 3px rgba(0,0,0,0.07)',
-              padding:'16px 18px',
-              cursor:'pointer',
-              transition:'transform 0.07s, box-shadow 0.12s',
-            }}
-            className="pcard-hover">
-              <div style={{ fontSize:'26px', fontWeight:'800', color:c, lineHeight:1, marginBottom:'4px', fontVariantNumeric:'tabular-nums' }}>{n}</div>
-              <div style={{ fontSize:'11px', fontWeight:'700', color:T.tx, marginBottom:'2px', lineHeight:'1.2' }}>{l}</div>
-              <div style={{ fontSize:'10px', color:T.t3 }}>{s}</div>
+      <PortalShell slug={slug} clientName={client.name} userName={session!.user.name??'Usuario'}
+        primary={acc} bg={theme.bg} cardBg={theme.card} textColor={theme.text}
+        activeHref={`/portal/${slug}/dashboard`}
+        topbarTitle="Panel" topbarSub={`${act.length} activas · ${tickets.length} total`}
+        topbarRight={
+          <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ fontSize:'13px', padding:'8px 16px', textDecoration:'none', minHeight:'36px' }}>
+            + Nueva
+          </Link>
+        }
+        isAdmin={isStaff}>
+        <div className="pg">
+
+          {/* ── Greeting ── */}
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:'18px', flexWrap:'wrap', gap:'8px' }}>
+            <div>
+              <div style={{ fontSize:'18px', fontWeight:'800', color:'#18130e', letterSpacing:'-0.3px' }}>
+                Hola, {nombre} 👋
+              </div>
+              <div style={{ fontSize:'12px', color:'#8c857e', marginTop:'2px', textTransform:'capitalize' }}>{hoyStr}</div>
             </div>
+            {hasAlerts && (
+              <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:'8px', padding:'6px 12px' }}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background:'#ef4444', flexShrink:0 }} />
+                <span style={{ fontSize:'12px', fontWeight:'600', color:'#b91c1c' }}>
+                  {[sinAbordar.length > 0 && `${sinAbordar.length} sin abordar`, emg.length > 0 && `${emg.length} emergencias`, vnc.length > 0 && `${vnc.length} vencidos`].filter(Boolean).join(' · ')}
+                </span>
+                <Link href={`/portal/${slug}/tickets`} style={{ fontSize:'11px', fontWeight:'700', color:acc, textDecoration:'none', marginLeft:'4px' }}>Ver →</Link>
+              </div>
+            )}
+          </div>
+
+          {/* ── Primary KPIs — 4 col desktop, 2 col mobile ── */}
+          <div className="kpi-grid-top" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:'10px', marginBottom:'10px' }}>
+
+            {/* Activas — hero metric */}
+            <Link href={`/portal/${slug}/tickets`} style={{ textDecoration:'none', gridColumn:'span 1' }}>
+              <div className="pcard pcard-hover" style={{ padding:'18px 20px', position:'relative', overflow:'hidden' }}>
+                <div style={{ position:'absolute', top:0, left:0, right:0, height:'3px', background:acc, borderRadius:'14px 14px 0 0' }} />
+                <div className="kpi-val-lg" style={{ fontSize:'46px', fontWeight:'800', color:acc, lineHeight:1, marginBottom:'4px', fontVariantNumeric:'tabular-nums' }}>
+                  {act.length}
+                </div>
+                <div style={{ fontSize:'12px', fontWeight:'700', color:'#18130e' }}>Activas</div>
+                <div style={{ fontSize:'11px', color:'#8c857e', marginTop:'1px' }}>{inProc.length} en proceso</div>
+              </div>
             </Link>
-          ))}
-        </div>
 
-        {/* 2-col: chart + list | sidebar */}
-        <div className="pw-dash">
-          {/* Left */}
-          <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
-            {/* Bar chart */}
-            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'16px 18px' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px', flexWrap:'wrap', gap:'8px' }}>
-                <div>
-                  <div style={{ fontSize:'13px', fontWeight:'700', color:T.tx }}>Solicitudes por mes</div>
-                  <div style={{ fontSize:'11px', color:T.t3 }}>Últimos 6 meses</div>
+            {/* Emergencias */}
+            <Link href={`/portal/${slug}/tickets`} style={{ textDecoration:'none' }}>
+              <div className={`pcard pcard-hover ${emg.length>0 ? 'kpi-alert' : ''}`}
+                style={{ padding:'18px 20px', borderColor: emg.length>0 ? '#fecaca' : undefined }}>
+                <div style={{ fontSize:'36px', fontWeight:'800', color: emg.length>0 ? '#ef4444' : C.success, lineHeight:1, marginBottom:'4px', fontVariantNumeric:'tabular-nums' }}>
+                  {emg.length}
                 </div>
-                <div style={{ display:'flex', gap:'12px', fontSize:'11px', color:T.t3 }}>
-                  <span style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-                    <span style={{ width:'8px', height:'8px', borderRadius:'2px', background:acc, display:'inline-block' }}/>Activos
-                  </span>
-                  <span style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-                    <span style={{ width:'8px', height:'8px', borderRadius:'2px', background:C.success, display:'inline-block' }}/>Resueltos
-                  </span>
+                <div style={{ fontSize:'12px', fontWeight:'700', color:'#18130e' }}>Emergencias</div>
+                <div style={{ fontSize:'11px', color: emg.length>0 ? '#ef4444' : '#8c857e', marginTop:'1px' }}>
+                  {emg.length>0 ? 'Atención urgente' : 'Sin emergencias'}
                 </div>
               </div>
-              <BarChart months={months} acc={acc} t2={T.t2} t3={T.t3} bd={T.bd} />
-            </div>
+            </Link>
 
-            {/* Active tickets list */}
-            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', overflow:'hidden' }}>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'13px 16px 11px', borderBottom:`1px solid ${T.bd}` }}>
-                <div style={{ fontSize:'13px', fontWeight:'700', color:T.tx }}>Requerimientos activos</div>
-                <Link href={`/portal/${slug}/tickets`} style={{ fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none' }}>Ver todos →</Link>
-              </div>
-              {act.length === 0 ? (
-                <div style={{ padding:'32px 16px', textAlign:'center', color:T.t3, fontSize:'13px' }}>
-                  Sin activos. <Link href={`/portal/${slug}/tickets/new`} style={{ color:acc, fontWeight:'600' }}>Crear uno →</Link>
+            {/* Sin abordar */}
+            <Link href={`/portal/${slug}/tickets`} style={{ textDecoration:'none' }}>
+              <div className={`pcard pcard-hover ${sinAbordar.length>0 ? 'kpi-alert' : ''}`}
+                style={{ padding:'18px 20px', borderColor: sinAbordar.length>0 ? '#fecaca' : undefined }}>
+                <div style={{ fontSize:'36px', fontWeight:'800', color: sinAbordar.length>0 ? '#ef4444' : C.success, lineHeight:1, marginBottom:'4px', fontVariantNumeric:'tabular-nums' }}>
+                  {sinAbordar.length}
                 </div>
-              ) : act.slice(0,8).map((t, i) => (
-                <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
-                  style={{
-                    display:'grid', gridTemplateColumns:'3px 1fr auto', alignItems:'center', gap:'12px',
-                    padding:'11px 16px', borderBottom: i<Math.min(act.length,8)-1?`1px solid ${T.bd}`:'none',
-                    textDecoration:'none', background: theme.card,
-                  }}
-                  className="prow-link">
-                  <div style={{ height:'36px', borderRadius:'2px', background:URG_COLOR[t.urgency]??'#ccc', flexShrink:0 }} />
-                  <div style={{ minWidth:0 }}>
-                    <div style={{ fontSize:'13px', fontWeight:'600', color:T.tx, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</div>
-                    <div style={{ fontSize:'11px', color:T.t3, marginTop:'2px', fontFamily:"'JetBrains Mono', monospace" }}>
-                      <span style={{ fontSize:'10px' }}>{t.ticketCode}</span>
-                      {t.branch && <span style={{ fontFamily:'Inter, sans-serif' }}> · {t.branch.name}</span>}
+                <div style={{ fontSize:'12px', fontWeight:'700', color:'#18130e' }}>Sin abordar</div>
+                <div style={{ fontSize:'11px', color: sinAbordar.length>0 ? '#ef4444' : '#8c857e', marginTop:'1px' }}>
+                  {sinAbordar.length>0 ? '+24h sin respuesta' : 'Todo al día'}
+                </div>
+              </div>
+            </Link>
+
+            {/* Vencidos */}
+            <Link href={`/portal/${slug}/tickets`} style={{ textDecoration:'none' }}>
+              <div className={`pcard pcard-hover ${vnc.length>0 ? 'kpi-alert-warn' : ''}`}
+                style={{ padding:'18px 20px', borderColor: vnc.length>0 ? '#fde68a' : undefined }}>
+                <div style={{ fontSize:'36px', fontWeight:'800', color: vnc.length>0 ? '#f59e0b' : C.success, lineHeight:1, marginBottom:'4px', fontVariantNumeric:'tabular-nums' }}>
+                  {vnc.length}
+                </div>
+                <div style={{ fontSize:'12px', fontWeight:'700', color:'#18130e' }}>Vencidos</div>
+                <div style={{ fontSize:'11px', color: vnc.length>0 ? '#f59e0b' : '#8c857e', marginTop:'1px' }}>
+                  {vnc.length>0 ? 'Fuera de plazo' : 'Dentro de plazos'}
+                </div>
+              </div>
+            </Link>
+          </div>
+
+          {/* ── Secondary KPIs ── */}
+          <div className="pw-kpi" style={{ marginBottom:'18px' }}>
+            {[
+              { l:'Hoy', n: hoy.length, c:'#6366f1', s:'creados hoy' },
+              { l:'Resueltos mes', n: resMes.length, c: C.success, s:'este mes' },
+              { l:'Cumpl. SLA', n: slaPct!==null ? `${slaPct}%` : '—', c: slaPct!==null ? (slaPct>=80?C.success:slaPct>=50?'#f59e0b':'#ef4444') : '#8c857e', s: slaPct!==null ? `${onTime.length}/${withDate.length} a tiempo` : 'sin datos' },
+              { l:'Sucursales', n: sucursales, c:'#8b5cf6', s:'con activos' },
+            ].map(({ l, n, c, s }) => (
+              <Link key={l} href={`/portal/${slug}/tickets`} style={{ textDecoration:'none' }}>
+                <div className="pcard pcard-hover" style={{ padding:'13px 16px' }}>
+                  <div style={{ fontSize:'24px', fontWeight:'800', color:c, lineHeight:1, marginBottom:'3px', fontVariantNumeric:'tabular-nums' }}>{n}</div>
+                  <div style={{ fontSize:'11px', fontWeight:'700', color:'#18130e', marginBottom:'1px' }}>{l}</div>
+                  <div style={{ fontSize:'10px', color:'#8c857e' }}>{s}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* ── Main layout ── */}
+          <div className="pw-dash">
+
+            {/* Left col */}
+            <div style={{ display:'flex', flexDirection:'column', gap:'14px', minWidth:0 }}>
+
+              {/* Active tickets */}
+              <div className="pcard" style={{ overflow:'hidden' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px 12px', borderBottom:'1px solid #e0ddd8' }}>
+                  <div>
+                    <div style={{ fontSize:'14px', fontWeight:'700', color:'#18130e' }}>Requerimientos activos</div>
+                    <div style={{ fontSize:'11px', color:'#8c857e', marginTop:'1px' }}>{act.length} en curso</div>
+                  </div>
+                  <Link href={`/portal/${slug}/tickets`} style={{ fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none' }}>Ver todos →</Link>
+                </div>
+
+                {act.length === 0 ? (
+                  <div className="pempty">
+                    <div className="pempty-icon">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 12l2 2 4-4M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
+                    <div className="pempty-title">Sin requerimientos activos</div>
+                    <div className="pempty-sub">Todo al día. <Link href={`/portal/${slug}/tickets/new`} style={{ color:acc, fontWeight:'600' }}>Crear uno →</Link></div>
                   </div>
-                  <div style={{ textAlign:'right', flexShrink:0 }}>
-                    <span className={SB[t.status]??'badge'} style={{ fontSize:'10px' }}>{SL[t.status]??t.status}</span>
-                    {t.estimatedDate && (
-                      <div style={{ fontSize:'10px', color:daysBetween(String(t.estimatedDate))<0?'#ef4444':T.t3, marginTop:'3px' }}>
-                        {daysBetween(String(t.estimatedDate))<0
-                          ? `${Math.abs(daysBetween(String(t.estimatedDate)))}d vencido`
-                          : `${daysBetween(String(t.estimatedDate))}d restantes`}
+                ) : act.slice(0,10).map((t, i) => {
+                  const urgColor = URG_COLOR[t.urgency] ?? '#ccc'
+                  const daysLeft = t.estimatedDate ? daysBetween(String(t.estimatedDate)) : null
+                  const overdue  = daysLeft !== null && daysLeft < 0
+                  const assigneeName = t.assignedTo?.name?.split(' ')[0]
+
+                  return (
+                    <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
+                      className="trow"
+                      style={{
+                        display:'block', padding:'12px 18px',
+                        borderBottom: i < Math.min(act.length,10)-1 ? '1px solid #e0ddd8' : 'none',
+                        textDecoration:'none',
+                      }}>
+                      <div style={{ display:'flex', alignItems:'flex-start', gap:'12px' }}>
+                        {/* Urgency bar */}
+                        <div style={{ width:'3px', height:'auto', alignSelf:'stretch', borderRadius:'2px', background:urgColor, flexShrink:0, minHeight:'40px' }} />
+
+                        {/* Content */}
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'8px' }}>
+                            <div style={{ minWidth:0, flex:1 }}>
+                              <div style={{ fontSize:'13px', fontWeight:'600', color:'#18130e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                {t.title}
+                              </div>
+                              {t.description && (
+                                <div style={{ fontSize:'11px', color:'#8c857e', marginTop:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                                  {t.description}
+                                </div>
+                              )}
+                              <div style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap:'6px', marginTop:'5px' }}>
+                                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:'10px', color:'#beb7b0' }}>{t.ticketCode}</span>
+                                {t.branch && <span style={{ fontSize:'10px', color:'#8c857e' }}>· {t.branch.name}</span>}
+                                {t.category && CATEGORY_LABELS[t.category] && (
+                                  <span style={{ fontSize:'10px', fontWeight:'600', padding:'1px 6px', borderRadius:'4px', background:'#f0f0f0', color:'#4b4540' }}>
+                                    {CATEGORY_LABELS[t.category]}
+                                  </span>
+                                )}
+                                {assigneeName && (
+                                  <span style={{ fontSize:'10px', color:'#8c857e' }}>
+                                    <span style={{ color:'#beb7b0' }}>Asignado:</span> {assigneeName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right meta */}
+                            <div style={{ textAlign:'right', flexShrink:0, display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'4px' }}>
+                              <span className={SB[t.status] ?? 'badge'} style={{ fontSize:'10px' }}>{SL[t.status] ?? t.status}</span>
+                              {daysLeft !== null && (
+                                <div style={{ fontSize:'10px', color: overdue ? '#ef4444' : '#8c857e', fontWeight: overdue ? 700 : 400 }}>
+                                  {overdue ? `${Math.abs(daysLeft)}d vencido` : daysLeft === 0 ? 'Hoy' : `${daysLeft}d`}
+                                </div>
+                              )}
+                              <div style={{ fontSize:'10px', color:'#beb7b0' }}>{timeAgo(String(t.createdAt))}</div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </Link>
+                  )
+                })}
+
+                {act.length > 10 && (
+                  <div style={{ padding:'11px 18px', borderTop:'1px solid #e0ddd8', textAlign:'center' }}>
+                    <Link href={`/portal/${slug}/tickets`} style={{ fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none' }}>
+                      Ver {act.length - 10} más →
+                    </Link>
                   </div>
-                </Link>
-              ))}
-              {act.length > 8 && (
-                <div style={{ padding:'10px 16px', borderTop:`1px solid ${T.bd}`, textAlign:'center' }}>
-                  <Link href={`/portal/${slug}/tickets`} style={{ fontSize:'12px', fontWeight:'700', color:acc, textDecoration:'none' }}>
-                    Ver {act.length - 8} más →
-                  </Link>
+                )}
+              </div>
+
+              {/* Resolved recently */}
+              {resMes.length > 0 && (
+                <div className="pcard" style={{ overflow:'hidden' }}>
+                  <div style={{ padding:'13px 18px 11px', borderBottom:'1px solid #e0ddd8', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ fontSize:'13px', fontWeight:'700', color:'#18130e' }}>Resueltos este mes</div>
+                    <span style={{ fontSize:'12px', fontWeight:'700', color:C.success }}>{resMes.length}</span>
+                  </div>
+                  {resMes.slice(0,5).map((t, i) => (
+                    <Link key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
+                      className="trow"
+                      style={{ display:'flex', alignItems:'center', gap:'10px', padding:'10px 18px', borderBottom: i<Math.min(resMes.length,5)-1?'1px solid #e0ddd8':'none', textDecoration:'none' }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', background:C.success, flexShrink:0 }}/>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:'12px', fontWeight:'600', color:'#18130e', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{t.title}</div>
+                        {t.branch && <div style={{ fontSize:'11px', color:'#8c857e' }}>{t.branch.name}</div>}
+                      </div>
+                      <span style={{ fontSize:'10px', color:'#8c857e', flexShrink:0 }}>{timeAgo(t.closedDate ? String(t.closedDate) : String(t.createdAt))}</span>
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Right sidebar */}
-          <div style={{ display:'flex', flexDirection:'column', gap:'14px' }}>
-            {/* Branch distribution */}
-            {branchList.length > 0 && (
-              <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'14px 16px' }}>
-                <div style={{ fontSize:'10px', fontWeight:'700', color:T.t3, marginBottom:'14px', textTransform:'uppercase', letterSpacing:'1px' }}>
-                  Sucursales activas <span style={{ float:'right', color:T.t4 }}>{sucursales}</span>
+            {/* Right sidebar */}
+            <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+
+              {/* Quick actions */}
+              <div className="pcard" style={{ padding:'14px 16px' }}>
+                <div style={{ fontSize:'10px', fontWeight:'700', color:'#8c857e', marginBottom:'10px', textTransform:'uppercase', letterSpacing:'1.2px' }}>Acciones rápidas</div>
+                <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                  <Link href={`/portal/${slug}/tickets/new`} className="pbtn pbtn-primary" style={{ textDecoration:'none', justifyContent:'center' }}>
+                    + Nueva solicitud
+                  </Link>
+                  <Link href={`/portal/${slug}/tickets`} className="pbtn pbtn-ghost" style={{ textDecoration:'none', justifyContent:'center' }}>
+                    Todos los tickets
+                  </Link>
+                  <Link href={`/portal/${slug}/informes`} className="pbtn pbtn-ghost" style={{ textDecoration:'none', justifyContent:'center' }}>
+                    Informes técnicos
+                  </Link>
                 </div>
-                {branchList.map(([name, count]) => (
-                  <div key={name} style={{ marginBottom:'10px' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'4px' }}>
-                      <span style={{ color:T.tx, fontWeight:'500', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'150px' }}>{name}</span>
-                      <span style={{ color:T.t3, fontWeight:'600', flexShrink:0 }}>{count}</span>
+              </div>
+
+              {/* 6-month mini chart */}
+              <div className="pcard" style={{ padding:'14px 16px' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
+                  <div style={{ fontSize:'12px', fontWeight:'700', color:'#18130e' }}>Solicitudes / 6 meses</div>
+                  <div style={{ display:'flex', gap:'8px', fontSize:'10px', color:'#8c857e' }}>
+                    <span style={{ display:'flex', alignItems:'center', gap:'3px' }}>
+                      <span style={{ width:6, height:6, borderRadius:'2px', background:acc, display:'inline-block' }}/>Activos
+                    </span>
+                    <span style={{ display:'flex', alignItems:'center', gap:'3px' }}>
+                      <span style={{ width:6, height:6, borderRadius:'2px', background:C.success, display:'inline-block' }}/>Resueltos
+                    </span>
+                  </div>
+                </div>
+                <MiniBar months={months} acc={acc} />
+                <div style={{ marginTop:'10px', display:'flex', justifyContent:'space-between', fontSize:'11px', color:'#8c857e' }}>
+                  <span>Total 6m: <strong style={{ color:'#18130e' }}>{months.reduce((a,m)=>a+m.total,0)}</strong></span>
+                  <span>Este mes: <strong style={{ color:'#18130e' }}>{months[5]?.total ?? 0}</strong></span>
+                </div>
+              </div>
+
+              {/* Branch breakdown */}
+              {branchList.length > 0 && (
+                <div className="pcard" style={{ padding:'14px 16px' }}>
+                  <div style={{ fontSize:'10px', fontWeight:'700', color:'#8c857e', marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1.2px' }}>
+                    Por sucursal <span style={{ float:'right', color:'#beb7b0', fontWeight:'600' }}>{sucursales}</span>
+                  </div>
+                  {branchList.map(([name, count]) => (
+                    <div key={name} style={{ marginBottom:'9px' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'4px' }}>
+                        <span style={{ color:'#18130e', fontWeight:'500', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'150px' }}>{name}</span>
+                        <span style={{ color:'#8c857e', fontWeight:'700', flexShrink:0 }}>{count}</span>
+                      </div>
+                      <div style={{ height:'4px', background:'#efedea', borderRadius:'4px', overflow:'hidden' }}>
+                        <div style={{ height:'100%', background:acc, borderRadius:'4px', width:`${(count/maxBranch)*100}%`, opacity:0.85 }} />
+                      </div>
                     </div>
-                    <div style={{ height:'4px', background:T.s3, borderRadius:'4px', overflow:'hidden' }}>
-                      <div style={{ height:'100%', background:acc, borderRadius:'4px', width:`${(count/maxBranch)*100}%` }} />
-                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Summary stats */}
+              <div className="pcard" style={{ padding:'14px 16px' }}>
+                <div style={{ fontSize:'10px', fontWeight:'700', color:'#8c857e', marginBottom:'10px', textTransform:'uppercase', letterSpacing:'1.2px' }}>Resumen total</div>
+                {[
+                  { l:'Total solicitudes', v: tickets.length, bold: true },
+                  { l:'Activas',           v: act.length, c: act.length>0 ? acc : undefined },
+                  { l:'Resueltas',         v: tickets.filter(t=>t.status==='resuelto').length, c: C.success },
+                  { l:'Canceladas',        v: tickets.filter(t=>t.status==='cancelado').length },
+                ].map(({l,v,bold,c}) => (
+                  <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:'1px solid #e0ddd8', fontSize:'12px' }}>
+                    <span style={{ color:'#8c857e' }}>{l}</span>
+                    <span style={{ fontWeight: bold?800:700, color: c ?? '#18130e', fontVariantNumeric:'tabular-nums' }}>{v}</span>
                   </div>
                 ))}
               </div>
-            )}
-
-            {/* Quick actions */}
-            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'14px 16px' }}>
-              <div style={{ fontSize:'10px', fontWeight:'700', color:T.t3, marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1px' }}>Acciones</div>
-              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                <Link href={`/portal/${slug}/tickets/new`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:acc, color:'#fff', textDecoration:'none', fontSize:'13px', fontWeight:'700' }}>+ Nueva solicitud</Link>
-                <Link href={`/portal/${slug}/tickets`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Todos los tickets</Link>
-                <Link href={`/portal/${slug}/informes`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Informes técnicos</Link>
-                <Link href={`/portal/${slug}/reportes`} style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:'9px 18px', borderRadius:'10px', background:theme.card, color:T.t2, border:`1px solid ${T.bd}`, textDecoration:'none', fontSize:'13px', fontWeight:'600' }}>Ver reportes</Link>
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div style={{ background:theme.card, border:`1px solid ${T.bd}`, borderRadius:'14px', boxShadow:'0 1px 3px rgba(0,0,0,0.07)', padding:'14px 16px' }}>
-              <div style={{ fontSize:'10px', fontWeight:'700', color:T.t3, marginBottom:'12px', textTransform:'uppercase', letterSpacing:'1px' }}>Resumen</div>
-              {[
-                { l:'Total solicitudes', v: tickets.length },
-                { l:'Activas',           v: act.length },
-                { l:'Resueltas',         v: tickets.filter(t=>t.status==='resuelto').length },
-                { l:'Cerradas este mes', v: resMes.length },
-              ].map(({l,v}) => (
-                <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:`1px solid ${T.bd}`, fontSize:'12px' }}>
-                  <span style={{ color:T.t3 }}>{l}</span>
-                  <span style={{ fontWeight:'700', color:T.tx, fontVariantNumeric:'tabular-nums' }}>{v}</span>
-                </div>
-              ))}
             </div>
           </div>
         </div>
-      </div>
-    </PortalShell>
+      </PortalShell>
+    </>
   )
 }
