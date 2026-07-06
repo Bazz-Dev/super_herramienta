@@ -12,8 +12,10 @@ function slug(input: string, max = 8): string {
 }
 
 function yymmdd(date: string): string {
-  const d = new Date(date)
-  const base = Number.isNaN(d.getTime()) ? new Date() : d
+  // Use explicit year/month/day constructor to avoid UTC-midnight shift
+  // ('YYYY-MM-DD' parsed by new Date() is UTC, which is the previous day in UTC-4 Chile).
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})/.exec(date)
+  const base = ymd ? new Date(+ymd[1], +ymd[2] - 1, +ymd[3]) : new Date()
   const y = String(base.getFullYear()).slice(-2)
   const m = String(base.getMonth() + 1).padStart(2, '0')
   const day = String(base.getDate()).padStart(2, '0')

@@ -1,10 +1,15 @@
 import type { QuoteData } from './types'
 
+function todayISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // Default starting data for the editor. Illustrative content.
 export const sampleQuote: QuoteData = {
   template: 'clasico',
   quoteId: 'ING-MANT-260609-ALCON-001',
-  date: '2026-06-09',
+  date: todayISO(),
   validityDays: 30,
   client: {
     name: 'Alcon Laboratorios Chile',

@@ -117,12 +117,21 @@ export type QuoteTotals = {
   total: number
 }
 
+// Round monetary amounts to the precision appropriate for each currency.
+// CLP: nearest peso (integer). UF: 4 decimal places. USD: 2 decimal places.
+function roundByCurrency(value: number, currency: QuoteData['currency']): number {
+  if (currency === 'UF') return Math.round(value * 10_000) / 10_000
+  if (currency === 'USD') return Math.round(value * 100) / 100
+  return Math.round(value)
+}
+
 export function computeTotals(data: QuoteData): QuoteTotals {
+  const round = (v: number) => roundByCurrency(v, data.currency)
   const base = data.items.reduce((sum, i) => sum + i.quantity * i.unitPrice, 0)
   const adjustments: AdjustmentLine[] = (data.adjustments ?? [])
     .filter((a) => a.enabled)
-    .map((a) => ({ label: a.label, percent: a.percent, amount: Math.round((base * a.percent) / 100) }))
+    .map((a) => ({ label: a.label, percent: a.percent, amount: round((base * a.percent) / 100) }))
   const net = base + adjustments.reduce((s, a) => s + a.amount, 0)
-  const tax = Math.round(net * data.taxRate)
+  const tax = round(net * data.taxRate)
   return { base, adjustments, net, tax, total: net + tax }
 }

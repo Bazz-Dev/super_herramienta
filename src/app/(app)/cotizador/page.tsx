@@ -3,7 +3,7 @@ import { sampleQuote } from '@/lib/quotes/sample'
 import { requireActor } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
-import type { QuoteData } from '@/lib/quotes/types'
+import { quoteDataSchema, type QuoteData } from '@/lib/quotes/types'
 
 interface Props {
   searchParams: Promise<{ docId?: string }>
@@ -27,7 +27,13 @@ export default async function CotizadorPage({ searchParams }: Props) {
 
   let initialData: QuoteData = sampleQuote
   if (savedDoc?.dataJson) {
-    try { initialData = JSON.parse(savedDoc.dataJson) } catch { /* keep sampleQuote */ }
+    try {
+      const raw = JSON.parse(savedDoc.dataJson)
+      // Sanitize via Zod: catches malformed taxRate (e.g. 19 instead of 0.19),
+      // missing fields from older schema versions, and applies current defaults.
+      const result = quoteDataSchema.safeParse(raw)
+      initialData = result.success ? result.data : (raw as QuoteData)
+    } catch { /* keep sampleQuote */ }
   }
 
   return (

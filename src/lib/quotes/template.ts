@@ -274,7 +274,10 @@ export function renderQuoteHTML(data: QuoteData): string {
               : ''
           }
           <tr><td>Neto</td><td class="num">${formatMoney(totals.net, data.currency)}</td></tr>
-          <tr><td>IVA (${taxPct}%)</td><td class="num">${formatMoney(totals.tax, data.currency)}</td></tr>
+          ${taxPct > 0
+            ? `<tr><td>IVA (${taxPct}%)</td><td class="num">${formatMoney(totals.tax, data.currency)}</td></tr>`
+            : `<tr><td class="muted">Exento de IVA</td><td class="num muted">—</td></tr>`
+          }
           <tr class="total"><td>TOTAL</td><td class="num">${formatMoney(totals.total, data.currency)}</td></tr>
         </tbody>
       </table>
