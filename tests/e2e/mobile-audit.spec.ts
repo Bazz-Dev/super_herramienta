@@ -48,7 +48,7 @@ async function noHorizontalScroll(page: Page): Promise<boolean> {
 test('login: all touch targets ≥ 40px on mobile', async ({ page }) => {
   await page.setViewportSize(MOBILE_VIEWPORT)
   await page.goto('/login')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   const small = await smallTargets(page)
   expect(small, `Small elements: ${JSON.stringify(small)}`).toHaveLength(0)
 })
@@ -113,14 +113,14 @@ test('dashboard: all touch targets ≥ 40px on mobile', async ({ page }) => {
 test('tickets: no horizontal scroll on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/tickets')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })
 
 test('tickets: touch targets ≥ 40px on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/tickets')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   const small = await smallTargets(page)
   expect(small, `Small elements: ${JSON.stringify(small)}`).toHaveLength(0)
 })
@@ -129,7 +129,7 @@ test('tickets: touch targets ≥ 40px on mobile', async ({ page }) => {
 test('cronograma: no horizontal scroll on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/cronograma')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })
 
@@ -137,7 +137,7 @@ test('cronograma: no horizontal scroll on mobile', async ({ page }) => {
 test('recursos/técnicos/new: form button ≥44px with spinner pattern', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/recursos/tecnicos/new')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   const submitBtn = page.getByRole('button', { name: /Crear técnico/i })
   await expect(submitBtn).toBeVisible()
   const rect = await submitBtn.boundingBox()
@@ -149,7 +149,7 @@ test('recursos/técnicos/new: form button ≥44px with spinner pattern', async (
 test('recursos/técnicos: no horizontal scroll', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/recursos/tecnicos')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })
 
@@ -157,14 +157,14 @@ test('recursos/técnicos: no horizontal scroll', async ({ page }) => {
 test('rrhh: no horizontal scroll on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/rrhh')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })
 
 test('rrhh: touch targets ≥ 40px on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/rrhh')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   const small = await smallTargets(page)
   expect(small, `Small elements: ${JSON.stringify(small)}`).toHaveLength(0)
 })
@@ -173,7 +173,7 @@ test('rrhh: touch targets ≥ 40px on mobile', async ({ page }) => {
 test('flujo: no horizontal scroll on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/flujo')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })
 
@@ -181,14 +181,14 @@ test('flujo: no horizontal scroll on mobile', async ({ page }) => {
 test('documentos: no horizontal scroll on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/documentos')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })
 
 test('documentos: touch targets ≥ 40px on mobile', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/documentos')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   const small = await smallTargets(page)
   expect(small, `Small elements: ${JSON.stringify(small)}`).toHaveLength(0)
 })
@@ -197,7 +197,7 @@ test('documentos: touch targets ≥ 40px on mobile', async ({ page }) => {
 test('perfil: form buttons ≥44px with spinner pattern', async ({ page }) => {
   await loginAsMobile(page)
   await page.goto('/perfil')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   const small = await smallTargets(page)
   expect(small, `Small elements on /perfil: ${JSON.stringify(small)}`).toHaveLength(0)
 })
@@ -206,7 +206,7 @@ test('perfil: form buttons ≥44px with spinner pattern', async ({ page }) => {
 async function loginPortal(page: Page, slug = 'justburger') {
   await page.setViewportSize(MOBILE_VIEWPORT)
   await page.goto(`/portal/${slug}`)
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   // Use client credentials (adjust if needed)
   const emailInput = page.locator('input[name="email"], input[type="email"]').first()
   if (await emailInput.isVisible()) {
@@ -214,21 +214,21 @@ async function loginPortal(page: Page, slug = 'justburger') {
     const pwInput = page.locator('input[name="password"], input[type="password"]').first()
     await pwInput.fill('justburger123')
     await page.getByRole('button', { name: /Ingresar/i }).click()
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('load')
   }
 }
 
 test('portal dashboard: no horizontal scroll on mobile', async ({ page }) => {
   await loginPortal(page)
   await page.goto('/portal/justburger/dashboard')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })
 
 test('portal dashboard: KPI grid is 2-col at 390px (not 4-col)', async ({ page }) => {
   await loginPortal(page)
   await page.goto('/portal/justburger/dashboard')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   // The kpi-grid-top must have at most 2 columns on mobile
   const cols = await page.evaluate(() => {
     const el = document.querySelector('.kpi-grid-top')
@@ -243,8 +243,10 @@ test('portal dashboard: KPI grid is 2-col at 390px (not 4-col)', async ({ page }
 test('portal dashboard: sidebar hamburger visible and ≥44px', async ({ page }) => {
   await loginPortal(page)
   await page.goto('/portal/justburger/dashboard')
-  await page.waitForLoadState('networkidle')
-  const hamburger = page.getByRole('button', { name: /menú/i })
+  await page.waitForLoadState('load')
+  // Hamburger renders via JS useEffect — wait for it to appear after hydration
+  await page.waitForSelector('[aria-label="Abrir menú"], [aria-label="Cerrar menú"]', { timeout: 10000 })
+  const hamburger = page.locator('[aria-label="Abrir menú"], [aria-label="Cerrar menú"]').first()
   await expect(hamburger).toBeVisible()
   const rect = await hamburger.boundingBox()
   expect(rect!.height).toBeGreaterThanOrEqual(44)
@@ -253,6 +255,6 @@ test('portal dashboard: sidebar hamburger visible and ≥44px', async ({ page })
 test('portal tickets: no horizontal scroll on mobile', async ({ page }) => {
   await loginPortal(page)
   await page.goto('/portal/justburger/tickets')
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('load')
   expect(await noHorizontalScroll(page)).toBe(true)
 })

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeMetrics, jobMargin, jobIsOverdue, type JobLike } from '../../src/lib/cashflow/metrics'
+import { computeMetrics, jobMargin, jobIsOverdue, type JobLike } from '../../src/lib/cashflow/metrics.ts'
 
 const base: JobLike = {
   netAmount: 100000, taxAmount: 19000, collectionStatus: 'sin_oc',

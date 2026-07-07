@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { jobInput, jobCostInput } from '../../src/lib/cashflow/schemas'
-import { toDateInput, fromDateInput } from '../../src/lib/cashflow/dates'
+import { jobInput, jobCostInput } from '../../src/lib/cashflow/schemas.ts'
+import { toDateInput, fromDateInput } from '../../src/lib/cashflow/dates.ts'
 
 test('jobInput: requires description + branchId, coerces numbers', () => {
   const ok = jobInput.safeParse({ clientId: 'c1', branchId: 'b1', description: 'X', netAmount: '80000' })

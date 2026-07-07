@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { clp, pct } from '../../src/lib/cashflow/format'
+import { clp, pct } from '../../src/lib/cashflow/format.ts'
 
 test('clp formats CLP without decimals', () => {
   assert.equal(clp(73135006).replace(/ /g, ' '), '$73.135.006')

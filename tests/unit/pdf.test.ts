@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { pdf } from 'pdf-to-img'
-import { generateQuotePdf } from '../../src/lib/quotes/pdf'
-import { sampleQuote } from '../../src/lib/quotes/sample'
+import { generateQuotePdf } from '../../src/lib/quotes/pdf.ts'
+import { sampleQuote } from '../../src/lib/quotes/sample.ts'
 import type { QuoteData } from '../../src/lib/quotes/types'
 
 const TIMEOUT = 60_000

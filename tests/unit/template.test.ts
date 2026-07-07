@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { renderQuoteHTML } from '../../src/lib/quotes/template'
-import { sampleQuote } from '../../src/lib/quotes/sample'
-import type { QuoteData } from '../../src/lib/quotes/types'
+import { renderQuoteHTML } from '../../src/lib/quotes/template.ts'
+import { sampleQuote } from '../../src/lib/quotes/sample.ts'
+import type { QuoteData } from '../../src/lib/quotes/types.ts'
 
 test('renderQuoteHTML: incluye las secciones principales', () => {
   const html = renderQuoteHTML(sampleQuote)

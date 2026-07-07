@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 async function login(page: import('@playwright/test').Page) {
   await page.goto('/login')
   await page.getByLabel('Email').fill('admin@ingegarchile.cl')
-  await page.getByLabel('Contraseña', { exact: true }).fill('ingegar123')
+  await page.getByLabel('Contraseña', { exact: true }).fill('Ingegar@Super1')
   await page.getByRole('button', { name: 'Ingresar' }).click()
   await expect(page).toHaveURL(/\/dashboard/)
 }

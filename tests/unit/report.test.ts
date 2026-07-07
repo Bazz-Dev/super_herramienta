@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { pdf } from 'pdf-to-img'
-import { generateReportPdf } from '../../src/lib/reports/pdf'
-import { sampleReport } from '../../src/lib/reports/sample'
+import { generateReportPdf } from '../../src/lib/reports/pdf.ts'
+import { sampleReport } from '../../src/lib/reports/sample.ts'
 import { renderReportHTML } from '../../src/lib/reports/template'
 import { reportFilename, type ReportData } from '../../src/lib/reports/types'
 

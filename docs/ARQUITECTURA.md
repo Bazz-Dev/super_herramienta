@@ -1,7 +1,7 @@
 # INGEGAR Platform — Arquitectura y Contexto
 
 > Documento de referencia para navegación rápida. Actualizar al agregar módulos o cambiar modelos.
-> Última actualización: julio 2026 — v1.8.0
+> Última actualización: julio 2026 — v1.8.0 (test audit pass)
 
 ---
 
@@ -214,6 +214,52 @@ git push origin main      # → Vercel auto-deploy (hook pre-push corre typechec
 
 ---
 
+## Suite de tests (estado actual)
+
+### Tests unitarios (`npm run test:unit`)
+Corren con `node --import tsx --test` (Node.js 24 + tsx 4.x). Las importaciones de fuentes `.ts` **deben incluir extensión** explícita (`.ts`) — sin extensión falla con `ERR_MODULE_NOT_FOUND` en Node 24 ESM.
+
+| Archivo | Qué cubre |
+|---------|-----------|
+| `totals.test.ts` | `computeTotals` — IVA, UF, USD, ajustes porcentuales |
+| `template.test.ts` | `renderQuoteHTML` — estructura HTML, secciones, caracteres especiales |
+| `pdf.test.ts` | `generateQuotePdf` — genera PDF binario válido con Playwright/Chromium |
+| `report.test.ts` | `generateReportPdf` — genera PDF de informe técnico |
+| `cashflow-format.test.ts` | `clp()`, `pct()` — formato moneda chilena |
+| `cashflow-metrics.test.ts` | `computeMetrics()`, `jobMargin()`, `jobIsOverdue()` |
+| `cashflow-normalize.test.ts` | `parseMoneyCLP()`, `normalizeCollectionStatus()`, etc. |
+| `cashflow-schemas.test.ts` | Schemas Zod de Job y JobCost; `fromDateInput()` / `toDateInput()` |
+| `quote-edge-cases.test.ts` | `computeTotals` — 9 describe blocks: IVA, empty, UF, USD, qty=0, ajustes negativos, rounding |
+| `resources-logic.test.ts` | `CONTRACT_TYPE_ACTIVE/TERMINATED`, schemas Zod técnicos/vehículos/clientes, label maps completos |
+| `rrhh-labels.test.ts` | Label maps RR.HH. (leave/payroll), `MONTH_NAMES`, cálculo líquido de liquidación |
+
+### Tests E2E (`npm run test:e2e`)
+Playwright + Chromium. Requieren dev server corriendo (se inicia automáticamente). 4 workers por defecto, 60s timeout.
+
+| Archivo spec | Qué cubre |
+|-------------|-----------|
+| `auth.spec.ts` | Login, redirección sin auth, credenciales inválidas |
+| `mobile-audit.spec.ts` | No-horizontal-scroll + touch-targets ≥40px en todas las rutas; portal mobile |
+| `technicians.spec.ts` | Lista técnicos, crear + eliminar técnico |
+| `resources.spec.ts` | Activos, cuadrillas, cronograma seeded |
+| `cashflow.spec.ts` | Dashboard KPIs flujo de caja, jobs list, branches admin |
+| `features-v2.spec.ts` | Cotizador, cronograma vistas, vehiculos, clientes, activos |
+| `quotes.spec.ts` | Preview cotizador, endpoint PDF auth |
+| `tickets-flow.spec.ts` | Kanban board, crear ticket, badge de urgencia, filtros, abrir detalle |
+| `recursos-flow.spec.ts` | CRUD técnicos + vehículos, campos de vencimiento, activos/cuadrillas/clientes |
+| `cotizador-flow.spec.ts` | Editor cotizador, IVA, agregar ítem, carpetas de clientes |
+| `cronograma-flow.spec.ts` | Vistas calendario/técnico/carga, vista técnico swimlane, nueva asignación |
+| `rrhh-flujo.spec.ts` | Dashboard RR.HH., vacaciones, liquidaciones, navegación empleado; Flujo KPIs, trabajos, sucursales, filtro cliente |
+| `portal-flow.spec.ts` | Login portal, dashboard KPIs, hamburger post-hydration, abrir sidebar, crear ticket, logout |
+
+### Herramienta clave: mobile-audit
+Recorre todas las rutas en viewport 390×844 verificando:
+- `document.documentElement.scrollWidth <= clientWidth + 5` — sin overflow horizontal
+- Todos los elementos interactivos visibles ≥ 40px de alto
+- Usa `waitForLoadState('load')` (no `networkidle`) en páginas con polling/push activo
+
+---
+
 ## Pendientes prioritarios (v1.9.0)
 
 ### 🔴 UX críticos portal cliente
@@ -228,6 +274,13 @@ git push origin main      # → Vercel auto-deploy (hook pre-push corre typechec
 - **Ticket ↔ Assignment**: `Assignment.ticketId` existe en DB pero el calendario no muestra el ticket vinculado en el evento. Desde detalle de ticket, no hay forma de ver si hay un trabajo agendado asociado.
 - **Ticket ↔ Job (Flujo de Caja)**: un ticket ejecutado no genera automáticamente un `Job`. Son mundos separados. Oportunidad: al resolver un ticket, ofrecer crear el Job con monto/costos.
 - **Técnico ↔ Tickets — link profundo**: stats OK, pero no hay vista "todos los tickets de este técnico" con filtro en `/tickets?assignedTo=id`.
+
+### 🔵 Bugs conocidos (encontrados en audit jul-2026)
+- **Passwords en tests E2E**: 5 spec files usaban `ingegar123` pero la DB en dev tiene `Ingegar@Super1` (generada con `SEED_ADMIN_PASSWORD` en `.env`). Corregido en v1.8.0.
+- **Unit tests Node 24**: `node --import tsx` con Node.js v24 no resuelve imports TypeScript sin extensión. Todos los imports de fuentes en unit tests deben usar `.ts` explícito. Corregido en v1.8.0.
+- **networkidle en E2E**: Páginas con push subscriptions, Service Worker y polling nunca alcanzan `networkidle`. Cambiado a `waitForLoadState('load')`. Corregido en v1.8.0.
+- **Portal hamburger useEffect**: El botón hamburger del portal se renderiza condicionalmente vía `isMobile` (useState inicializado en `false`, flip en `useEffect`). El test debe usar `waitForSelector('[aria-label="Abrir menú"]')` para esperar la hidratación. Corregido en v1.8.0.
+- **Fechas UTC-4**: `new Date('YYYY-MM-DD')` = UTC midnight. En Chile (UTC-4) se muestra el día anterior. Corregido con `fromDateInput()` en vehiculos, gastos, documentos de técnicos. La regla aplica a CUALQUIER `<input type="date">` guardado vía Prisma.
 
 ### 🟡 Valor diferencial pendiente
 - **Portal: mini dashboard "resumen del mes"**: tickets abiertos/resueltos, tiempo promedio de respuesta, % SLA cumplido. Primer dato que valida el servicio al cliente.
@@ -259,7 +312,9 @@ git push origin main      # → Vercel auto-deploy (hook pre-push corre typechec
 
 | Usuario | Contraseña | Rol | Accede a |
 |---------|-----------|-----|---------|
-| `admin@ingegarchile.cl` | `ingegar123` | super | Todo |
+| `admin@ingegarchile.cl` | `Ingegar@Super1` | super | Todo |
 | `cristian@ingegarchile.cl` | `Ingegar@Comercial1` | supervisor | App interna |
 | `carlos@ingegarchile.cl` | `Tecnico@2026` | tecnico | `/mi-panel` |
-| `carolina@justburger.cl` | (configurado en setup) | client | `/portal/justburger` |
+| `carolina@justburger.cl` | `justburger123` | client | `/portal/justburger` |
+
+> **NOTA**: La contraseña del admin se genera con `SEED_ADMIN_PASSWORD` en el entorno. Si el `.env` no tiene esa variable, se usa `ingegar123`. En entornos con la variable seteada, la contraseña es la del env. Verificar con `admin@ingegarchile.cl / Ingegar@Super1` y si falla probar `ingegar123`.

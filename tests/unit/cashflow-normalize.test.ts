@@ -6,7 +6,7 @@ import {
   normalizeType,
   normalizeCollectionStatus,
   normalizeBranchName,
-} from '../../src/lib/cashflow/normalize'
+} from '../../src/lib/cashflow/normalize.ts'
 
 test('parseMoneyCLP', () => {
   assert.equal(parseMoneyCLP('$80.000'), 80000)

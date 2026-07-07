@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeTotals } from '../../src/lib/quotes/types'
-import { sampleQuote } from '../../src/lib/quotes/sample'
+import { computeTotals } from '../../src/lib/quotes/types.ts'
+import { sampleQuote } from '../../src/lib/quotes/sample.ts'
 
 // ── CLP (integer rounding) ──────────────────────────────────────────────────
 
