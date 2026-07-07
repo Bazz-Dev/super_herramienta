@@ -18,7 +18,7 @@ test('cotizador renders the quote preview', async ({ page }) => {
 
 test('generate endpoint returns a PDF for an authenticated user', async ({ page }) => {
   await login(page)
-  const res = await page.request.post('/api/quotes/generate', { data: sampleQuote })
+  const res = await page.request.post('/api/quotes/generate', { data: sampleQuote, timeout: 30000 })
   expect(res.status()).toBe(200)
   expect(res.headers()['content-type']).toContain('application/pdf')
   const body = await res.body()

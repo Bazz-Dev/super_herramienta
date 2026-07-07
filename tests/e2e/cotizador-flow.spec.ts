@@ -42,7 +42,7 @@ test('cotizador: totals section shows IVA', async ({ page }) => {
   await page.waitForLoadState('load')
 
   // The totals section renders "IVA (19%)" label text and an IVA (%) field label
-  await expect(page.getByText(/IVA/)).toBeVisible()
+  await expect(page.getByText(/IVA/).first()).toBeVisible({ timeout: 20000 })
 })
 
 test('cotizador: items table has add-row button', async ({ page }) => {

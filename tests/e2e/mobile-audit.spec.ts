@@ -210,9 +210,9 @@ async function loginPortal(page: Page, slug = 'justburger') {
   // Use client credentials (adjust if needed)
   const emailInput = page.locator('input[name="email"], input[type="email"]').first()
   if (await emailInput.isVisible()) {
-    await emailInput.fill('carolina@justburger.cl')
+    await emailInput.fill('portal@justburger.cl')
     const pwInput = page.locator('input[name="password"], input[type="password"]').first()
-    await pwInput.fill('justburger123')
+    await pwInput.fill('JustBurger@2026')
     await page.getByRole('button', { name: /Ingresar/i }).click()
     await page.waitForLoadState('load')
   }

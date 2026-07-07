@@ -11,6 +11,7 @@ async function login(page: import('@playwright/test').Page) {
 test('cashflow dashboard shows collection KPIs', async ({ page }) => {
   await login(page)
   await page.goto('/flujo')
+  await page.waitForLoadState('load')
   await expect(page.getByRole('heading', { name: 'Flujo de Caja' })).toBeVisible()
   await expect(page.getByText('Facturado')).toBeVisible()
   await expect(page.getByText('Sin facturar (SIN OC)')).toBeVisible()
