@@ -310,11 +310,360 @@ Recorre todas las rutas en viewport 390×844 verificando:
 
 ## Accesos de prueba
 
-| Usuario | Contraseña | Rol | Accede a |
-|---------|-----------|-----|---------|
+| Usuario | Contraseña (default seed) | Rol | Accede a |
+|---------|--------------------------|-----|---------|
 | `admin@ingegarchile.cl` | `Ingegar@Super1` | super | Todo |
-| `cristian@ingegarchile.cl` | `Ingegar@Comercial1` | supervisor | App interna |
-| `carlos@ingegarchile.cl` | `Tecnico@2026` | tecnico | `/mi-panel` |
-| `carolina@justburger.cl` | `justburger123` | client | `/portal/justburger` |
+| `sgarrido@ingegarchile.cl` | `Ingegar@Ops1` | supervisor | App interna |
+| `cristian@ingegarchile.cl` | `Ingegar@Com1` | supervisor | App interna |
+| `jesus@ingegarchile.cl` | `Tecnico@2026` | tecnico | `/mi-panel` |
+| `portal@justburger.cl` | `JustBurger@2026` | client | `/portal/justburger` |
+| `portal@decathlon.cl` | `Decathlon@2026` | client | `/portal/decathlon` |
 
-> **NOTA**: La contraseña del admin se genera con `SEED_ADMIN_PASSWORD` en el entorno. Si el `.env` no tiene esa variable, se usa `ingegar123`. En entornos con la variable seteada, la contraseña es la del env. Verificar con `admin@ingegarchile.cl / Ingegar@Super1` y si falla probar `ingegar123`.
+> Todas las contraseñas se generan desde variables de entorno (`SEED_ADMIN_PASSWORD`, `SEED_JB_PASSWORD`, etc.). Los valores de arriba son los defaults si la variable no está en `.env`.
+
+---
+
+## Ontología del dominio
+
+> Mapa conceptual de entidades y sus relaciones fundamentales. Usar como referencia al diseñar queries, validaciones y tests.
+
+### Entidades raíz
+
+| Entidad | Qué es | Scope | Identificador de negocio |
+|---------|--------|-------|--------------------------|
+| `Tenant` | Organización que usa la plataforma | — | `slug` (ej: `ingegar`) |
+| `User` | Persona con acceso al sistema | tenant | `email` o `username` |
+| `Client` | Empresa cliente de INGEGAR | tenant | `rut` + `portalSlug?` |
+| `Technician` | Técnico en terreno | tenant | nombre + `contractType` |
+| `Vehicle` | Camioneta o vehículo de trabajo | tenant | `plate` (patente única) |
+| `Asset` | Instrumento/herramienta inventariada | tenant | `code` (ej: INV-001) |
+| `Crew` | Cuadrilla de técnicos | tenant | nombre |
+
+### Entidades de trabajo
+
+| Entidad | Qué es | Padre | Ciclo de vida |
+|---------|--------|-------|---------------|
+| `Ticket` | Requerimiento de mantención | Client | `nuevo → en_revision → en_ejecucion → resuelto` (o cancelado/fusionado) |
+| `Assignment` | Trabajo agendado en calendario | Tenant+Client | `scheduled → in_progress → done` (o cancelled) |
+| `Job` | Trabajo facturado (Flujo de Caja) | Client+Branch | `borrador → facturado → pagado` (`JobStatus`) |
+| `Branch` | Sucursal física del cliente | Client | inmutable tras creación |
+| `JobCost` | Costo individual de un job | Job | sin ciclo, valores numéricos |
+
+### Entidades RR.HH.
+
+| Entidad | Qué es | Padre |
+|---------|--------|-------|
+| `LeaveRequest` | Solicitud de permiso/vacaciones | Technician |
+| `Payroll` | Liquidación mensual | Technician |
+| `SignatureRequest` | FES (Firma Electrónica Simple) | Technician |
+| `Expense` | Gasto operacional | Technician + Assignment? |
+
+### Entidades de documentos
+
+| Entidad | Qué es | Padre |
+|---------|--------|-------|
+| `ClientDocument` | Propuesta/informe guardado como JSON | Client |
+| `TechnicianDocument` | Documento HR del técnico (contrato, EPP…) | Technician |
+| `TicketDocument` | Archivo adjunto a un ticket | Ticket |
+
+### Relaciones clave y sus invariantes
+
+```
+Client ──< Branch        1:N  — una sucursal pertenece a exactamente un cliente
+Client ──< Ticket        1:N  — tickets aislados por cliente (nunca cross-tenant)
+Client ──< Job           1:N  — via Branch.clientId
+Client ──< ClientDocument 1:N — propuestas/informes del cliente
+
+Technician ──< Vehicle    1:1  — cada camioneta tiene máx. 1 técnico asignado
+Vehicle    ──< Asset      1:N  — instrumentos en esa camioneta
+
+Assignment ──< AssignmentAssignee M:N — técnico principal (tecnico) + ayudantes
+Assignment ──? Ticket      opt — un trabajo puede referenciar un ticket
+Crew       ──< Technician  M:N — cuadrilla de técnicos
+```
+
+**Invariantes de integridad:**
+- Un `Vehicle` con `technicianId` bloquea reasignar ese técnico a otra camioneta sin `freeTechnician()` primero.
+- Eliminar un `Client` con `Jobs` activos falla (`onDelete: Restrict`).
+- `portalSlug` es único en `Client` — solo un cliente puede tener ese portal URL.
+- `plate` es único en `Vehicle` dentro del tenant.
+- El rol `client` siempre tiene `clientId != null`; el rol `tecnico` siempre tiene `technicianId != null`.
+
+---
+
+## Taxonomía completa de estados
+
+### Ticket — `status`
+
+```
+[nuevo] ──→ [en_revision] ──→ [en_ejecucion] ──→ [esperando_aprobacion] ──→ [resuelto]
+   ↓               ↓               ↓                       ↓
+[cancelado]   [cancelado]    [cancelado]              [cancelado]
+   
+[nuevo] ──→ [fusionado]  ← cuando se duplica con otro ticket
+```
+
+| Status | Label UI | Quién puede editar en portal |
+|--------|----------|------------------------------|
+| `nuevo` | Nuevo | Cliente + staff |
+| `en_revision` | En Revisión | Solo staff |
+| `en_ejecucion` | En Ejecución | Solo staff |
+| `esperando_aprobacion` | Esperando Aprobación | Staff + cliente (aprobar/rechazar) |
+| `resuelto` | Resuelto | Solo staff |
+| `cancelado` | Cancelado | Solo staff |
+| `fusionado` | Fusionado | Solo staff |
+
+**Regla portal**: cliente puede **agregar sub-tareas** solo si `status ∈ {nuevo, en_revision}`.
+
+### Ticket — `urgency`
+
+| Urgency | Label | Color | SLA esperado |
+|---------|-------|-------|-------------|
+| `emergencia` | Emergencia | Rojo | < 2h respuesta |
+| `urgencia` | Urgente | Naranja | < 24h respuesta |
+| `no_urgente` | Normal | Gris | < 72h respuesta |
+| `preventivo` | Preventivo | Azul | Según calendario |
+
+### Assignment — `status`
+
+| Status | Label | Significado |
+|--------|-------|-------------|
+| `scheduled` | Programada | En el calendario, no iniciada |
+| `in_progress` | En curso | Técnico en el lugar |
+| `done` | Completada | Trabajo terminado |
+| `cancelled` | Cancelada | Gana sobre permiso — siempre gris en calendario |
+
+**Color evento en calendario** = `permissionEventColor(permissionRequested, status)`:
+- `cancelled` → siempre gris con tachado
+- `permissionRequested=true` → verde (permiso OK)
+- `permissionRequested=false` → amarillo (pendiente de permiso)
+
+### Technician — `contractType`
+
+| Type | Label | Estado laboral | Efecto en app |
+|------|-------|----------------|---------------|
+| `indefinido` | Contrato indefinido | Activo | Normal |
+| `plazo_fijo` | Plazo fijo | Activo | Normal |
+| `ayudante` | Ayudante / eventual | Activo | Normal |
+| `no_renovado` | No renovado | **Desvinculado** | Sección separada, `active=false` automático |
+| `despedido` | Despedido | **Desvinculado** | Sección separada, `active=false` automático |
+
+`CONTRACT_TYPE_ACTIVE = [indefinido, plazo_fijo, ayudante]`
+`CONTRACT_TYPE_TERMINATED = [no_renovado, despedido]`
+
+### Vehicle — `status`
+
+| Status | Label |
+|--------|-------|
+| `active` | Operativa |
+| `maintenance` | En mantención |
+| `retired` | De baja |
+
+### Asset — `status`
+
+| Status | Label |
+|--------|-------|
+| `available` | Disponible |
+| `in_use` | En uso |
+| `maintenance` | Mantención |
+| `retired` | De baja |
+
+### Job (Flujo de Caja) — `status` / `collectionStatus`
+
+| JobStatus | Label | Cobranza → CollectionStatus |
+|-----------|-------|---------------------------|
+| `sin_oc` | Sin OC | `sin_oc` → KPI separado |
+| `cotizado` | Cotizado | — |
+| `facturado` | Facturado | `pendiente → parcial → cobrado` |
+| `cancelado` | Cancelado | — |
+
+### LeaveRequest — `status`
+
+`pendiente → aprobado → rechazado`
+
+### Payroll — `status`
+
+`borrador → emitido → pagado`
+
+### Client — `label`
+
+`principal | ocasional | prospecto | inactivo | proyecto`
+
+### TechnicianDocument — `docType`
+
+`contrato | epp | altura | antecedentes | licencia | otro`
+
+---
+
+## Reglas de negocio e invariantes
+
+> Constraints que NUNCA deben romperse. Si un test pasa pero una de estas reglas se viola, hay un bug.
+
+### Aislamiento multi-tenant (crítico)
+1. **Todo query** que retorne datos de negocio DEBE incluir `{ ...tenantScope(actor) }` en el `where`.
+2. El rol `super` ve todos los tenants (`tenantScope` retorna `{}`). Todos los demás ven solo su propio tenant.
+3. **Portal**: el rol `client` ve solo sus propios tickets via `getClientTickets(clientId)` — nunca datos de otro cliente del mismo tenant.
+4. **Test clave**: crear ticket con user A, intentar acceder con user B de diferente tenant → debe retornar 404/403.
+
+### Permisos por rol
+5. `tecnico` y `client` NUNCA acceden a la app interna (`/dashboard`, `/recursos`, etc.). El middleware los redirige antes de que lleguen a cualquier Server Component.
+6. `client` accede solo al portal de **su** cliente (el `clientId` de su sesión). El `slug` en la URL se valida contra el `portalSlug` del `Client` asociado al user.
+7. `super` puede ver el portal de cualquier cliente (preview como staff — `isStaffViewing()` es true).
+
+### Integridad de inventario
+8. Antes de asignar un técnico a un nuevo vehículo, se llama `freeTechnician(techId)` para desvincularlo del anterior. No se puede tener 2 vehículos apuntando al mismo técnico.
+9. Al marcar un técnico como `no_renovado` o `despedido`, su campo `active` se pone en `false` automáticamente. Los tests deben verificar que no aparece en la lista activa.
+
+### Fechas y zonas horarias
+10. Cualquier `<input type="date">` que se guarde en Prisma DEBE parsear con `fromDateInput()` (no `new Date('YYYY-MM-DD')` que es UTC midnight → desfase de 1 día en Chile UTC-4).
+11. Fechas de vencimiento de vehículos (`revTecnicaExpiry`, `soapExpiry`) se muestran como alerta cuando faltan ≤ 30 días. El cálculo usa `new Date()` local del servidor.
+
+### PDF y documentos
+12. El PDF de cotizadores/informes se genera **siempre on-demand** (nunca se guarda el binario). Solo se guarda el JSON del editor en `ClientDocument.dataJson`.
+13. `ClientDocument.fileKey = "inline"` → datos en DB. `fileKey != "inline"` → datos en R2 (flujo legacy). `isR2Key("inline")` retorna `false`.
+14. Al regenerar un PDF de un documento re-editado, se usa el `dataJson` actualizado, no el original.
+
+### Validación de formularios
+15. Campos marcados `*` en UI son `required` en el schema Zod. El servidor RECHAZA requests sin esos campos incluso si el frontend los omite.
+16. RUT de cliente se valida formato `XX.XXX.XXX-X`. Múltiples RUTs por cliente via `clientRuts[]` (campo JSON).
+17. Patente de vehículo: único por tenant. Crear un segundo vehículo con la misma patente falla.
+
+---
+
+## Catálogo de condiciones de borde
+
+> Escenarios que históricamente causan bugs o fallan en producción. Ordenados por módulo y severidad.
+
+### 🔴 Auth / Sesión
+
+| Condición | Comportamiento esperado | Riesgo |
+|-----------|------------------------|--------|
+| Usuario con rol `client` navega a `/dashboard` | Middleware redirige a `/portal/{slug}` | Si el proxy falla, ve datos de otros clientes |
+| Técnico (`role=tecnico`) navega a `/recursos` | Middleware redirige a `/mi-panel` | Exposición de datos internos |
+| `canViewPortal(null, clientId)` | Retorna `false` — sin sesión no hay acceso | OK (verificado en código) |
+| Staff (`super/supervisor`) accede a `/portal/{slug}` | Accede como preview — `isStaffViewing()=true` | Diferente de vista cliente real |
+| Token JWT expirado mid-session | Next.js + Auth.js v5 redirige a login sin mensaje | UX: sin feedback al usuario |
+| Login con `username` vs `email` | El campo `login` acepta ambos | El seed crea ambos campos; no confundir |
+
+### 🔴 Multi-tenant
+
+| Condición | Esperado | Test sugerido |
+|-----------|----------|---------------|
+| Crear recurso sin `tenantId` | Error DB (campo required) | Unit test schema Zod |
+| `tenantScope(superUser)` | Retorna `{}` (sin filtro) | Unit test directo |
+| Super user ve tickets de todos los clientes | Sí — diseño intencional | Verificar en test E2E |
+| Crear ticket como client de tenant A, leer como client de tenant B | 404 | E2E test crítico pendiente |
+
+### 🟠 Tickets
+
+| Condición | Esperado |
+|-----------|----------|
+| Ticket con `showToClient=false` en portal | Portal NO lo muestra |
+| Crear ticket sin cliente seleccionado | Error 400 (cliente requerido) |
+| Fusionar ticket A en ticket B | A queda en `status=fusionado`, B acumula historial |
+| Portal: cliente intenta editar ticket `en_ejecucion` | UI oculta botones de edición; server action rechaza |
+| Ticket con `urgency=emergencia` → notificación push | Push enviado a todos los staff del tenant |
+| `estimatedDate` en el pasado | Muestra badge "Vencido X días" en portal dashboard |
+| Soft delete: `deletedAt != null` | No aparece en ninguna lista, pero historial disponible para auditoría |
+
+### 🟠 Cronograma
+
+| Condición | Esperado |
+|-----------|----------|
+| Asignación que superpone con otra del mismo técnico | Actualmente: **no se valida** — se permite overlap |
+| `status=cancelled` con `permissionRequested=true` | El gris "cancelled" gana — el color verde se ignora |
+| Técnico con `active=false` en selector de asignación | No debe aparecer en el dropdown |
+| Asignación sin técnicos asignados | Válida, pero sin aparecer en vistas por técnico |
+| Cambio de vista Día→Semana→Mes con filtro activo | Filtro se preserva entre vistas |
+
+### 🟠 Recursos
+
+| Condición | Esperado |
+|-----------|----------|
+| Asignar técnico ya asignado a otro vehículo | `freeTechnician()` se llama automáticamente |
+| Crear vehículo con patente duplicada | Error único — UI debe mostrar mensaje claro |
+| Técnico desvinculado (`no_renovado`/`despedido`) | Aparece en sección "Desvinculados", no en lista activa |
+| Activo sin vehículo asignado | Aparece como "sin vehículo" — no error |
+| Documento de técnico con fecha de vencimiento pasada | Muestra alerta roja en ficha |
+| Técnico con `hireDate` null | RR.HH. section puede fallar si trata como Date |
+
+### 🟠 Flujo de Caja
+
+| Condición | Esperado |
+|-----------|----------|
+| `getByText('Facturado')` sin `{ exact: true }` | Strict mode violation — "sobre lo facturado" también matchea |
+| Job con `collectionStatus=sin_oc` | Aparece en KPI "Sin OC" separado del pipeline de cobranza |
+| Margin calculation con `revenue=0` | Evitar división por cero — retornar `null` o `0%` |
+| Importar job duplicado via script Excel | Idempotente — no crea duplicados (`jobCode` como dedup key) |
+| `Branch` con `Jobs` activos siendo eliminada | `onDelete: Restrict` — error controlado |
+
+### 🟠 Cotizador / PDF
+
+| Condición | Esperado |
+|-----------|----------|
+| Cotización con 0 ítems | `computeTotals` retorna `0` en todos los campos — no error |
+| Item con `quantity=0` | Contribuye `0` al total — no se filtra |
+| Ajuste con `percent=0` y `enabled=true` | Agrega línea `0` — debe incluirse en output |
+| `taxRate=0` (exento) | `tax=0`, `total=net` |
+| Cotización con > 50 ítems | PDF puede paginarse incorrectamente — no hay validación de máximo |
+| Imagen data URI muy grande (> 5MB) | El PDF puede fallar — no hay validación de tamaño |
+| Template `minimal` (legacy) | Se normaliza a `clasico` automáticamente en `renderQuoteHTML` |
+| PDF generation timeout (> 30s) | HTTP 408 o 500 — Playwright Chromium puede fallar bajo carga |
+
+### 🟠 Portal (JB)
+
+| Condición | Esperado |
+|-----------|----------|
+| `canViewPortal(superSession, clientId)` | Retorna `true` — staff puede previsualizar portal |
+| Portal sin `portalSlug` en DB | `notFound()` — 404 page |
+| Login con credenciales incorrectas | Mensaje "Correo o contraseña incorrectos." — sin revelar si el usuario existe |
+| `router.push()` post-login | Es client-side async — tests deben usar `waitForURL(dashboard)` no `waitForLoadState` |
+| Portal en iOS Safari (no PWA) | Push notifications deshabilitadas — `pushSupported()` retorna `false` |
+| Ticket con `showToClient=false` | No visible en portal, aunque el cliente conozca el ID |
+| KPI "Emergencias" cuando hay 0 emergencias | Badge verde (sin urgencias) — no muestra animación de alerta |
+
+### 🟡 RR.HH.
+
+| Condición | Esperado |
+|-----------|----------|
+| Liquidación con `deductions > base + extras` | Líquido negativo — la app no bloquea, pero es inválido en negocio |
+| `LeaveRequest` aprobada que se solapea con otra | Actualmente: no hay validación de solapamiento |
+| `Payroll` en estado `emitido` siendo editada | Debe requerir confirmación — actualmente no hay guard |
+| Técnico sin `baseSalary` | RR.HH. muestra `$0` — no error pero información incompleta |
+
+### 🟡 PWA / Push
+
+| Condición | Esperado |
+|-----------|----------|
+| SW cachea `chrome-extension://` URLs | Filtrado explícito en `sw.js` — no cachea extensiones |
+| `manifest.json` con `screenshots` field | Causa error en Chrome — campo omitido intencionalmente |
+| Push con VAPID expirado | `web-push` falla silenciosamente — log de error en server |
+| Usuario revoca permiso push post-suscripción | Próximo push falla con 410 — suscripción debe eliminarse de DB |
+
+---
+
+## Mapa de cobertura de tests vs. condiciones de borde
+
+| Condición | Cubierto | Tipo test |
+|-----------|----------|-----------|
+| Auth: redirección sin sesión | ✅ | E2E auth.spec.ts |
+| Auth: credenciales inválidas | ✅ | E2E auth.spec.ts |
+| Tenant scope: super ve todo | ✅ | Unit resources-logic.test.ts |
+| `computeTotals` qty=0 | ✅ | Unit quote-edge-cases.test.ts |
+| `computeTotals` taxRate=0 | ✅ | Unit quote-edge-cases.test.ts |
+| `computeTotals` ajuste negativo | ✅ | Unit quote-edge-cases.test.ts |
+| CLP tax es entero | ✅ | Unit quote-edge-cases.test.ts |
+| `fromDateInput()` vs UTC | ✅ | Unit cashflow-schemas.test.ts |
+| Contract type active/terminated | ✅ | Unit resources-logic.test.ts |
+| Patente duplicada → error | ❌ | Pendiente unit test |
+| Ticket cross-tenant → 403 | ❌ | Pendiente E2E test |
+| Técnico desvinculado → sección separada | ✅ | E2E recursos-flow.spec.ts |
+| Portal login → dashboard redirect | ✅ | E2E portal-flow.spec.ts |
+| Portal `showToClient=false` | ❌ | Pendiente E2E |
+| Flujo `getByText` exact match | ✅ | E2E cashflow/rrhh-flujo (fixed) |
+| PDF generación sin timeout | ✅ | E2E quotes.spec.ts (timeout=30s) |
+| Mobile touch targets ≥40px | ✅ | E2E mobile-audit.spec.ts |
+| No scroll horizontal en rutas clave | ✅ | E2E mobile-audit.spec.ts |
+| Vehículo revTecnica vencimiento UI | ✅ | E2E recursos-flow.spec.ts |
+| Payroll líquido = base + extras - deductions | ✅ | Unit rrhh-labels.test.ts |
+| Push subscription cleanup tras 410 | ❌ | Pendiente unit test |

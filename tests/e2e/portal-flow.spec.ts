@@ -7,14 +7,15 @@ import { test, expect } from '@playwright/test'
 // ---------------------------------------------------------------------------
 async function loginPortal(page: import('@playwright/test').Page, slug = 'justburger') {
   await page.goto(`/portal/${slug}`)
-  await page.waitForLoadState('load')
-  const emailInput = page.locator('input[name="email"], input[type="email"]').first()
-  if (await emailInput.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await emailInput.fill('portal@justburger.cl')
-    await page.locator('input[name="password"], input[type="password"]').first().fill('JustBurger@2026')
-    await page.getByRole('button', { name: /Ingresar/i }).click()
-    await page.waitForLoadState('load')
-  }
+  // Wait for the portal login form (client component) to fully hydrate.
+  // The email input has placeholder "correo@empresa.cl" — more stable than type selector.
+  const emailInput = page.getByPlaceholder('correo@empresa.cl')
+  await emailInput.waitFor({ state: 'visible', timeout: 15000 })
+  await emailInput.fill('portal@justburger.cl')
+  await page.locator('input[type="password"]').first().fill('JustBurger@2026')
+  await page.getByRole('button', { name: /Ingresar/i }).click()
+  // Wait for client-side router.push() to navigate to dashboard after successful signIn()
+  await page.waitForURL(/\/portal\/justburger\/(?!$)/, { timeout: 20000 })
 }
 
 // ---------------------------------------------------------------------------
@@ -22,13 +23,12 @@ async function loginPortal(page: import('@playwright/test').Page, slug = 'justbu
 // ---------------------------------------------------------------------------
 test('portal: login page renders', async ({ page }) => {
   await page.goto('/portal/justburger')
-  await page.waitForLoadState('load')
-
-  // Email and password inputs must be present and visible
-  await expect(page.locator('input[type="email"]').first()).toBeVisible()
+  // Wait for the React client component (PortalLoginForm) to hydrate
+  // Use placeholder selector — more stable than type="email" under streaming SSR
+  await expect(page.getByPlaceholder('correo@empresa.cl')).toBeVisible({ timeout: 15000 })
   await expect(page.locator('input[type="password"]').first()).toBeVisible()
 
-  // Submit / Ingresar button
+  // Button text is "Ingresar al portal →"
   await expect(page.getByRole('button', { name: /Ingresar/i })).toBeVisible()
 })
 
@@ -37,12 +37,10 @@ test('portal: login page renders', async ({ page }) => {
 // ---------------------------------------------------------------------------
 test('portal: successful login redirects to dashboard', async ({ page }) => {
   await loginPortal(page)
-
-  // After login, URL must contain a portal route (dashboard or similar)
-  await expect(page).toHaveURL(/\/portal\/justburger/, { timeout: 20_000 })
-
-  // Some heading or content should be visible
-  await expect(page.locator('body')).toBeVisible()
+  // loginPortal already waits for /portal/justburger/dashboard URL
+  await expect(page).toHaveURL(/\/portal\/justburger\/dashboard/)
+  // Dashboard renders a greeting with "Hola,"
+  await expect(page.getByText(/Hola,/).first()).toBeVisible()
 })
 
 // ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 1,
   reporter: 'list',
   timeout: 60_000,
+  expect: { timeout: 15_000 },
   use: {
     baseURL,
     trace: 'on-first-retry',

@@ -23,16 +23,12 @@ test.describe('tickets', () => {
     await page.goto('/tickets')
     await page.waitForLoadState('load')
 
-    // The kanban board should display status column headings from KANBAN_COLUMNS.
-    // Columns defined in labels.ts: Nuevo, En Revisión, En Ejecución,
-    // Esperando Aprobación, Resuelto, Cancelado, Fusionado.
-    // We only need at least one to be visible to confirm the board rendered.
-    const columns = page.getByRole('heading', { level: 2 })
-    const firstColumn = columns.first()
-    await expect(firstColumn).toBeVisible({ timeout: 15000 })
+    // The tickets page renders a heading + status filter pills (buttons, not h2).
+    // STATUS_COLS = Nuevo, En Revisión, En Ejecución, Esp. Aprob.
+    await expect(page.getByRole('heading', { name: /Tickets/i })).toBeVisible()
 
-    // More specific: check that the "Nuevo" column heading appears
-    await expect(page.getByText('Nuevo', { exact: true }).first()).toBeVisible()
+    // Status pills are <button> elements, not h2 — check the "Nuevo" pill
+    await expect(page.getByRole('button', { name: /Nuevo/i }).first()).toBeVisible()
   })
 
   test('create a new ticket', async ({ page }) => {

@@ -78,9 +78,9 @@ test('flujo: dashboard shows KPI cards', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Flujo de Caja' })).toBeVisible()
 
   // KPI labels from KpiCard components rendered in the grid
-  await expect(page.getByText('Facturado')).toBeVisible()
-  await expect(page.getByText('Cobrado')).toBeVisible()
-  await expect(page.getByText('Por cobrar')).toBeVisible()
+  await expect(page.getByText('Facturado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Cobrado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Por cobrar', { exact: true })).toBeVisible()
 })
 
 test('flujo: jobs list is accessible', async ({ page }) => {

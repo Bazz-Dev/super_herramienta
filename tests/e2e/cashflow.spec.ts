@@ -13,8 +13,8 @@ test('cashflow dashboard shows collection KPIs', async ({ page }) => {
   await page.goto('/flujo')
   await page.waitForLoadState('load')
   await expect(page.getByRole('heading', { name: 'Flujo de Caja' })).toBeVisible()
-  await expect(page.getByText('Facturado')).toBeVisible()
-  await expect(page.getByText('Sin facturar (SIN OC)')).toBeVisible()
+  await expect(page.getByText('Facturado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Sin facturar (SIN OC)', { exact: true })).toBeVisible()
   await expect(page.getByLabel('Filtrar por cliente')).toBeVisible()
 })
 

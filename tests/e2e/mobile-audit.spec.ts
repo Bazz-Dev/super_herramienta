@@ -206,16 +206,12 @@ test('perfil: form buttons ≥44px with spinner pattern', async ({ page }) => {
 async function loginPortal(page: Page, slug = 'justburger') {
   await page.setViewportSize(MOBILE_VIEWPORT)
   await page.goto(`/portal/${slug}`)
-  await page.waitForLoadState('load')
-  // Use client credentials (adjust if needed)
-  const emailInput = page.locator('input[name="email"], input[type="email"]').first()
-  if (await emailInput.isVisible()) {
-    await emailInput.fill('portal@justburger.cl')
-    const pwInput = page.locator('input[name="password"], input[type="password"]').first()
-    await pwInput.fill('JustBurger@2026')
-    await page.getByRole('button', { name: /Ingresar/i }).click()
-    await page.waitForLoadState('load')
-  }
+  const emailInput = page.getByPlaceholder('correo@empresa.cl')
+  await emailInput.waitFor({ state: 'visible', timeout: 15000 })
+  await emailInput.fill('portal@justburger.cl')
+  await page.locator('input[type="password"]').first().fill('JustBurger@2026')
+  await page.getByRole('button', { name: /Ingresar/i }).click()
+  await page.waitForURL(/\/portal\/justburger\/(?!$)/, { timeout: 20000 })
 }
 
 test('portal dashboard: no horizontal scroll on mobile', async ({ page }) => {
