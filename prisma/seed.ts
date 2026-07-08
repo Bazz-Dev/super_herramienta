@@ -142,13 +142,18 @@ async function main() {
     })
   }
 
+  const tecnicoPassword = process.env.SEED_TECNICO_PASSWORD ?? 'Tecnico@2026'
+  const tecnicoHash = await bcrypt.hash(tecnicoPassword, 10)
+
   if (jesusTech) {
-    const tecnicoPassword = process.env.SEED_TECNICO_PASSWORD ?? 'Tecnico@2026'
-    const tecnicoHash = await bcrypt.hash(tecnicoPassword, 10)
     // Remove any user that already owns this technicianId with a different email
     // (prevents P2002 unique constraint violation on technicianId during upsert)
     await prisma.user.deleteMany({
       where: { technicianId: jesusTech.id, NOT: { email: 'jesus@ingegarchile.cl' } },
+    })
+    // Clear any other user claiming the 'jesus' username
+    await prisma.user.deleteMany({
+      where: { username: 'jesus', NOT: { email: 'jesus@ingegarchile.cl' } },
     })
     await prisma.user.upsert({
       where: { email: 'jesus@ingegarchile.cl' },
@@ -161,12 +166,32 @@ async function main() {
         role: 'tecnico',
         tenantId: ingegar.id,
         technicianId: jesusTech.id,
+        active: true,
       },
     })
-    // Remove old carlos account if it lingered
-    await prisma.user.deleteMany({ where: { email: 'carlos@ingegarchile.cl' } })
-    console.log('  jesus / jesus@ingegarchile.cl      /', tecnicoPassword, '(tecnico — Jesús Díaz)')
+  } else {
+    // No matching technician found — still ensure the demo user exists and is active
+    // (handles existing DBs where the technician was renamed or removed)
+    await prisma.user.deleteMany({
+      where: { username: 'jesus', NOT: { email: 'jesus@ingegarchile.cl' } },
+    })
+    await prisma.user.upsert({
+      where: { email: 'jesus@ingegarchile.cl' },
+      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Jesús Díaz', username: 'jesus', active: true },
+      create: {
+        email: 'jesus@ingegarchile.cl',
+        username: 'jesus',
+        name: 'Jesús Díaz',
+        passwordHash: tecnicoHash,
+        role: 'tecnico',
+        tenantId: ingegar.id,
+        active: true,
+      },
+    })
   }
+  // Remove old carlos account if it lingered
+  await prisma.user.deleteMany({ where: { email: 'carlos@ingegarchile.cl' } })
+  console.log('  jesus / jesus@ingegarchile.cl      /', tecnicoPassword, '(tecnico — Jesús Díaz)')
 
   // --- Portales cliente (Just Burger + Decathlon) ---
   const jbPassword = process.env.SEED_JB_PASSWORD ?? 'JustBurger@2026'

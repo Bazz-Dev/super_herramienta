@@ -203,8 +203,8 @@ test.describe('logout', () => {
   test('internal logout clears session and redirects to /login', async ({ page }) => {
     await loginInternal(page)
 
-    // Find logout button in the sidebar (button text is "Salir")
-    const logoutBtn = page.getByRole('button', { name: 'Salir' }).first()
+    // Find logout button in the sidebar via title attribute (same pattern as portal)
+    const logoutBtn = page.locator('button[title="Cerrar sesión"]').first()
     await expect(logoutBtn).toBeVisible({ timeout: 10_000 })
     await logoutBtn.click()
 

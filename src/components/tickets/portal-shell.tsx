@@ -223,7 +223,7 @@ export function PortalShell({
               <button
                 onClick={() => setOpen(v => !v)}
                 aria-label={open ? 'Cerrar menú' : 'Abrir menú'}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: T3, padding: 6, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: T3, padding: 12, minHeight: 44, minWidth: 44, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
               >
                 {open ? <IconX /> : <IconMenu />}
               </button>
