@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
-import { auth, signOut } from '@/auth'
+import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { Sidebar } from '@/components/ui/sidebar'
+import { LogoutButton } from '@/components/ui/logout-button'
 import { NotificationBell } from '@/components/ui/notification-bell'
 import { TopProgress } from '@/components/ui/top-progress'
 
@@ -38,23 +39,6 @@ export default async function AppLayout({
     orderBy: { name: 'asc' },
   }) as { name: string; portalSlug: string }[]
 
-  const logout = (
-    <form
-      action={async () => {
-        'use server'
-        await signOut({ redirectTo: '/login' })
-      }}
-    >
-      <button
-        type="submit"
-        title="Cerrar sesión"
-        className="interactive w-full cursor-pointer rounded-md border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-      >
-        Salir
-      </button>
-    </form>
-  )
-
   return (
     <div className="min-h-screen bg-gray-50">
       <TopProgress />
@@ -64,7 +48,7 @@ export default async function AppLayout({
           tenantSlug: user.tenantSlug,
           roleLabel: ROLE_LABELS[user.role] ?? user.role,
         }}
-        logout={logout}
+        logout={<LogoutButton />}
         portalClients={portalClients}
       />
       <main className="md:pl-60">

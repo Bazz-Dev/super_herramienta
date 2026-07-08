@@ -135,18 +135,18 @@ test.describe('tickets', () => {
     await page.goto('/tickets')
     await page.waitForLoadState('load')
 
-    // Look for any ticket card link — cards contain a ticket code like "240101-JB-..."
-    // Cards link to /tickets/[id]. We look for links inside the kanban columns area.
-    const ticketLinks = page.getByRole('link').filter({ hasText: /\d{6}-/ })
-    const linkCount = await ticketLinks.count()
+    // At 1280px (desktop), tickets are rendered in a <table> with <tr onClick> navigation.
+    // The mobile <a> card view is hidden (md:hidden). We click a table row directly.
+    const ticketRows = page.locator('table tbody tr')
+    const rowCount = await ticketRows.count()
 
-    if (linkCount === 0) {
-      // No tickets in the board — skip by verifying board is visible
-      await expect(page.getByText('Nuevo', { exact: true }).first()).toBeVisible()
+    if (rowCount === 0) {
+      // No tickets — verify the table container is visible (board is rendered)
+      await expect(page.locator('table')).toBeVisible()
       return
     }
 
-    await ticketLinks.first().click()
+    await ticketRows.first().click()
     await page.waitForURL(/\/tickets\/[^/]+$/, { timeout: 30000 })
     await page.waitForLoadState('load')
 
