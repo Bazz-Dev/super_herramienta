@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="INGEGAR">
+  <!-- Blue triangle: upper-left -->
+  <polygon points="6,6 66,6 6,66" fill="#1a3c7d"/>
+  <!-- Dark triangle: lower-left wedge -->
+  <polygon points="6,66 6,94 36,94" fill="#1c2240"/>
+  <!-- Gold triangle: right + lower-right -->
+  <polygon points="66,6 94,6 94,94 6,94 36,94" fill="#f5b100"/>
+</svg>

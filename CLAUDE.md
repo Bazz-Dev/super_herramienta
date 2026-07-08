@@ -4,11 +4,12 @@ Herramienta interna de gestión de INGEGAR: gestión de técnicos, cronogramas,
 cotizador con plantillas propias, pipeline comercial y portal cliente con tickets.
 Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 
-> **Versión actual: v1.7.0** — Auth + multi-tenant, Cotizador (editor + PDF + carpetas clientes),
+> **Versión actual: v1.8.0** — Auth + multi-tenant, Cotizador (editor + PDF + carpetas clientes),
 > Recursos (técnicos, vehículos, activos, cuadrillas, clientes), Cronograma,
-> Flujo de Caja, Tickets (interno + Portal JB con PWA), Informe Técnico,
+> Flujo de Caja, Tickets (interno + Portal JB/Decathlon/Happyland con PWA), Informe Técnico,
 > **RR.HH.** (fichas de empleado, permisos/vacaciones, liquidaciones, FES),
-> **Carpetas de clientes** (propuestas/informes guardados como JSON editable, PDF on-demand).
+> **Carpetas de clientes** (propuestas/informes guardados como JSON editable, PDF on-demand),
+> **Portal PWA multi-cliente** (isotipo INGEGAR + icono dinámico por cliente + manifest independiente por portal).
 > **Pendiente**: módulo Pipeline (cotizaciones enviadas + seguimiento), import histórico Turso.
 
 ---
@@ -97,6 +98,9 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - `src/types/next-auth.d.ts` — augmenta `Session`/`User` con `role`, `tenantId`, `tenantSlug`, `clientId`.
 - Estrategia de sesión: **JWT** (obligatorio con Credentials provider).
 - **Rol `client`**: redirigido al portal (`/portal/[slug]/tickets`), nunca ve la app interna.
+- **Rol `tecnico`**: pre-fetch de role ANTES de `signIn()` en `authenticate()` → `redirectTo: '/mi-panel'`. NO depender del middleware para esta redirección (soft-navigation no la dispara).
+- **Logout app interna**: `<LogoutButton>` (`src/components/ui/logout-button.tsx`) usa `signOut` de `next-auth/react` (client-side). **NO** usar Server Action form con `signOut` de `@/auth` — no limpia la cookie JWT de forma confiable.
+- **Roles disponibles** (todos): `super | supervisor | client | tecnico`.
 
 ### Prisma 7 (importante)
 - El generador emite el cliente en **`src/generated/prisma/`** (gitignored; se regenera con `prisma generate`).
@@ -105,7 +109,8 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - `src/lib/db-adapter.ts` — elige adapter: `better-sqlite3` (local) vs `@libsql/client` (Turso/prod) según `DATABASE_URL`.
 
 ### PWA + Push Notifications
-- `public/manifest.json` — `id`, `start_url: /dashboard`, iconos completos (72→512 + maskable), **sin `screenshots`** (el archivo no existe, causaba error en Chrome).
+- `public/manifest.json` — INGEGAR One: `id: /dashboard`, `scope: /`, iconos (72→512 PNG + `ingegar-isotipo.svg` escalable). `short_name: INGEGAR`, `background_color: #111111`. **Sin `screenshots`** (causaba error Chrome).
+- `public/ingegar-isotipo.svg` — isotipo oficial INGEGAR (3 triángulos: azul #1a3c7d, oscuro #1c2240, brand yellow #f5b100). Referenciado en `manifest.json` como `sizes: "any"`.
 - `public/sw.js` — cache shell + network-first + push handler + notificationclick. Solo cachea `http://` (no `chrome-extension://`).
 - `src/components/ui/push-provider.tsx` — registra SW, auto-subscribe si permiso ya dado, `requestPushPermission()` con detección iOS (alerta si Safari no-PWA), `pushSupported()` exportado.
 - `src/lib/push.ts` — `sendPushToUser()`, `sendPushToTenantStaff()`, `notify()`, `notifyTenantStaff()` via `web-push`.
@@ -115,6 +120,15 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **iOS**: push solo funciona desde PWA instalada en Home Screen (iOS 16.4+). `pushSupported()` devuelve `false` si es iOS Safari browser. `requestPushPermission()` muestra `alert()` explicativo.
 - **Android**: Chrome soporta push nativo sin restricción PWA.
 - **VAPID env vars**: `NEXT_PUBLIC_VAPID_KEY` (public), `VAPID_PRIVATE_KEY`, `VAPID_EMAIL`.
+
+### PWA por-portal (independiente por cliente)
+- **Cada portal tiene su propia installable PWA** con scope y id únicos → el browser las trata como apps distintas.
+- `src/app/portal/[slug]/manifest.webmanifest/route.ts` — manifest dinámico: `id: /portal/${slug}/`, `scope: /portal/${slug}/`, `name`, `theme_color` desde `portalTheme.primary`.
+- `src/app/portal/[slug]/icon/[size]/route.tsx` — icono dinámico PNG via `ImageResponse` (initials + color primario). Si `Client.logoUrl` tiene data URI → retorna el binary directamente. Si tiene URL externa → redirect 302.
+- `src/components/resources/client-logo-upload.tsx` — sube imagen, la redimensiona a ≤300px en canvas, la guarda como data URI PNG vía `saveClientLogo()` en `Client.logoUrl`.
+- `src/app/(app)/recursos/clientes/[id]/page.tsx` — muestra `<ClientLogoUpload>` solo cuando `portalSlug` está activo (solo portales necesitan logo de PWA).
+- Portal layout (`/portal/[slug]/layout.tsx`) — `<link rel="manifest" href="/portal/${slug}/manifest.webmanifest">` + `<link rel="apple-touch-icon" href="/portal/${slug}/icon/180">`.
+- **Para iOS PWA con icono real**: subir logo PNG cuadrado desde `/recursos/clientes/[id]`. Sin logo → initials en color brand (funciona en Android/Chrome; iOS PWA usa icono genérico).
 
 ### Módulo Cotizador (`src/lib/quotes/`, `src/components/quotes/`)
 - **Editor online** (`/cotizador`): campos editables, alcance/exclusiones/condiciones, tabla con **columnas dinámicas**, ajustes (utilidad/admin/comercial con %) cálculo neto/IVA/total, **preview en vivo** (debounce 250ms), descarga PDF.
@@ -181,7 +195,7 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **IDs de cotización**: `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`.
 - **Commits**: inglés, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`).
 - **Componentes**: archivos enfocados; un propósito por archivo.
-- **Versión**: `package.json` → `"version": "1.6.0"`. Badge en sidebar (`INGEGAR Platform v1.6.0`) y dashboard hero.
+- **Versión**: `package.json` → `"version": "1.8.0"`. Badge en sidebar y dashboard hero.
 
 ### Branding
 - Primario `#f5b100` (`bg-brand` / `text-brand`), texto `#111111` (`text-ink`).
@@ -195,24 +209,25 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 
 ---
 
-## Roadmap de módulos (estado jun-2026)
+## Roadmap de módulos (estado jul-2026)
 
-1. ✅ **Auth + multi-tenant** — completo.
+1. ✅ **Auth + multi-tenant** — completo. Tecnico → `/mi-panel`, cliente → portal (pre-fetch rol en `authenticate()`).
 2. ✅ **Cotizador** — editor funcional + guardar como JSON editable en carpeta cliente + PDF on-demand.
-3. ✅ **Recursos** — CRUD completo (técnicos, vehículos, activos, cuadrillas, clientes).
+3. ✅ **Recursos** — CRUD completo (técnicos, vehículos, activos, cuadrillas, clientes) + logo de portal por cliente.
 4. ✅ **Cronograma** — calendario Día/Semana/Mes, equipos, permiso de sucursal.
 5. ✅ **Flujo de Caja** — dashboard + CRUD + métricas; falta poblar prod con datos históricos.
-6. ✅ **Tickets** — Kanban interno + Portal JB PWA con push. Portal: editar ticket/sub-tareas si estado = nuevo/en_revision.
+6. ✅ **Tickets** — Kanban interno + portales JB/Decathlon/Happyland con PWA + push. Desktop kanban = `<table><tr onClick>` (no links).
 7. ✅ **Informe Técnico** — editor + PDF + guardar en carpeta cliente.
 8. ✅ **Carpetas de clientes** (`/documentos`) — propuestas e informes guardados como JSON editable, re-abribles en editor, PDF generado on-demand.
 9. ✅ **RR.HH.** — fichas de empleado, permisos/vacaciones, liquidaciones mensuales, FES (Firma Electrónica Simple desde `/mi-panel`).
-10. ⬜ **Pipeline** — cotizaciones enviadas, estados, alertas de seguimiento (se une con Cotizador).
+10. ✅ **Portal PWA multi-cliente** — isotipo INGEGAR en One, manifest+icon independiente por portal, logo dinámico desde `Client.logoUrl`.
+11. ⬜ **Pipeline** — cotizaciones enviadas, estados, alertas de seguimiento (se une con Cotizador).
 
 **Próximos (sugeridos en orden de valor):**
 - Pipeline: historial de propuestas enviadas por cliente, estados (enviada/vista/aceptada/rechazada), alertas.
 - Import histórico Flujo de Caja a Turso en producción (`scripts/import-flujo.ts`).
 - Estadísticas por técnico: trabajos ejecutados, horas, distribución semanal.
-- Ticketing Just Burger: migrar desde Google Apps Script al Portal JB.
+- Reemplazar PNGs de íconos INGEGAR One con el isotipo real (3 triángulos) — actualmente `ingegar-isotipo.svg` se usa como `sizes:"any"` en el manifest; los PNGs legacy siguen como fallback.
 
 ---
 
@@ -251,7 +266,8 @@ prisma/
   migrations/             # historial de migraciones
 prisma.config.ts          # Prisma 7: schema + datasource url + seed
 public/
-  manifest.json           # PWA manifest (id, icons, shortcuts — SIN screenshots)
+  manifest.json           # INGEGAR One PWA manifest (id:/dashboard, SVG isotipo + PNG fallbacks — SIN screenshots)
+  ingegar-isotipo.svg     # Isotipo oficial (3 triángulos: azul, oscuro, #f5b100)
   sw.js                   # Service Worker (cache + push)
   icons/                  # icon-72 → icon-512 + maskable-512 + badge-72
 src/

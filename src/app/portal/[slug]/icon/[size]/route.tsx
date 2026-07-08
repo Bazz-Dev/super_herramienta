@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { ImageResponse } from 'next/og'
 import { prisma } from '@/lib/prisma'
 
@@ -10,8 +11,28 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
 
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
-    select: { name: true, portalTheme: true },
+    select: { name: true, portalTheme: true, logoUrl: true },
   })
+
+  // If client has an uploaded logo (stored as data URI), serve it directly
+  if (client?.logoUrl) {
+    const dataUri = client.logoUrl
+    if (dataUri.startsWith('data:image/')) {
+      const commaIdx = dataUri.indexOf(',')
+      const meta = dataUri.slice(5, commaIdx)          // e.g. "image/png;base64"
+      const mimeType = meta.split(';')[0]              // "image/png"
+      const base64Data = dataUri.slice(commaIdx + 1)
+      const binary = Buffer.from(base64Data, 'base64')
+      return new NextResponse(binary, {
+        headers: {
+          'Content-Type': mimeType,
+          'Cache-Control': 'public, max-age=86400',
+        },
+      })
+    }
+    // External URL — redirect
+    return NextResponse.redirect(dataUri, 302)
+  }
 
   let primary = '#d42030'
   let name = String(slug)

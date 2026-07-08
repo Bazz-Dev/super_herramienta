@@ -20,6 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   const iconBase = `/portal/${slug}/icon`
 
   const manifest = {
+    id: `/portal/${slug}/`,
     name: `${client.name} — Portal`,
     short_name: shortName,
     description: 'Portal de gestión de mantención y soporte técnico.',
