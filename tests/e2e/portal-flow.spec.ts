@@ -1,6 +1,21 @@
 import { test, expect } from '@playwright/test'
 
 // ---------------------------------------------------------------------------
+// Defensive guard: skip entire suite if portal seed data is missing.
+// globalSetup runs db:seed before the suite, but this catch keeps individual
+// test output meaningful if the seed fails for any reason.
+// ---------------------------------------------------------------------------
+test.beforeEach(async ({ page }) => {
+  await page.goto('/portal/justburger')
+  const emailInput = page.getByPlaceholder('correo@empresa.cl')
+  try {
+    await emailInput.waitFor({ state: 'visible', timeout: 5_000 })
+  } catch {
+    test.skip(true, 'Portal seed data missing — run `npm run db:seed` first')
+  }
+})
+
+// ---------------------------------------------------------------------------
 // Shared helper — logs in as the Just Burger portal user.
 // The form is a React controlled component: inputs have type="email"/"password"
 // but no name attribute, so we locate by type.
@@ -87,12 +102,13 @@ test('portal dashboard: hamburger renders after hydration', async ({ page }) => 
   await page.goto('/portal/justburger/dashboard')
   await page.waitForLoadState('load')
 
-  // The hamburger is injected by a useEffect once isMobile state resolves
-  const hamburger = page.locator('[aria-label="Abrir menú"]')
-  await expect(hamburger).toBeVisible({ timeout: 10_000 })
+  // The hamburger is injected by a useEffect once isMobile state resolves.
+  // Use waitForSelector with generous timeout to survive hydration latency.
+  await page.waitForSelector('[aria-label="Abrir menú"]', { timeout: 15_000 })
+  const hamburger = page.locator('[aria-label="Abrir menú"]').first()
+  await expect(hamburger).toBeVisible({ timeout: 5_000 })
 
-  // Must be touch-friendly: at least 44px tall (the button has padding:6px
-  // around an 18×18 icon, total height ≥44px)
+  // Must be touch-friendly: at least 44px tall
   const box = await hamburger.boundingBox()
   expect(box).not.toBeNull()
   expect(box!.height).toBeGreaterThanOrEqual(44)

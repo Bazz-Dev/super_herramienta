@@ -290,6 +290,100 @@ describe('clientInputSchema', () => {
   })
 })
 
+// ─── 8. vehicleInputSchema — expiry date fields (migration 20260624) ──────────
+describe('vehicleInputSchema — expiry date fields', () => {
+  const base = { plate: 'AA-001' }
+
+  it('accepts valid ISO date strings for all expiry fields', () => {
+    const result = vehicleInputSchema.safeParse({
+      ...base,
+      revTecnicaExpiry: '2026-12-31',
+      soapExpiry: '2026-06-30',
+      permisoCirculacionExpiry: '2026-03-31',
+      lastServiceDate: '2026-01-15',
+      nextServiceDate: '2026-07-15',
+    })
+    assert.ok(result.success)
+    assert.equal(result.data!.revTecnicaExpiry, '2026-12-31')
+    assert.equal(result.data!.soapExpiry, '2026-06-30')
+    assert.equal(result.data!.permisoCirculacionExpiry, '2026-03-31')
+    assert.equal(result.data!.lastServiceDate, '2026-01-15')
+    assert.equal(result.data!.nextServiceDate, '2026-07-15')
+  })
+
+  it('all expiry fields are optional — omitting them all is valid', () => {
+    const result = vehicleInputSchema.safeParse({ plate: 'AA-002' })
+    assert.ok(result.success)
+    assert.equal(result.data!.revTecnicaExpiry, undefined)
+    assert.equal(result.data!.soapExpiry, undefined)
+    assert.equal(result.data!.permisoCirculacionExpiry, undefined)
+    assert.equal(result.data!.lastServiceDate, undefined)
+    assert.equal(result.data!.nextServiceDate, undefined)
+  })
+
+  it('empty string for revTecnicaExpiry becomes undefined (optionalText coercion)', () => {
+    const result = vehicleInputSchema.safeParse({ plate: 'AA-003', revTecnicaExpiry: '' })
+    assert.ok(result.success)
+    assert.equal(result.data!.revTecnicaExpiry, undefined)
+  })
+
+  it('empty string for soapExpiry becomes undefined', () => {
+    const result = vehicleInputSchema.safeParse({ plate: 'AA-004', soapExpiry: '' })
+    assert.ok(result.success)
+    assert.equal(result.data!.soapExpiry, undefined)
+  })
+
+  it('empty string for permisoCirculacionExpiry becomes undefined', () => {
+    const result = vehicleInputSchema.safeParse({ plate: 'AA-005', permisoCirculacionExpiry: '' })
+    assert.ok(result.success)
+    assert.equal(result.data!.permisoCirculacionExpiry, undefined)
+  })
+
+  it('empty string for lastServiceDate becomes undefined', () => {
+    const result = vehicleInputSchema.safeParse({ plate: 'AA-006', lastServiceDate: '' })
+    assert.ok(result.success)
+    assert.equal(result.data!.lastServiceDate, undefined)
+  })
+
+  it('empty string for nextServiceDate becomes undefined', () => {
+    const result = vehicleInputSchema.safeParse({ plate: 'AA-007', nextServiceDate: '' })
+    assert.ok(result.success)
+    assert.equal(result.data!.nextServiceDate, undefined)
+  })
+
+  it('whitespace-only expiry string becomes undefined (trim + empty coercion)', () => {
+    const result = vehicleInputSchema.safeParse({ plate: 'AA-008', revTecnicaExpiry: '   ' })
+    assert.ok(result.success)
+    assert.equal(result.data!.revTecnicaExpiry, undefined)
+  })
+
+  it('nextServiceDate can be later than lastServiceDate (no cross-field constraint)', () => {
+    const result = vehicleInputSchema.safeParse({
+      ...base,
+      lastServiceDate: '2026-01-01',
+      nextServiceDate: '2026-07-01',
+    })
+    assert.ok(result.success)
+  })
+
+  it('expiry fields coexist with core vehicle fields', () => {
+    const result = vehicleInputSchema.safeParse({
+      plate: 'AA-009',
+      brand: 'Toyota',
+      model: 'Hilux',
+      year: '2023',
+      status: 'active',
+      revTecnicaExpiry: '2027-01-31',
+      soapExpiry: '2027-01-31',
+      permisoCirculacionExpiry: '2027-03-31',
+    })
+    assert.ok(result.success)
+    assert.equal(result.data!.brand, 'Toyota')
+    assert.equal(result.data!.year, 2023)
+    assert.equal(result.data!.revTecnicaExpiry, '2027-01-31')
+  })
+})
+
 // ─── 7. Label maps completeness ───────────────────────────────────────────────
 describe('label maps completeness', () => {
   it('CONTRACT_TYPE_LABELS has a defined label for every CONTRACT_TYPE value', () => {

@@ -145,9 +145,14 @@ async function main() {
   if (jesusTech) {
     const tecnicoPassword = process.env.SEED_TECNICO_PASSWORD ?? 'Tecnico@2026'
     const tecnicoHash = await bcrypt.hash(tecnicoPassword, 10)
+    // Remove any user that already owns this technicianId with a different email
+    // (prevents P2002 unique constraint violation on technicianId during upsert)
+    await prisma.user.deleteMany({
+      where: { technicianId: jesusTech.id, NOT: { email: 'jesus@ingegarchile.cl' } },
+    })
     await prisma.user.upsert({
       where: { email: 'jesus@ingegarchile.cl' },
-      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Jesús Díaz', technicianId: jesusTech.id, username: 'jesus' },
+      update: { passwordHash: tecnicoHash, role: 'tecnico', name: 'Jesús Díaz', technicianId: jesusTech.id, username: 'jesus', active: true },
       create: {
         email: 'jesus@ingegarchile.cl',
         username: 'jesus',
@@ -229,6 +234,36 @@ async function main() {
     create: { name: 'Las Condes', city: 'Santiago', clientId: decClient.id, tenantId: ingegar.id },
   })
 
+  // --- Portal Happyland ---
+  const hlPassword = process.env.SEED_HL_PASSWORD ?? 'Happyland@2026'
+  const hlHash = await bcrypt.hash(hlPassword, 10)
+
+  const hlClient = await prisma.client.upsert({
+    where: { portalSlug: 'happyland' },
+    update: { name: 'Happyland', portalTheme: JSON.stringify({ primary: '#FF5F2D' }) },
+    create: {
+      name: 'Happyland',
+      tenantId: ingegar.id,
+      portalSlug: 'happyland',
+      portalTheme: JSON.stringify({ primary: '#FF5F2D' }),
+      label: 'principal',
+    },
+  })
+
+  await prisma.user.upsert({
+    where: { email: 'portal@happyland.cl' },
+    update: { passwordHash: hlHash, role: 'client', name: 'Portal Happyland', clientId: hlClient.id, username: 'happyland', active: true },
+    create: {
+      email: 'portal@happyland.cl',
+      username: 'happyland',
+      name: 'Portal Happyland',
+      passwordHash: hlHash,
+      role: 'client',
+      tenantId: ingegar.id,
+      clientId: hlClient.id,
+    },
+  })
+
   console.log('\n✅ Seed completo — usuarios y credenciales:')
   console.log('\n  Usuario (nick / email)                Contraseña          Rol')
   console.log('  ─────────────────────────────────────────────────────────────────────')
@@ -239,6 +274,7 @@ async function main() {
   console.log('\n  Portales cliente:')
   console.log(`  justburger / portal@justburger.cl      ${jbPassword.padEnd(20)} → /portal/justburger`)
   console.log(`  decathlon  / portal@decathlon.cl       ${decPassword.padEnd(20)} → /portal/decathlon`)
+  console.log(`  happyland  / portal@happyland.cl       ${hlPassword.padEnd(20)} → /portal/happyland`)
 }
 
 main()

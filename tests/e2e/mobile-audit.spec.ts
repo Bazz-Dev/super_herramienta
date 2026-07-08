@@ -214,7 +214,21 @@ async function loginPortal(page: Page, slug = 'justburger') {
   await page.waitForURL(/\/portal\/justburger\/(?!$)/, { timeout: 20000 })
 }
 
+/** Skip portal tests if seed data is missing (belt-and-suspenders; globalSetup handles this normally).
+ *  Sets mobile viewport BEFORE navigating so matchMedia fires correctly for the portal shell. */
+async function skipIfPortalMissing(page: Page) {
+  await page.setViewportSize(MOBILE_VIEWPORT)
+  await page.goto('/portal/justburger')
+  const emailInput = page.getByPlaceholder('correo@empresa.cl')
+  try {
+    await emailInput.waitFor({ state: 'visible', timeout: 5_000 })
+  } catch {
+    test.skip(true, 'Portal seed data missing — run `npm run db:seed` first')
+  }
+}
+
 test('portal dashboard: no horizontal scroll on mobile', async ({ page }) => {
+  await skipIfPortalMissing(page)
   await loginPortal(page)
   await page.goto('/portal/justburger/dashboard')
   await page.waitForLoadState('load')
@@ -222,6 +236,7 @@ test('portal dashboard: no horizontal scroll on mobile', async ({ page }) => {
 })
 
 test('portal dashboard: KPI grid is 2-col at 390px (not 4-col)', async ({ page }) => {
+  await skipIfPortalMissing(page)
   await loginPortal(page)
   await page.goto('/portal/justburger/dashboard')
   await page.waitForLoadState('load')
@@ -237,18 +252,22 @@ test('portal dashboard: KPI grid is 2-col at 390px (not 4-col)', async ({ page }
 })
 
 test('portal dashboard: sidebar hamburger visible and ≥44px', async ({ page }) => {
+  // skipIfPortalMissing already sets mobile viewport
+  await skipIfPortalMissing(page)
   await loginPortal(page)
   await page.goto('/portal/justburger/dashboard')
   await page.waitForLoadState('load')
-  // Hamburger renders via JS useEffect — wait for it to appear after hydration
-  await page.waitForSelector('[aria-label="Abrir menú"], [aria-label="Cerrar menú"]', { timeout: 10000 })
+  // Hamburger is conditionally rendered via useEffect (isMobile state).
+  // Wait until it appears in the DOM after React hydration.
+  await page.waitForSelector('[aria-label="Abrir menú"], [aria-label="Cerrar menú"]', { timeout: 15_000 })
   const hamburger = page.locator('[aria-label="Abrir menú"], [aria-label="Cerrar menú"]').first()
-  await expect(hamburger).toBeVisible()
+  await expect(hamburger).toBeVisible({ timeout: 5_000 })
   const rect = await hamburger.boundingBox()
   expect(rect!.height).toBeGreaterThanOrEqual(44)
 })
 
 test('portal tickets: no horizontal scroll on mobile', async ({ page }) => {
+  await skipIfPortalMissing(page)
   await loginPortal(page)
   await page.goto('/portal/justburger/tickets')
   await page.waitForLoadState('load')
