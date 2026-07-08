@@ -35,6 +35,7 @@ export async function getTechnicianProfile(actor: TenantActor, techId: string) {
   const tech = await prisma.technician.findFirst({
     where: { id: techId, ...scope },
     include: {
+      user: { select: { id: true } },
       vehicle: { select: { id: true, plate: true, brand: true, model: true } },
       documents: { orderBy: { uploadedAt: 'desc' } },
       assignees: {

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { requireActor } from '@/lib/tenant'
 import { getTechnicianProfile } from '@/lib/rrhh/queries'
+import { prisma } from '@/lib/prisma'
 import { CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, DOC_TYPE_LABELS } from '@/lib/resources/labels'
 import { LEAVE_TYPE_LABEL, LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL, PAYROLL_STATUS_BADGE, PAYROLL_STATUS_LABEL, MONTH_NAMES, formatClp } from '@/lib/rrhh/labels'
 import { TechnicianHRForm } from '@/components/rrhh/technician-hr-form'
@@ -22,6 +23,24 @@ export default async function TechnicianProfilePage({ params }: Props) {
   const actor = await requireActor(['super', 'supervisor'])
   const tech = await getTechnicianProfile(actor, id)
   if (!tech) notFound()
+
+  const techTickets = tech.user
+    ? await prisma.ticket.findMany({
+        where: {
+          assignedToId: tech.user.id,
+          tenantId: actor.tenantId,
+          deletedAt: null,
+        },
+        select: {
+          id: true, ticketCode: true, title: true, status: true, urgency: true,
+          updatedAt: true, estimatedDate: true,
+          client: { select: { name: true } },
+          branch: { select: { name: true } },
+        },
+        orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
+        take: 20,
+      })
+    : []
 
   const isActive = tech.active && CONTRACT_TYPE_ACTIVE.includes(tech.contractType as never)
   const totalLeavedays = tech.leaveRequests.filter(l => l.status === 'aprobado').reduce((s, l) => s + l.days, 0)
@@ -185,6 +204,62 @@ export default async function TechnicianProfilePage({ params }: Props) {
                   <span className="text-[11px] capitalize text-gray-400">{a.role}</span>
                 </div>
               ))}
+            </div>
+          </section>
+
+          {/* Tickets assigned */}
+          <section className="rounded-xl border border-gray-200 bg-white">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
+              <h2 className="text-sm font-semibold">Tickets asignados</h2>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400">{techTickets.length} tickets</span>
+                <Link href={`/tickets?assignedTo=${tech.user?.id ?? ''}`} className="text-xs font-medium text-brand hover:underline">Ver todos →</Link>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+              {techTickets.length === 0 && (
+                <p className="px-5 py-6 text-center text-xs text-gray-400">Sin tickets asignados</p>
+              )}
+              {techTickets.map(t => {
+                const URGENCY_CLS: Record<string, string> = {
+                  emergencia: 'bg-red-100 text-red-700', urgencia: 'bg-orange-100 text-orange-700',
+                  no_urgente: 'bg-gray-100 text-gray-500', preventivo: 'bg-teal-100 text-teal-700',
+                }
+                const STATUS_CLS: Record<string, string> = {
+                  nuevo: 'bg-blue-100 text-blue-700', en_revision: 'bg-purple-100 text-purple-700',
+                  en_ejecucion: 'bg-amber-100 text-amber-700', esperando_aprobacion: 'bg-orange-100 text-orange-700',
+                  resuelto: 'bg-green-100 text-green-700', cancelado: 'bg-gray-100 text-gray-500',
+                }
+                const STATUS_LBL: Record<string, string> = {
+                  nuevo: 'Nuevo', en_revision: 'En revisión', en_ejecucion: 'En ejecución',
+                  esperando_aprobacion: 'Esp. aprobación', resuelto: 'Resuelto', cancelado: 'Cancelado', fusionado: 'Fusionado',
+                }
+                const URGENCY_LBL: Record<string, string> = {
+                  emergencia: 'Emergencia', urgencia: 'Urgente', no_urgente: 'Normal', preventivo: 'Preventivo',
+                }
+                return (
+                  <div key={t.id} className="flex items-start justify-between px-5 py-2.5 gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                        <span className="font-mono text-[10px] text-gray-400">{t.ticketCode}</span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${STATUS_CLS[t.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                          {STATUS_LBL[t.status] ?? t.status}
+                        </span>
+                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${URGENCY_CLS[t.urgency] ?? 'bg-gray-100 text-gray-500'}`}>
+                          {URGENCY_LBL[t.urgency] ?? t.urgency}
+                        </span>
+                      </div>
+                      <Link href={`/tickets/${t.id}`} className="text-xs font-medium text-gray-800 hover:text-brand truncate block">
+                        {t.title}
+                      </Link>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {t.client?.name}{t.branch && ` · ${t.branch.name}`}
+                        {t.estimatedDate && ` · ${fDate(t.estimatedDate)}`}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </section>
 
