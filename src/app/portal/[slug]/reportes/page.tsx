@@ -8,6 +8,8 @@ import { resolvePortalTheme } from '@/lib/portal-theme'
 
 import { URGENCY_COLORS as URG_COLOR, TICKET_STATUS_COLORS as STATUS_COLOR, C } from '@/lib/portal-colors'
 import { PortalReportsExport } from '@/components/tickets/portal-reports-export'
+import { PortalPeriodFilter } from '@/components/tickets/portal-period-filter'
+import { Suspense } from 'react'
 
 const OPEN = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -30,8 +32,26 @@ function trendArrow(good: boolean, neutral = false) {
   return good ? { icon: '↑', color: '#22c55e' } : { icon: '↓', color: '#ef4444' }
 }
 
-export default async function PortalReportesPage({ params }: { params: Promise<{ slug: string }> }) {
+function periodFrom(periodo?: string): Date | null {
+  const now = new Date()
+  switch (periodo) {
+    case 'mes': return new Date(now.getFullYear(), now.getMonth(), 1)
+    case '3m': { const d = new Date(now); d.setMonth(d.getMonth() - 3); return d }
+    case '6m': { const d = new Date(now); d.setMonth(d.getMonth() - 6); return d }
+    case '12m': { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d }
+    default: return null
+  }
+}
+
+export default async function PortalReportesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ periodo?: string }>
+}) {
   const { slug } = await params
+  const { periodo } = await searchParams
   const session = await auth()
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
@@ -41,7 +61,9 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
   const isStaff = isStaffViewing(session)
-  const tickets: Ticket[] = await getClientTickets(client.id)
+  const allTickets: Ticket[] = await getClientTickets(client.id)
+  const from = periodFrom(periodo)
+  const tickets = from ? allTickets.filter(t => new Date(t.createdAt) >= from) : allTickets
   const theme = resolvePortalTheme(client.portalTheme)
 
   const act = tickets.filter(t => OPEN.includes(t.status))
@@ -110,15 +132,15 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
         <div style={{
           background: `linear-gradient(135deg, ${theme.primary} 0%, color-mix(in srgb, ${theme.primary} 60%, #000) 100%)`,
           borderRadius: 'var(--p-r3)', padding: '18px 22px', marginBottom: '20px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px',
         }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
           <div>
             <div style={{ fontSize: '17px', fontWeight: '800', color: '#fff', letterSpacing: '-0.3px' }}>Análisis de solicitudes</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>{client.name} · {tickets.length} solicitudes totales</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>{client.name} · {tickets.length} solicitudes{from ? ' en el período' : ' totales'}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
-              Actualizado {new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)' }}>
+              {new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
             <PortalReportsExport
               primary={theme.primary}
@@ -136,6 +158,10 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
               }))}
             />
           </div>
+          {/* Period filter pills */}
+          <Suspense fallback={null}>
+            <PortalPeriodFilter primary={theme.primary} active={periodo ?? 'total'} />
+          </Suspense>
         </div>
 
         {/* KPI grid */}
