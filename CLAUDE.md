@@ -9,7 +9,9 @@ Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 > Flujo de Caja, Tickets (interno + Portal JB/Decathlon/Happyland con PWA), Informe Técnico,
 > **RR.HH.** (fichas de empleado, permisos/vacaciones, liquidaciones, FES),
 > **Carpetas de clientes** (propuestas/informes guardados como JSON editable, PDF on-demand),
-> **Portal PWA multi-cliente** (isotipo INGEGAR + icono dinámico por cliente + manifest independiente por portal).
+> **Portal PWA multi-cliente** (isotipo INGEGAR isotipo dinámico PNG + icono dinámico por cliente + manifest independiente por portal).
+> **Fixes jul-2026**: márgenes PDF reducidos (10/14mm), SaveDocumentButton siempre visible con empty-state,
+> descarga PDF móvil corregida, documentos del cliente visibles desde detalle de trabajo.
 > **Pendiente**: módulo Pipeline (cotizaciones enviadas + seguimiento), import histórico Turso.
 
 ---
@@ -109,8 +111,9 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - `src/lib/db-adapter.ts` — elige adapter: `better-sqlite3` (local) vs `@libsql/client` (Turso/prod) según `DATABASE_URL`.
 
 ### PWA + Push Notifications
-- `public/manifest.json` — INGEGAR One: `id: /dashboard`, `scope: /`, iconos (72→512 PNG + `ingegar-isotipo.svg` escalable). `short_name: INGEGAR`, `background_color: #111111`. **Sin `screenshots`** (causaba error Chrome).
-- `public/ingegar-isotipo.svg` — isotipo oficial INGEGAR (3 triángulos: azul #1a3c7d, oscuro #1c2240, brand yellow #f5b100). Referenciado en `manifest.json` como `sizes: "any"`.
+- `public/manifest.json` — INGEGAR One: `id: /dashboard`, `scope: /`, iconos: SVG isotipo (`sizes:"any"`) + PNGs dinámicos vía `/ingegar-icon/[size]`. `short_name: INGEGAR`, `background_color: #111111`. **Sin `screenshots`** (causaba error Chrome).
+- `public/ingegar-isotipo.svg` — isotipo oficial INGEGAR (3 triángulos: azul #1a3c7d, oscuro #1c2240, brand yellow #f5b100). Referenciado en `manifest.json` como `sizes: "any"` (Chrome/Edge).
+- `src/app/ingegar-icon/[size]/route.tsx` — genera el isotipo como PNG dinámico a cualquier tamaño via `ImageResponse`. Fondo #111111, triángulos calculados en % exactos del SVG. Usado por `manifest.json` y `layout.tsx` (`apple-touch-icon` iOS). **Reemplaza los PNGs estáticos legacy** de `/icons/`.
 - `public/sw.js` — cache shell + network-first + push handler + notificationclick. Solo cachea `http://` (no `chrome-extension://`).
 - `src/components/ui/push-provider.tsx` — registra SW, auto-subscribe si permiso ya dado, `requestPushPermission()` con detección iOS (alerta si Safari no-PWA), `pushSupported()` exportado.
 - `src/lib/push.ts` — `sendPushToUser()`, `sendPushToTenantStaff()`, `notify()`, `notifyTenantStaff()` via `web-push`.
@@ -133,7 +136,10 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 ### Módulo Cotizador (`src/lib/quotes/`, `src/components/quotes/`)
 - **Editor online** (`/cotizador`): campos editables, alcance/exclusiones/condiciones, tabla con **columnas dinámicas**, ajustes (utilidad/admin/comercial con %) cálculo neto/IVA/total, **preview en vivo** (debounce 250ms), descarga PDF.
 - **2 plantillas A4**: `clasico` y `minimal`. Una sola fuente de verdad: `renderQuoteHTML(data)` → mismo HTML para preview (iframe) y PDF (Playwright).
+- **PDF márgenes**: `top:10mm / bottom:14mm / left:10mm / right:10mm` en `src/lib/pdf/render.ts`. `.body-pad { padding-top: 6px }` en `template.ts`. El mismo `renderHtmlToPdf()` sirve propuestas e informes.
 - **Imágenes**: data URI en cliente (no se suben al servidor), compatibles con Vercel serverless.
+- **`SaveDocumentButton`** (`src/components/quotes/save-document-button.tsx`): siempre visible (no se oculta cuando no hay clientes). Si `clients.length === 0` → modal muestra aviso amarillo + link a `/recursos/clientes`. Botón "Guardar" deshabilitado hasta que haya cliente seleccionado. Para re-editar doc existente (`existingDocId` prop) → PATCH en lugar de POST, omitiendo el selector de cliente.
+- **Descarga PDF móvil**: `DownloadPdfButton` y el botón de descarga en `/documentos` usan `a.href = blobUrl; document.body.appendChild(a); a.click()` en lugar de `window.open(blob, '_blank')` (bloqueado en iOS Safari y Chrome mobile).
 - `types.ts` → `QuoteData` + Zod + `computeTotals`. `template.ts` → HTML paginado seguro. `pdf.ts` → A4, header/footer con n.º página. `quote-id.ts` → `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`.
 - **Pendiente**: persistencia en DB (guardar/listar/editar cotizaciones) — se hará con Pipeline.
 
@@ -177,6 +183,7 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - Modelos: `Branch` (sucursal), `Job` (trabajo facturado), `JobCost` (costos por trabajo).
 - Enums: `JobType`, `JobStatus`, `CollectionStatus`, `CostCategory`.
 - Dashboard KPIs + breakdown por cliente + tendencia mensual. CRUD de trabajos con costos en vivo. Admin de sucursales.
+- **Detalle de trabajo** (`/flujo/trabajos/[id]`): sección "Documentos del cliente" al final de la página. Consulta `ClientDocument` por `clientId` del trabajo (sin `dataJson` — list only). Muestra badge tipo, título, fecha y enlace "Editar →" al editor correspondiente. Estado vacío con CTA "Crear propuesta →". Link "Ver carpeta →" a `/documentos`.
 - **Pendiente prod**: correr `scripts/import-flujo.ts` contra Turso (205 trabajos históricos).
 
 ### Módulo Tickets (`/tickets` — top-level interno; `/portal/[slug]/tickets` — portal cliente)
@@ -220,14 +227,13 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 7. ✅ **Informe Técnico** — editor + PDF + guardar en carpeta cliente.
 8. ✅ **Carpetas de clientes** (`/documentos`) — propuestas e informes guardados como JSON editable, re-abribles en editor, PDF generado on-demand.
 9. ✅ **RR.HH.** — fichas de empleado, permisos/vacaciones, liquidaciones mensuales, FES (Firma Electrónica Simple desde `/mi-panel`).
-10. ✅ **Portal PWA multi-cliente** — isotipo INGEGAR en One, manifest+icon independiente por portal, logo dinámico desde `Client.logoUrl`.
+10. ✅ **Portal PWA multi-cliente** — isotipo INGEGAR dinámico PNG (`/ingegar-icon/[size]`), manifest+icon independiente por portal, logo dinámico desde `Client.logoUrl`. `apple-touch-icon` iOS también usa la ruta dinámica.
 11. ⬜ **Pipeline** — cotizaciones enviadas, estados, alertas de seguimiento (se une con Cotizador).
 
 **Próximos (sugeridos en orden de valor):**
 - Pipeline: historial de propuestas enviadas por cliente, estados (enviada/vista/aceptada/rechazada), alertas.
 - Import histórico Flujo de Caja a Turso en producción (`scripts/import-flujo.ts`).
 - Estadísticas por técnico: trabajos ejecutados, horas, distribución semanal.
-- Reemplazar PNGs de íconos INGEGAR One con el isotipo real (3 triángulos) — actualmente `ingegar-isotipo.svg` se usa como `sizes:"any"` en el manifest; los PNGs legacy siguen como fallback.
 
 ---
 
@@ -266,10 +272,10 @@ prisma/
   migrations/             # historial de migraciones
 prisma.config.ts          # Prisma 7: schema + datasource url + seed
 public/
-  manifest.json           # INGEGAR One PWA manifest (id:/dashboard, SVG isotipo + PNG fallbacks — SIN screenshots)
-  ingegar-isotipo.svg     # Isotipo oficial (3 triángulos: azul, oscuro, #f5b100)
+  manifest.json           # INGEGAR One PWA manifest (id:/dashboard, SVG isotipo + /ingegar-icon/[size] — SIN screenshots)
+  ingegar-isotipo.svg     # Isotipo oficial (3 triángulos: azul #1a3c7d, oscuro #1c2240, #f5b100)
   sw.js                   # Service Worker (cache + push)
-  icons/                  # icon-72 → icon-512 + maskable-512 + badge-72
+  icons/                  # badge-72 (legacy PNGs reemplazados por /ingegar-icon/[size])
 src/
   auth.config.ts          # Auth.js edge-safe
   auth.ts                 # Auth.js Node (credentials + bcrypt + prisma)
@@ -299,11 +305,12 @@ src/
     cashflow/             # KpiCard, ClientFilter, RevenueByClient, MonthlyTrend
     rrhh/                 # TechnicianHRForm, LeaveManagementView, PayrollView
   app/
-    layout.tsx            # Inter font, PushProvider, apple-touch-icon meta
+    ingegar-icon/[size]/  # GET → PNG del isotipo INGEGAR (ImageResponse, fondo #111111, 3 triángulos)
+    layout.tsx            # Inter font, PushProvider, apple-touch-icon → /ingegar-icon/152|180
     page.tsx              # redirect a /login o /dashboard
     (auth)/login/
     (app)/                # layout protegido (Sidebar + NotificationBell)
-      dashboard/          # hero con versión v1.7.0 + novedades
+      dashboard/          # hero con versión + novedades
       cotizador/          # ?docId=xxx carga documento guardado para re-editar
       informe/            # ?docId=xxx carga informe guardado para re-editar
       documentos/         # carpetas de clientes: propuestas + informes editables
@@ -321,10 +328,11 @@ src/
       reportes/
     api/
       auth/[...nextauth]/
-      quotes/generate/    # POST → PDF
-      reports/generate/   # POST → PDF
-      push/subscribe/     # POST/DELETE suscripciones push
-      notifications/      # GET (últimas 50) + PATCH (marcar leídas)
+      quotes/generate/       # POST → PDF (Playwright, runtime=nodejs, maxDuration=60)
+      reports/generate/      # POST → PDF (Playwright, runtime=nodejs, maxDuration=60)
+      client-documents/      # POST/GET/PATCH/DELETE — dataJson en DB inline, no R2
+      push/subscribe/        # POST/DELETE suscripciones push
+      notifications/         # GET (últimas 50) + PATCH (marcar leídas)
 scripts/
   import-flujo.ts         # importador idempotente Excel → Branch/Job/JobCost
 tests/

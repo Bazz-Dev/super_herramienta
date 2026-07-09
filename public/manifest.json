@@ -17,58 +17,52 @@
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-72.png",
+      "src": "/ingegar-icon/72",
       "sizes": "72x72",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-96.png",
+      "src": "/ingegar-icon/96",
       "sizes": "96x96",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-128.png",
+      "src": "/ingegar-icon/128",
       "sizes": "128x128",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-144.png",
+      "src": "/ingegar-icon/144",
       "sizes": "144x144",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-152.png",
+      "src": "/ingegar-icon/152",
       "sizes": "152x152",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-192.png",
+      "src": "/ingegar-icon/192",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-384.png",
+      "src": "/ingegar-icon/384",
       "sizes": "384x384",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/ingegar-icon/512",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
   "shortcuts": [
@@ -77,14 +71,14 @@
       "short_name": "Tickets",
       "description": "Ver tickets de mantención",
       "url": "/tickets",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/ingegar-icon/96", "sizes": "96x96", "type": "image/png" }]
     },
     {
       "name": "Cronograma",
       "short_name": "Agenda",
       "description": "Ver agenda semanal",
       "url": "/cronograma",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/ingegar-icon/96", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }

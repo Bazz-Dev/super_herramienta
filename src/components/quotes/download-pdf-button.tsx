@@ -21,7 +21,12 @@ export function DownloadPdfButton({ data }: { data: QuoteData }) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
-      window.open(url, '_blank')
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `propuesta.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } catch (e) {
       setError('No se pudo generar el PDF.')

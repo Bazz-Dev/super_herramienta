@@ -112,7 +112,7 @@ function baseStyles(): string {
   .doc-footer .logo { color: #ffffff; font-size: 18px; }
   .doc-footer .contact { margin-top: 8px; font-size: 11px; line-height: 1.7; opacity: 0.85; }
 
-  .body-pad { padding-top: 18px; }
+  .body-pad { padding-top: 6px; }
 
   /* ===== Template: Clásico ===== */
   .tpl-clasico .cover { padding: 4px 0 0; }

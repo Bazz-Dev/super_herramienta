@@ -122,8 +122,10 @@ function DownloadPdfButton({ docId, docType, title }: { docId: string; docType: 
       const a = document.createElement('a')
       a.href = url
       a.download = `${safeFilename(title)}.pdf`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
       setState('idle')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error desconocido'

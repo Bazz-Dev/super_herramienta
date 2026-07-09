@@ -133,7 +133,15 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
               </div>
             ) : (
               <>
-                {!isUpdate && (
+                {!isUpdate && clients.length === 0 && (
+                  <div style={{ marginBottom: '14px', padding: '12px', borderRadius: '8px', background: '#fef9c3', border: '1px solid #fde047' }}>
+                    <p style={{ fontSize: '13px', color: '#713f12', margin: 0 }}>
+                      No hay clientes creados todavía.{' '}
+                      <a href="/recursos/clientes" style={{ color: '#1d4ed8', fontWeight: '600' }}>Crear un cliente →</a>
+                    </p>
+                  </div>
+                )}
+                {!isUpdate && clients.length > 0 && (
                   <div style={{ marginBottom: '14px' }}>
                     <label style={{ fontSize: '11px', fontWeight: '700', color: '#555', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'block', marginBottom: '6px' }}>
                       Cliente *
@@ -168,8 +176,8 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
                   </button>
                   <button
                     onClick={() => startTransition(save)}
-                    disabled={isPending || status === 'saving'}
-                    style={{ ...btnBase, background: '#f5b100', color: '#111', opacity: (isPending || status === 'saving') ? 0.7 : 1 }}
+                    disabled={isPending || status === 'saving' || (!isUpdate && clients.length === 0)}
+                    style={{ ...btnBase, background: '#f5b100', color: '#111', opacity: (isPending || status === 'saving' || (!isUpdate && clients.length === 0)) ? 0.5 : 1 }}
                   >
                     {(isPending || status === 'saving') && <Spinner size={14} />}
                     {status === 'saving' ? 'Guardando…' : isUpdate ? 'Guardar cambios' : 'Guardar'}

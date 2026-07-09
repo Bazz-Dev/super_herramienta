@@ -244,15 +244,13 @@ export function QuoteEditor({ initial, clients = [], docId }: { initial: QuoteDa
               <ExternalLinkIcon />
             </IconButton>
             <DownloadPdfButton data={data} />
-            {clients.length > 0 && (
-              <SaveDocumentButton
-                clients={clients}
-                dataJson={() => data}
-                defaultTitle={data.client?.name ? `Propuesta ${data.client.name}` : 'Propuesta'}
-                documentType="propuesta"
-                existingDocId={docId}
-              />
-            )}
+            <SaveDocumentButton
+              clients={clients}
+              dataJson={() => data}
+              defaultTitle={data.client?.name ? `Propuesta ${data.client.name}` : 'Propuesta'}
+              documentType="propuesta"
+              existingDocId={docId}
+            />
           </div>
         </div>
         <div className="max-h-[82vh] overflow-auto rounded-lg bg-gray-100 p-3">

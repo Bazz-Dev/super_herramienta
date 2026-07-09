@@ -53,7 +53,7 @@ export async function renderHtmlToPdf(html: string, footerLeft: string): Promise
       displayHeaderFooter: true,
       headerTemplate: '<span></span>',
       footerTemplate: footerTemplate(footerLeft),
-      margin: { top: '14mm', bottom: '16mm', left: '14mm', right: '14mm' },
+      margin: { top: '10mm', bottom: '14mm', left: '10mm', right: '10mm' },
     })
     return Buffer.from(pdf)
   } finally {

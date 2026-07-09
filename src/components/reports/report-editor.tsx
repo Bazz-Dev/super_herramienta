@@ -153,16 +153,14 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
               <ExternalLinkIcon />
             </IconButton>
             <DownloadReportButton data={data} />
-            {clients.length > 0 && (
-              <SaveDocumentButton
-                clients={clients}
-                dataJson={() => data}
-                defaultTitle={data.reportId ? `Informe ${data.reportId}` : 'Informe Técnico'}
-                documentType="informe"
-                existingDocId={docId}
-                ticketId={ticketId}
-              />
-            )}
+            <SaveDocumentButton
+              clients={clients}
+              dataJson={() => data}
+              defaultTitle={data.reportId ? `Informe ${data.reportId}` : 'Informe Técnico'}
+              documentType="informe"
+              existingDocId={docId}
+              ticketId={ticketId}
+            />
           </div>
         </div>
         <div className="max-h-[82vh] overflow-auto rounded-lg bg-gray-100 p-3">
