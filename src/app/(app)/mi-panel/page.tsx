@@ -286,7 +286,7 @@ export default async function MiPanelPage() {
                   </div>
                   <Link
                     href={`/mi-panel/firma/${sig.id}`}
-                    className="rounded-lg bg-brand px-3 py-1 text-[11px] font-semibold text-white hover:bg-brand/90"
+                    className="rounded-lg bg-brand px-3 py-1 text-[11px] font-semibold text-ink hover:bg-brand/90"
                   >
                     Firmar
                   </Link>

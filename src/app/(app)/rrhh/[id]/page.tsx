@@ -45,6 +45,21 @@ export default async function TechnicianProfilePage({ params }: Props) {
   const isActive = tech.active && CONTRACT_TYPE_ACTIVE.includes(tech.contractType as ContractTypeId)
   const totalLeavedays = tech.leaveRequests.filter(l => l.status === 'aprobado').reduce((s, l) => s + l.days, 0)
 
+  // Tenure + vacation balance
+  function calcTenure(hireDate: Date | null) {
+    if (!hireDate) return null
+    const ms = Date.now() - new Date(hireDate).getTime()
+    const years = Math.floor(ms / (365.25 * 86400000))
+    const months = Math.floor((ms % (365.25 * 86400000)) / (30.44 * 86400000))
+    if (years >= 1) return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`
+    if (months >= 1) return `${months} mes${months !== 1 ? 'es' : ''}`
+    return `${Math.floor(ms / 86400000)} días`
+  }
+  const tenure = calcTenure(tech.hireDate)
+  const accruedVac = tech.hireDate ? Math.floor((Date.now() - new Date(tech.hireDate).getTime()) / (365.25 * 86400000) * 15) : 0
+  const usedVac = tech.leaveRequests.filter(l => l.type === 'vacaciones' && l.status === 'aprobado').reduce((s, l) => s + l.days, 0)
+  const availableVac = Math.max(0, accruedVac - usedVac)
+
   return (
     <div className="mx-auto max-w-5xl">
       {/* Breadcrumb */}
@@ -104,10 +119,23 @@ export default async function TechnicianProfilePage({ params }: Props) {
             <dl className="space-y-2 text-sm">
               <Row label="Tipo" value={CONTRACT_TYPE_LABELS[tech.contractType]} />
               <Row label="Ingreso" value={fDate(tech.hireDate)} />
+              {tenure && <Row label="Antigüedad" value={tenure} />}
               {tech.contractEndDate && <Row label="Venc. contrato" value={fDate(tech.contractEndDate)} />}
               <Row label="Sueldo base" value={tech.baseSalary ? formatClp(tech.baseSalary) : undefined} />
               {tech.dailyRate && <Row label="Tarifa diaria" value={formatClp(tech.dailyRate)} />}
             </dl>
+            {tech.hireDate && (
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2">
+                <div className="flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Vacaciones disponibles</p>
+                  <p className="mt-0.5 text-sm font-bold text-gray-800">{availableVac} días</p>
+                  <p className="text-[10px] text-gray-400">{accruedVac} acumulados · {usedVac} usados</p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${availableVac > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {availableVac > 0 ? 'Con saldo' : 'Sin saldo'}
+                </span>
+              </div>
+            )}
           </section>
 
           {/* HR editable fields */}
