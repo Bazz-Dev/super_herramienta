@@ -7,6 +7,7 @@ import { PortalShell } from '@/components/tickets/portal-shell'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 
 import { URGENCY_COLORS as URG_COLOR, TICKET_STATUS_COLORS as STATUS_COLOR, C } from '@/lib/portal-colors'
+import { PortalReportsExport } from '@/components/tickets/portal-reports-export'
 
 const OPEN = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
 const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
@@ -115,8 +116,25 @@ export default async function PortalReportesPage({ params }: { params: Promise<{
             <div style={{ fontSize: '17px', fontWeight: '800', color: '#fff', letterSpacing: '-0.3px' }}>Análisis de solicitudes</div>
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)', marginTop: '2px' }}>{client.name} · {tickets.length} solicitudes totales</div>
           </div>
-          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
-            Actualizado {new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+              Actualizado {new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </div>
+            <PortalReportsExport
+              primary={theme.primary}
+              clientName={client.name}
+              rows={tickets.map(t => ({
+                code: t.ticketCode,
+                title: t.title,
+                branch: t.branch?.name ?? '—',
+                urgency: t.urgency,
+                status: t.status,
+                category: t.category ?? '—',
+                assignedTo: t.assignedTo?.name ?? '—',
+                created: new Date(t.createdAt).toLocaleDateString('es-CL'),
+                closed: t.closedDate ? new Date(t.closedDate).toLocaleDateString('es-CL') : '—',
+              }))}
+            />
           </div>
         </div>
 

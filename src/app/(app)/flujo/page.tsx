@@ -17,24 +17,39 @@ import {
 import { clp } from '@/lib/cashflow/format'
 import { KpiCard } from '@/components/cashflow/kpi-card'
 import { ClientFilter } from '@/components/cashflow/client-filter'
+import { PeriodFilter } from '@/components/cashflow/period-filter'
 import { RevenueByClient } from '@/components/cashflow/revenue-by-client'
 import { MonthlyTrend } from '@/components/cashflow/monthly-trend'
 import { JOB_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '@/lib/cashflow/labels'
+import { Suspense } from 'react'
+
+function periodToFrom(periodo: string | undefined): Date | undefined {
+  const now = new Date()
+  switch (periodo ?? '12m') {
+    case 'mes':
+      return new Date(now.getFullYear(), now.getMonth(), 1)
+    case '3m': { const d = new Date(now); d.setMonth(d.getMonth() - 3); return d }
+    case '6m': { const d = new Date(now); d.setMonth(d.getMonth() - 6); return d }
+    case '12m': { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d }
+    default: return undefined  // 'total'
+  }
+}
 
 export default async function FlujoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cliente?: string }>
+  searchParams: Promise<{ cliente?: string; periodo?: string }>
 }) {
   const session = await auth()
   const actor = session!.user
-  const { cliente } = await searchParams
+  const { cliente, periodo } = await searchParams
+  const from = periodToFrom(periodo)
 
   const [clients, jobs, allJobs, monthlyJobs, expensesByCategory, expensesPending] = await Promise.all([
     listClientsForCashflow(actor),
-    listJobs(actor, { clientId: cliente }),
-    cliente ? Promise.resolve([]) : getClientSummaries(actor),
-    cliente ? Promise.resolve([]) : getMonthlySummary(actor),
+    listJobs(actor, { clientId: cliente, from }),
+    cliente ? Promise.resolve([]) : getClientSummaries(actor, from),
+    cliente ? Promise.resolve([]) : getMonthlySummary(actor, 12, from),
     // Gastos aprobados agrupados por categoría
     prisma.expense.groupBy({
       by: ['category'],
@@ -81,6 +96,7 @@ export default async function FlujoPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Suspense fallback={null}><PeriodFilter /></Suspense>
           <ClientFilter clients={clients} />
           <Link
             href="/flujo/trabajos"

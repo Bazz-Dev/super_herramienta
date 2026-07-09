@@ -67,9 +67,9 @@ export async function listBranches(actor: Actor, clientId: string) {
   })
 }
 
-export async function getClientSummaries(actor: Actor) {
+export async function getClientSummaries(actor: Actor, from?: Date) {
   return prisma.job.findMany({
-    where: tenantScope(actor),
+    where: { ...tenantScope(actor), ...(from ? { executionDate: { gte: from } } : {}) },
     select: {
       clientId: true,
       client: { select: { name: true } },
@@ -88,16 +88,19 @@ export async function getClientSummaries(actor: Actor) {
   })
 }
 
-export async function getMonthlySummary(actor: Actor, months = 12) {
-  const from = new Date()
-  from.setMonth(from.getMonth() - months + 1)
-  from.setDate(1)
-  from.setHours(0, 0, 0, 0)
+export async function getMonthlySummary(actor: Actor, months = 12, fromOverride?: Date) {
+  const from = fromOverride ?? (() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - months + 1)
+    d.setDate(1)
+    d.setHours(0, 0, 0, 0)
+    return d
+  })()
 
   return prisma.job.findMany({
     where: {
       ...tenantScope(actor),
-      executionDate: { gte: from },
+      ...(from ? { executionDate: { gte: from } } : {}),
     },
     select: {
       executionDate: true,

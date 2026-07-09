@@ -11,6 +11,8 @@ interface Props {
   address: string | null
   emergencyContact: string | null
   emergencyPhone: string | null
+  phone2: string | null
+  mutualidad: string | null
 }
 
 export function TechnicianHRForm(props: Props) {
@@ -20,6 +22,8 @@ export function TechnicianHRForm(props: Props) {
   const [address, setAddress] = useState(props.address ?? '')
   const [emergencyContact, setEmergencyContact] = useState(props.emergencyContact ?? '')
   const [emergencyPhone, setEmergencyPhone] = useState(props.emergencyPhone ?? '')
+  const [phone2, setPhone2] = useState(props.phone2 ?? '')
+  const [mutualidad, setMutualidad] = useState(props.mutualidad ?? '')
   const [isPending, startTransition] = useTransition()
 
   function save() {
@@ -30,6 +34,8 @@ export function TechnicianHRForm(props: Props) {
         address: address || null,
         emergencyContact: emergencyContact || null,
         emergencyPhone: emergencyPhone || null,
+        phone2: phone2 || null,
+        mutualidad: mutualidad || null,
       })
       setEditing(false)
     })
@@ -72,6 +78,14 @@ export function TechnicianHRForm(props: Props) {
         <div>
           <label className={labelCls}>Teléfono emergencia</label>
           <input type="tel" value={emergencyPhone} onChange={e => setEmergencyPhone(e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Segundo teléfono</label>
+          <input type="tel" value={phone2} onChange={e => setPhone2(e.target.value)} className={inputCls} />
+        </div>
+        <div>
+          <label className={labelCls}>Mutualidad</label>
+          <input type="text" value={mutualidad} onChange={e => setMutualidad(e.target.value)} placeholder="ACHS, IST, Mutual de Seguridad..." className={inputCls} />
         </div>
         <div className="flex gap-2 pt-1">
           <button

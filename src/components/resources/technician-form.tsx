@@ -21,6 +21,8 @@ type Values = {
   birthDate?: Date | null
   emergencyContact?: string | null
   emergencyPhone?: string | null
+  phone2?: string | null
+  mutualidad?: string | null
 }
 
 function toDateInput(d: Date | null | undefined): string {
@@ -74,6 +76,12 @@ export function TechnicianForm({
           </Field>
           <Field label="Teléfono emergencia">
             <TextInput name="emergencyPhone" defaultValue={initial.emergencyPhone ?? ''} placeholder="+56 9 ..." />
+          </Field>
+          <Field label="Segundo teléfono">
+            <TextInput name="phone2" defaultValue={initial.phone2 ?? ''} placeholder="+56 9 ..." />
+          </Field>
+          <Field label="Mutualidad">
+            <TextInput name="mutualidad" defaultValue={initial.mutualidad ?? ''} placeholder="ACHS, IST, Mutual de Seguridad..." />
           </Field>
         </div>
       </section>

@@ -10,6 +10,7 @@ export async function getHRDashboard(actor: TenantActor) {
       select: {
         id: true, name: true, rut: true, specialty: true, active: true,
         contractType: true, hireDate: true, baseSalary: true,
+        contractEndDate: true, phone: true,
         vehicle: { select: { plate: true } },
       },
       orderBy: { name: 'asc' },

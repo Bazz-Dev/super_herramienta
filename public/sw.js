@@ -1,6 +1,6 @@
 // INGEGAR One — Service Worker
 // Cache name includes build timestamp so each deploy auto-clears old caches
-const CACHE = 'ingegar-one-1.8.0'
+const CACHE = 'ingegar-one-1.9.0'
 const OFFLINE_URL = '/offline'
 
 // Assets to pre-cache for offline shell
@@ -8,8 +8,8 @@ const PRECACHE = [
   '/',
   '/dashboard',
   '/offline',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/ingegar-icon/192',
+  '/ingegar-icon/512',
 ]
 
 self.addEventListener('install', (event) => {

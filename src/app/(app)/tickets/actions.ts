@@ -42,7 +42,7 @@ const updateSchema = z.object({
 })
 
 export async function createTicket(_: unknown, fd: FormData) {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const parsed = createSchema.parse({
     ticketCode: fd.get('ticketCode'),
     title: fd.get('title'),
@@ -110,7 +110,7 @@ export async function createTicket(_: unknown, fd: FormData) {
 }
 
 export async function updateTicketStatus(ticketId: string, newStatus: string, note?: string) {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId },
@@ -169,7 +169,7 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
 }
 
 export async function updateTicketFields(ticketId: string, data: z.infer<typeof updateSchema>, internalNote?: string) {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId },
@@ -233,7 +233,7 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
 }
 
 export async function addTicketComment(ticketId: string, note: string, isInternal: boolean) {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId },
@@ -250,7 +250,7 @@ export async function addTicketComment(ticketId: string, note: string, isInterna
 }
 
 export async function bulkAssignResolvedTickets(assignedToId: string) {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   assertRole(actor, ['super', 'supervisor'])
 
   const result = await prisma.ticket.updateMany({
@@ -268,7 +268,7 @@ export async function bulkAssignResolvedTickets(assignedToId: string) {
 }
 
 export async function deleteTicket(ticketId: string) {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   assertRole(actor, ['super', 'supervisor'])
   await prisma.ticket.updateMany({
     where: { id: ticketId, tenantId: actor.tenantId },

@@ -49,7 +49,7 @@ async function freeTechnician(technicianId: string, exceptVehicleId?: string) {
 }
 
 export async function createVehicle(_prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const { technicianId, ...rest } = vehicleData(parsed.data)
@@ -60,7 +60,7 @@ export async function createVehicle(_prev: FormState, formData: FormData): Promi
 }
 
 export async function updateVehicle(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.vehicle.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
@@ -73,7 +73,7 @@ export async function updateVehicle(id: string, _prev: FormState, formData: Form
 }
 
 export async function deleteVehicle(id: string): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.vehicle.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return
   await prisma.vehicle.delete({ where: { id } })

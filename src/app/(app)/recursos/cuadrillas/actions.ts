@@ -29,7 +29,7 @@ async function safeTechIds(actor: TenantActor, ids: string[]): Promise<string[]>
 }
 
 export async function createCrew(_prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const techIds = await safeTechIds(actor, parsed.data.technicianIds)
@@ -47,7 +47,7 @@ export async function createCrew(_prev: FormState, formData: FormData): Promise<
 }
 
 export async function updateCrew(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.crew.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
@@ -67,7 +67,7 @@ export async function updateCrew(id: string, _prev: FormState, formData: FormDat
 }
 
 export async function deleteCrew(id: string): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.crew.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return
   await prisma.crew.delete({ where: { id } })

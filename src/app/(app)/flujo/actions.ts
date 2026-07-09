@@ -38,7 +38,7 @@ function jobData(p: ReturnType<typeof jobInput.parse>) {
 }
 
 export async function createBranch(form: FormData) {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   const p = branchInput.parse({
     clientId: form.get('clientId'),
     name: form.get('name'),
@@ -51,20 +51,20 @@ export async function createBranch(form: FormData) {
 }
 
 export async function updateBranch(id: string, form: FormData) {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   const p = branchInput.parse({ clientId: form.get('clientId'), name: form.get('name'), active: form.get('active') === 'on' })
   await prisma.branch.updateMany({ where: { id, ...tenantScope(u) }, data: { name: p.name, active: p.active } })
   revalidatePath('/flujo/sucursales')
 }
 
 export async function deleteBranch(id: string) {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   await prisma.branch.deleteMany({ where: { id, ...tenantScope(u) } })
   revalidatePath('/flujo/sucursales')
 }
 
 export async function createJob(_prev: FormState, form: FormData): Promise<FormState> {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   const parsed = jobInput.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const client = await prisma.client.findFirst({ where: { id: parsed.data.clientId, ...tenantScope(u) }, select: { id: true } })
@@ -81,7 +81,7 @@ export async function createJob(_prev: FormState, form: FormData): Promise<FormS
 }
 
 export async function updateJob(id: string, _prev: FormState, form: FormData): Promise<FormState> {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   const parsed = jobInput.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const branch = await prisma.branch.findFirst({ where: { id: parsed.data.branchId, ...tenantScope(u) }, select: { id: true } })
@@ -96,14 +96,14 @@ export async function updateJob(id: string, _prev: FormState, form: FormData): P
 }
 
 export async function deleteJob(id: string) {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   await prisma.job.deleteMany({ where: { id, ...tenantScope(u) } })
   revalidatePath('/flujo')
   redirect('/flujo/trabajos')
 }
 
 export async function addCost(form: FormData) {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   const p = jobCostInput.parse(Object.fromEntries(form))
   const job = await prisma.job.findFirst({ where: { id: p.jobId, ...tenantScope(u) } })
   if (!job) throw new Error('No autorizado')
@@ -122,7 +122,7 @@ export async function addCost(form: FormData) {
 }
 
 export async function deleteCost(id: string, jobId: string) {
-  const u = await requireActor()
+  const u = await requireActor(['super', 'supervisor'])
   await prisma.jobCost.deleteMany({
     where: { id, job: { id: jobId, ...tenantScope(u) } },
   })

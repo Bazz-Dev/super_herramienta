@@ -2,10 +2,12 @@ import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
+import { getViewAsName } from '@/lib/viewas'
 import { Sidebar } from '@/components/ui/sidebar'
 import { LogoutButton } from '@/components/ui/logout-button'
 import { NotificationBell } from '@/components/ui/notification-bell'
 import { TopProgress } from '@/components/ui/top-progress'
+import { ViewAsBar } from '@/components/ui/view-as-bar'
 
 const ROLE_LABELS: Record<string, string> = {
   super: 'Super Admin',
@@ -33,11 +35,28 @@ export default async function AppLayout({
     redirect(clientRecord?.portalSlug ? `/portal/${clientRecord.portalSlug}/tickets` : '/login')
   }
 
-  const portalClients = await prisma.client.findMany({
-    where: { ...tenantScope(user), portalSlug: { not: null } },
-    select: { name: true, portalSlug: true },
-    orderBy: { name: 'asc' },
-  }) as { name: string; portalSlug: string }[]
+  const [portalClients, viewAsUsers, viewAsName] = await Promise.all([
+    prisma.client.findMany({
+      where: { ...tenantScope(user), portalSlug: { not: null } },
+      select: { name: true, portalSlug: true },
+      orderBy: { name: 'asc' },
+    }) as Promise<{ name: string; portalSlug: string }[]>,
+    user.role === 'super'
+      ? prisma.user.findMany({
+          where: { role: { in: ['supervisor', 'tecnico'] } },
+          select: { id: true, name: true, role: true, tenant: { select: { slug: true } } },
+          orderBy: { name: 'asc' },
+        })
+      : Promise.resolve([]),
+    getViewAsName(user.role as import('@/generated/prisma/enums').Role),
+  ])
+
+  const viewAsBarUsers = viewAsUsers.map((u) => ({
+    id: u.id,
+    name: u.name,
+    role: u.role,
+    tenantSlug: u.tenant.slug,
+  }))
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -50,6 +69,11 @@ export default async function AppLayout({
         }}
         logout={<LogoutButton />}
         portalClients={portalClients}
+        viewAsBar={
+          user.role === 'super' ? (
+            <ViewAsBar activeViewName={viewAsName} users={viewAsBarUsers} />
+          ) : undefined
+        }
       />
       <main className="md:pl-60">
         {/* Topbar with notification bell — desktop only */}

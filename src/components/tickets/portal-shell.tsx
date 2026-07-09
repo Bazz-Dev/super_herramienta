@@ -41,6 +41,9 @@ function IconReports() {
 function IconDocument() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3M6 8h4M6 11h3"/></svg>
 }
+function IconBriefcase() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="5" width="14" height="10" rx="1.5"/><path d="M5 5V4a2 2 0 014 0v1"/><path d="M1 9h14"/></svg>
+}
 function IconCalendar() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 7h12M5 1v3M11 1v3"/></svg>
 }
@@ -62,6 +65,7 @@ const NAV = [
   { href: (s: string) => `/portal/${s}/tickets`,     label: 'Requerimientos',    Icon: IconTickets },
   { href: (s: string) => `/portal/${s}/tickets/new`, label: 'Nueva solicitud',   Icon: IconPlus },
   { href: (s: string) => `/portal/${s}/informes`,    label: 'Inf. Técnicos',     Icon: IconDocument },
+  { href: (s: string) => `/portal/${s}/propuestas`,  label: 'Propuestas',        Icon: IconBriefcase },
   { href: (s: string) => `/portal/${s}/reportes`,    label: 'Reportes',          Icon: IconReports },
   { href: (s: string) => `/portal/${s}/cronograma`,  label: 'Cronograma',        Icon: IconCalendar },
   { href: (s: string) => `/portal/${s}/cuenta`,      label: 'Mi cuenta',         Icon: IconUser },

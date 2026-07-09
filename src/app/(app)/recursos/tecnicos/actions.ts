@@ -25,6 +25,8 @@ function parse(formData: FormData) {
     birthDate: formData.get('birthDate'),
     emergencyContact: formData.get('emergencyContact'),
     emergencyPhone: formData.get('emergencyPhone'),
+    phone2: formData.get('phone2'),
+    mutualidad: formData.get('mutualidad'),
   })
 }
 
@@ -37,7 +39,7 @@ function techData(p: ReturnType<typeof technicianInputSchema.parse>) {
 }
 
 export async function createTechnician(_prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) {
     return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
@@ -52,7 +54,7 @@ export async function updateTechnician(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.technician.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) {
     return { error: 'No encontrado o sin permiso.' }
@@ -68,7 +70,7 @@ export async function updateTechnician(
 }
 
 export async function deleteDocument(docId: string, techId: string): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const doc = await prisma.technicianDocument.findFirst({
     where: { id: docId, technician: { tenantId: actor.tenantId } },
     select: { id: true, fileUrl: true },
@@ -83,7 +85,7 @@ export async function deleteDocument(docId: string, techId: string): Promise<voi
 }
 
 export async function deleteTechnician(id: string): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.technician.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return
   await prisma.technician.delete({ where: { id } })

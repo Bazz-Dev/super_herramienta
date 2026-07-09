@@ -3,6 +3,7 @@ import { requireActor, tenantScope } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { ExpenseList } from '@/components/expenses/expense-list'
 import { StaffNewExpense } from '@/components/expenses/staff-new-expense'
+import { ExpenseForm } from '@/components/expenses/expense-form'
 
 function formatClp(n: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
@@ -64,6 +65,7 @@ export default async function GastosPage({
   const canApprove = actor.role === 'super' || actor.role === 'supervisor'
   const canDelete = actor.role === 'super'
   const isStaff = actor.role === 'super' || actor.role === 'supervisor'
+  const isTecnico = actor.role === 'tecnico'
 
   const TAB_FILTERS: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: 'Todos' },
@@ -99,11 +101,17 @@ export default async function GastosPage({
         </div>
       </div>
 
-      {/* New expense form for staff */}
+      {/* New expense form */}
       {isStaff && technicians.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-base font-semibold text-ink">Registrar gasto para un técnico</h2>
           <StaffNewExpense technicians={technicians} />
+        </div>
+      )}
+      {isTecnico && (
+        <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <h2 className="mb-4 text-base font-semibold text-ink">Registrar mi gasto</h2>
+          <ExpenseForm />
         </div>
       )}
 

@@ -34,15 +34,18 @@ export async function requireActor(allowedRoles?: Role[]): Promise<AuthActor> {
   const session = await auth()
   if (!session?.user?.tenantId) redirect('/login')
   const u = session.user
+  // Role check uses the REAL session role — viewas never locks super out of internal routes
   if (allowedRoles && !allowedRoles.includes(u.role as Role)) redirect('/dashboard')
-  return {
+  const actor: AuthActor = {
     id: u.id,
-    role: u.role,
+    role: u.role as Role,
     tenantId: u.tenantId,
     tenantSlug: u.tenantSlug,
     name: u.name ?? 'Usuario',
     technicianId: u.technicianId ?? null,
   }
+  const { applyViewAs } = await import('./viewas')
+  return applyViewAs(actor)
 }
 
 export function tenantScope(actor: ScopeActor): { tenantId?: string } {

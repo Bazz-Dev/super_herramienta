@@ -62,7 +62,7 @@ async function resolveTicketId(rawId: FormDataEntryValue | null, tenantId: strin
 }
 
 export async function createAssignment(_prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const ticketId = await resolveTicketId(formData.get('ticketId'), actor.tenantId)
@@ -97,7 +97,7 @@ export async function createAssignment(_prev: FormState, formData: FormData): Pr
 }
 
 export async function updateAssignment(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.assignment.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
@@ -120,7 +120,7 @@ export async function updateAssignment(id: string, _prev: FormState, formData: F
 }
 
 export async function deleteAssignment(id: string): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.assignment.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return
   await prisma.assignment.delete({ where: { id } })

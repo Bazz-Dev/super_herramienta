@@ -9,10 +9,10 @@ export function KpiCard({
   label, value, hint, tone = 'default',
 }: { label: string; value: string; hint?: string; tone?: 'default' | 'warn' | 'danger' | 'good' }) {
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${TONES[tone]}`}>
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-ink tabular-nums">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-gray-400">{hint}</p>}
+    <div className={`rounded-xl border p-4 shadow-sm min-w-0 overflow-hidden ${TONES[tone]}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500 truncate">{label}</p>
+      <p className="mt-1 text-lg font-bold text-ink tabular-nums sm:text-2xl">{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-gray-400 truncate">{hint}</p>}
     </div>
   )
 }

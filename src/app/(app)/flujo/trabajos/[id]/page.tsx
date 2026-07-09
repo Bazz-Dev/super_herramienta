@@ -113,17 +113,29 @@ export default async function TrabajoDetailPage({
 
       {/* Client documents */}
       <div className="mt-10">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-ink">Documentos del cliente</h2>
-          <Link href="/documentos" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-            Ver carpeta →
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/cotizador" className="text-xs font-semibold text-brand hover:underline">
+              + Propuesta
+            </Link>
+            <Link href="/informe" className="text-xs font-semibold text-brand hover:underline">
+              + Informe
+            </Link>
+            <Link href="/documentos" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+              Ver carpeta →
+            </Link>
+          </div>
         </div>
         {clientDocs.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 py-6 text-center text-sm text-gray-400">
             Sin documentos para este cliente.{' '}
             <Link href="/cotizador" className="font-semibold text-brand hover:underline">
               Crear propuesta →
+            </Link>
+            {' '}o{' '}
+            <Link href="/informe" className="font-semibold text-brand hover:underline">
+              Crear informe →
             </Link>
           </div>
         ) : (

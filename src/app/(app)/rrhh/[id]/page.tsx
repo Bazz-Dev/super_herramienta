@@ -89,7 +89,9 @@ export default async function TechnicianProfilePage({ params }: Props) {
             <dl className="space-y-2 text-sm">
               <Row label="Email" value={tech.email} />
               <Row label="Teléfono" value={tech.phone} />
+              {tech.phone2 && <Row label="Teléfono 2" value={tech.phone2} />}
               <Row label="Dirección" value={tech.address} />
+              {tech.mutualidad && <Row label="Mutualidad" value={tech.mutualidad} />}
               <Row label="Nacimiento" value={fDate(tech.birthDate)} />
               <Row label="Contacto emergencia" value={tech.emergencyContact} />
               <Row label="Tel. emergencia" value={tech.emergencyPhone} />
@@ -116,6 +118,8 @@ export default async function TechnicianProfilePage({ params }: Props) {
             address={tech.address ?? null}
             emergencyContact={tech.emergencyContact ?? null}
             emergencyPhone={tech.emergencyPhone ?? null}
+            phone2={tech.phone2 ?? null}
+            mutualidad={tech.mutualidad ?? null}
           />
         </div>
 

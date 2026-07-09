@@ -21,7 +21,7 @@ function parse(formData: FormData) {
 }
 
 export async function createAsset(_prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const { vehicleId, ...rest } = parsed.data
@@ -31,7 +31,7 @@ export async function createAsset(_prev: FormState, formData: FormData): Promise
 }
 
 export async function updateAsset(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.asset.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
@@ -43,7 +43,7 @@ export async function updateAsset(id: string, _prev: FormState, formData: FormDa
 }
 
 export async function deleteAsset(id: string): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.asset.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return
   await prisma.asset.delete({ where: { id } })

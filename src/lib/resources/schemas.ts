@@ -30,6 +30,8 @@ export const technicianInputSchema = z.object({
   birthDate: optionalText,
   emergencyContact: optionalText,
   emergencyPhone: optionalText,
+  phone2: optionalText,
+  mutualidad: optionalText,
 })
 
 export type TechnicianInput = z.infer<typeof technicianInputSchema>

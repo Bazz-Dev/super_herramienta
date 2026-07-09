@@ -23,7 +23,7 @@ function parse(formData: FormData) {
 }
 
 export async function createClient(_prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const { ruts, ...clientData } = parsed.data
@@ -38,7 +38,7 @@ export async function createClient(_prev: FormState, formData: FormData): Promis
 }
 
 export async function updateClient(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
@@ -57,7 +57,7 @@ export async function updateClient(id: string, _prev: FormState, formData: FormD
 }
 
 export async function createBranch(clientId: string, _prev: FormState, formData: FormData): Promise<FormState> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.client.findUnique({ where: { id: clientId }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const name = (formData.get('name') as string)?.trim()
@@ -73,7 +73,7 @@ export async function createBranch(clientId: string, _prev: FormState, formData:
 }
 
 export async function toggleBranch(branchId: string, active: boolean): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { tenantId: true, clientId: true } })
   if (!branch || !canAccessTenant(actor, branch.tenantId)) return
   await prisma.branch.update({ where: { id: branchId }, data: { active } })
@@ -81,7 +81,7 @@ export async function toggleBranch(branchId: string, active: boolean): Promise<v
 }
 
 export async function saveClientLogo(id: string, dataUrl: string | null): Promise<{ error?: string }> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'Sin permiso.' }
   // Validate: must be a data URI image or null
@@ -92,7 +92,7 @@ export async function saveClientLogo(id: string, dataUrl: string | null): Promis
 }
 
 export async function deleteClient(id: string): Promise<void> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return
   await prisma.client.delete({ where: { id } })
@@ -105,7 +105,7 @@ export async function createClientInline(
   name: string,
   rut?: string,
 ): Promise<{ id: string; name: string } | { error: string }> {
-  const actor = await requireActor()
+  const actor = await requireActor(['super', 'supervisor'])
   const trimmed = name.trim()
   if (!trimmed) return { error: 'El nombre del cliente es obligatorio.' }
   const client = await prisma.client.create({

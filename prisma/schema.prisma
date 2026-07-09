@@ -183,6 +183,8 @@ model Technician {
   dailyRate       Int?        // CLP/día — para ayudantes eventuales
   birthDate       DateTime?
   address         String?
+  phone2          String?     // segundo número de contacto
+  mutualidad      String?     // organismo administrador: ACHS, IST, Mutual de Seguridad, etc.
   emergencyContact String?
   emergencyPhone  String?
 

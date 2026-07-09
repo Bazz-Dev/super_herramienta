@@ -50,10 +50,12 @@ export function Sidebar({
   user,
   logout,
   portalClients = [],
+  viewAsBar,
 }: {
   user: { name: string; tenantSlug: string; roleLabel: string }
   logout: ReactNode
   portalClients?: { name: string; portalSlug: string }[]
+  viewAsBar?: ReactNode
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
@@ -122,6 +124,7 @@ export function Sidebar({
         )}
       </nav>
 
+      {viewAsBar && <div className="px-3">{viewAsBar}</div>}
       <div className="safe-b border-t border-gray-200 px-5 py-4 text-sm">
         <a href="/perfil" className="interactive group flex min-h-11 items-center gap-2 py-1 hover:opacity-80">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-ink">

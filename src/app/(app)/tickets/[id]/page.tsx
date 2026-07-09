@@ -20,7 +20,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const ticket = await getTicket(actor, id)
   if (!ticket) notFound()
 
-  const [technicians, staffUsers, allInformes] = await Promise.all([
+  const [technicians, staffUsers, allInformes, ticketExpenses] = await Promise.all([
     prisma.technician.findMany({
       where: { tenantId: actor.tenantId, active: true },
       select: { id: true, name: true },
@@ -35,6 +35,11 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       where: { tenantId: actor.tenantId, type: 'informe', metadata: { contains: `"ticketId":"${id}"` } },
       select: { id: true, title: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
+    }),
+    prisma.expense.findMany({
+      where: { ticketId: id, tenantId: actor.tenantId },
+      include: { technician: { select: { name: true } } },
+      orderBy: { date: 'desc' },
     }),
   ])
 
@@ -150,6 +155,17 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             <p className="text-sm text-green-800">{ticket.workSummary}</p>
           </div>
         )}
+
+        {/* Quick action: log expense for this ticket */}
+        <div className="mt-3 border-t border-gray-100 pt-3">
+          <Link
+            href={`/gastos?ticketRef=${ticket.id}`}
+            className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline font-medium"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v10M3 8h10"/></svg>
+            Registrar gasto →
+          </Link>
+        </div>
       </div>
 
       {/* 2-col layout */}
@@ -184,6 +200,53 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           )}
         </div>
       </div>
+
+      {/* Expenses linked to this ticket */}
+      {ticketExpenses.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Gastos asociados</h2>
+            <span className="text-xs text-gray-400">
+              Total: {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(
+                ticketExpenses.filter(e => e.status === 'aprobado').reduce((s, e) => s + e.amount, 0)
+              )} aprobado
+            </span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {ticketExpenses.map(e => {
+              const CAT: Record<string, string> = {
+                combustible: 'Combustible', estacionamiento: 'Estacionamiento',
+                materiales: 'Materiales', viatico: 'Viático', herramienta: 'Herramienta', otro: 'Otro',
+              }
+              const STATUS_CLS: Record<string, string> = {
+                pendiente: 'bg-amber-50 text-amber-700',
+                aprobado: 'bg-green-50 text-green-700',
+                rechazado: 'bg-red-50 text-red-600',
+              }
+              const STATUS_LBL: Record<string, string> = { pendiente: 'Pendiente', aprobado: 'Aprobado', rechazado: 'Rechazado' }
+              return (
+                <div key={e.id} className="flex items-center justify-between py-2.5 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-medium text-gray-800">{CAT[e.category] ?? e.category}</p>
+                    <p className="text-xs text-gray-400">
+                      {e.technician.name} · {new Date(e.date).toLocaleDateString('es-CL')}
+                      {e.description && ` · ${e.description}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_CLS[e.status] ?? ''}`}>
+                      {STATUS_LBL[e.status] ?? e.status}
+                    </span>
+                    <span className="tabular-nums font-semibold text-gray-700">
+                      {new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(e.amount)}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
