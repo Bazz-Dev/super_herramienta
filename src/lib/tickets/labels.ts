@@ -1,7 +1,8 @@
-export type TicketStatusId = 'nuevo' | 'en_revision' | 'en_ejecucion' | 'esperando_aprobacion' | 'resuelto' | 'cancelado' | 'fusionado'
+export type TicketStatusId = 'pendiente_aprobacion' | 'nuevo' | 'en_revision' | 'en_ejecucion' | 'esperando_aprobacion' | 'resuelto' | 'cancelado' | 'fusionado'
 export type TicketUrgencyId = 'emergencia' | 'urgencia' | 'no_urgente' | 'preventivo'
 
 export const STATUS_LABEL: Record<TicketStatusId, string> = {
+  pendiente_aprobacion: 'Pendiente aprobación',
   nuevo: 'Nuevo',
   en_revision: 'En Revisión',
   en_ejecucion: 'En Ejecución',
@@ -12,6 +13,7 @@ export const STATUS_LABEL: Record<TicketStatusId, string> = {
 }
 
 export const STATUS_COLOR: Record<TicketStatusId, string> = {
+  pendiente_aprobacion: 'bg-yellow-100 text-yellow-800',
   nuevo: 'bg-blue-100 text-blue-800',
   en_revision: 'bg-amber-100 text-amber-800',
   en_ejecucion: 'bg-orange-100 text-orange-800',
@@ -22,6 +24,7 @@ export const STATUS_COLOR: Record<TicketStatusId, string> = {
 }
 
 export const STATUS_DOT: Record<TicketStatusId, string> = {
+  pendiente_aprobacion: 'bg-yellow-500',
   nuevo: 'bg-blue-500',
   en_revision: 'bg-amber-500',
   en_ejecucion: 'bg-orange-500',
@@ -57,6 +60,7 @@ export const ALL_URGENCIES = Object.keys(URGENCY_LABEL) as TicketUrgencyId[]
 
 // Portal CSS badge classes (used with the portal design system in layout.tsx)
 export const PORTAL_STATUS_BADGE: Record<string, string> = {
+  pendiente_aprobacion: 'badge badge-espera',
   nuevo: 'badge badge-nuevo',
   en_revision: 'badge badge-revision',
   en_ejecucion: 'badge badge-ejecucion',
@@ -81,6 +85,7 @@ export const PORTAL_URGENCY_SHORT: Record<string, string> = {
 }
 
 export const PORTAL_STATUS_SHORT: Record<string, string> = {
+  pendiente_aprobacion: 'Pend. aprobación',
   nuevo: 'Nuevo',
   en_revision: 'En revisión',
   en_ejecucion: 'En ejecución',

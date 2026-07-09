@@ -10,6 +10,7 @@ interface Props {
   clientName: string
   createdById: string
   branches: { id: string; name: string; city: string | null }[]
+  defaultBranchId?: string | null
   primary: string
   bg: string
   textColor: string
@@ -33,11 +34,12 @@ const T2 = 'rgba(24,19,14,0.55)'
 const T3 = 'rgba(24,19,14,0.40)'
 const BORDER = 'rgba(24,19,14,0.15)'
 
-export function PortalNewTicketForm({ slug, clientId, clientName, createdById, branches, primary, bg, textColor, isStaff }: Props) {
+export function PortalNewTicketForm({ slug, clientId, clientName, createdById, branches, defaultBranchId, primary, bg, textColor, isStaff }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState('')
   const [urgency, setUrgency] = useState('no_urgente')
+  const lockedBranch = defaultBranchId ? branches.find(b => b.id === defaultBranchId) : null
 
   const inp: React.CSSProperties = {
     width: '100%', borderRadius: '9px',
@@ -99,12 +101,23 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
       {/* Sucursal */}
       <div>
         {label('Sucursal', true)}
-        <select name="branchId" required style={inp} onFocus={focusStyle} onBlur={blurStyle}>
-          <option value="">Selecciona la sucursal afectada…</option>
-          {branches.map(b => (
-            <option key={b.id} value={b.id}>{b.name}{b.city ? ` — ${b.city}` : ''}</option>
-          ))}
-        </select>
+        {lockedBranch ? (
+          // Branch user: sucursal fijada por su cuenta, no se puede cambiar
+          <>
+            <input type="hidden" name="branchId" value={lockedBranch.id} />
+            <div style={{ ...inp, display: 'flex', alignItems: 'center', gap: '8px', background: `color-mix(in srgb, ${primary} 6%, ${bg})`, borderColor: `color-mix(in srgb, ${primary} 30%, transparent)` }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke={primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="7" cy="5.5" r="2"/><path d="M7 13S2.5 9.5 2.5 5.5a4.5 4.5 0 019 0C11.5 9.5 7 13 7 13z"/></svg>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: textColor }}>{lockedBranch.name}{lockedBranch.city ? ` — ${lockedBranch.city}` : ''}</span>
+            </div>
+          </>
+        ) : (
+          <select name="branchId" required style={inp} onFocus={focusStyle} onBlur={blurStyle}>
+            <option value="">Selecciona la sucursal afectada…</option>
+            {branches.map(b => (
+              <option key={b.id} value={b.id}>{b.name}{b.city ? ` — ${b.city}` : ''}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Urgencia */}

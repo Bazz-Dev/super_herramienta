@@ -68,6 +68,8 @@ export const authConfig = {
         token.tenantSlug = user.tenantSlug
         token.clientId = user.clientId ?? null
         token.technicianId = user.technicianId ?? null
+        token.branchId = user.branchId ?? null
+        token.isClientAdmin = user.isClientAdmin ?? false
       }
       return token
     },
@@ -79,6 +81,8 @@ export const authConfig = {
         session.user.tenantSlug = token.tenantSlug as string
         session.user.clientId = (token.clientId as string | null | undefined) ?? null
         session.user.technicianId = (token.technicianId as string | null | undefined) ?? null
+        session.user.branchId = (token.branchId as string | null | undefined) ?? null
+        session.user.isClientAdmin = (token.isClientAdmin as boolean | undefined) ?? false
       }
       return session
     },

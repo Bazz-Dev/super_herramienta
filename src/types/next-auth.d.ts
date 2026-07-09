@@ -8,6 +8,8 @@ declare module 'next-auth' {
     tenantSlug: string
     clientId?: string | null
     technicianId?: string | null
+    branchId?: string | null
+    isClientAdmin?: boolean
   }
 
   interface Session {
@@ -18,6 +20,8 @@ declare module 'next-auth' {
       tenantSlug: string
       clientId?: string | null
       technicianId?: string | null
+      branchId?: string | null
+      isClientAdmin?: boolean
     } & DefaultSession['user']
   }
 }
@@ -29,5 +33,7 @@ declare module 'next-auth/jwt' {
     tenantSlug: string
     clientId?: string | null
     technicianId?: string | null
+    branchId?: string | null
+    isClientAdmin?: boolean
   }
 }

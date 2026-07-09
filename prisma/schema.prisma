@@ -110,8 +110,10 @@ model User {
   tenantId String
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  clientId     String? // set when role = client, scopes portal access
-  technicianId String? @unique // set when role = tecnico
+  clientId      String? // set when role = client, scopes portal access
+  technicianId  String? @unique // set when role = tecnico
+  branchId      String? // set when role = client AND scoped to one branch (branch users)
+  isClientAdmin Boolean @default(false) // client admin (e.g. Carolina): can approve/reject tickets
 
   technician        Technician?       @relation(fields: [technicianId], references: [id], onDelete: SetNull)
 
@@ -489,6 +491,7 @@ enum TicketUrgency {
 }
 
 enum TicketStatus {
+  pendiente_aprobacion // submitted by branch, awaiting client admin approval
   nuevo
   en_revision
   en_ejecucion

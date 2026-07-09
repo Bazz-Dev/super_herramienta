@@ -98,9 +98,16 @@ const clientTicketSelect = {
 export type ClientTicket = Awaited<ReturnType<typeof getClientTickets>>[number]
 
 // Portal: client-scoped, strips internal data
-export async function getClientTickets(clientId: string) {
+// branchId: if set, only return tickets for that branch (branch user scoping)
+export async function getClientTickets(clientId: string, branchId?: string | null) {
   return prisma.ticket.findMany({
-    where: { clientId, showToClient: true, deletedAt: null, status: { notIn: ['fusionado'] as TicketStatus[] } },
+    where: {
+      clientId,
+      showToClient: true,
+      deletedAt: null,
+      status: { notIn: ['fusionado'] as TicketStatus[] },
+      ...(branchId ? { branchId } : {}),
+    },
     select: clientTicketSelect,
     orderBy: { createdAt: 'desc' },
   })

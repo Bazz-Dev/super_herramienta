@@ -223,6 +223,67 @@ async function main() {
     },
   })
 
+  // Carolina — Client Admin de Just Burger (aprueba tickets antes de llegar a INGEGAR)
+  const carolinaPassword = process.env.SEED_CAROLINA_PASSWORD ?? 'Carolina@JB2026'
+  const carolinaHash = await bcrypt.hash(carolinaPassword, 10)
+  await prisma.user.upsert({
+    where: { email: 'carolina@justburger.cl' },
+    update: { passwordHash: carolinaHash, role: 'client', name: 'Carolina', clientId: jbClient.id, username: 'jb.carolina', isClientAdmin: true, active: true },
+    create: {
+      email: 'carolina@justburger.cl',
+      username: 'jb.carolina',
+      name: 'Carolina',
+      passwordHash: carolinaHash,
+      role: 'client',
+      tenantId: ingegar.id,
+      clientId: jbClient.id,
+      isClientAdmin: true,
+    },
+  })
+
+  // 13 sucursales Just Burger + usuarios por sucursal
+  const jbBranches = [
+    { slug: 'quilin',      name: 'Tienda Mall Paseo Quilín',  city: 'Santiago',   email: 'quilin@justburger.cl',       username: 'jb.quilin' },
+    { slug: 'machali',     name: 'Tienda Machalí',            city: 'Machalí',    email: 'machali@justburger.cl',      username: 'jb.machali' },
+    { slug: 'providencia', name: 'Tienda Providencia',        city: 'Santiago',   email: 'providencia@justburger.cl',  username: 'jb.providencia' },
+    { slug: 'rotonda',     name: 'Tienda Rotonda Atenas',     city: 'Santiago',   email: 'rotonda@justburger.cl',      username: 'jb.rotonda' },
+    { slug: 'montt',       name: 'Tienda Manuel Montt',       city: 'Santiago',   email: 'montt@justburger.cl',        username: 'jb.montt' },
+    { slug: 'toesca',      name: 'Tienda Toesca',             city: 'Santiago',   email: 'toesca@justburger.cl',       username: 'jb.toesca' },
+    { slug: 'vina',        name: 'Tienda Viña del Mar',       city: 'Viña del Mar', email: 'vina@justburger.cl',       username: 'jb.vina' },
+    { slug: 'huechuraba',  name: 'Tienda Huechuraba',         city: 'Huechuraba', email: 'huechuraba@justburger.cl',   username: 'jb.huechuraba' },
+    { slug: 'vallemana',   name: 'Tienda Villa Alemana',      city: 'Villa Alemana', email: 'vallemana@justburger.cl', username: 'jb.vallemana' },
+    { slug: 'lareina',     name: 'Tienda La Reina',           city: 'La Reina',   email: 'lareina@justburger.cl',      username: 'jb.lareina' },
+    { slug: 'isidora',     name: 'Tienda Isidora',            city: 'Santiago',   email: 'isidora@justburger.cl',      username: 'jb.isidora' },
+    { slug: 'tranqueras',  name: 'Tienda Tranqueras',         city: 'Santiago',   email: 'tranqueras@justburger.cl',   username: 'jb.tranqueras' },
+    { slug: 'laflorida',   name: 'Tienda La Florida',         city: 'La Florida', email: 'laflorida@justburger.cl',    username: 'jb.laflorida' },
+  ]
+
+  const jbBranchPassword = process.env.SEED_JB_BRANCH_PASSWORD ?? 'JBSucursal@2026'
+  const jbBranchHash = await bcrypt.hash(jbBranchPassword, 10)
+
+  for (const b of jbBranches) {
+    const branch = await prisma.branch.upsert({
+      where: { clientId_name: { clientId: jbClient.id, name: b.name } },
+      update: { city: b.city, active: true },
+      create: { name: b.name, city: b.city, clientId: jbClient.id, tenantId: ingegar.id, active: true },
+    })
+    await prisma.user.upsert({
+      where: { email: b.email },
+      update: { passwordHash: jbBranchHash, role: 'client', name: b.name, clientId: jbClient.id, username: b.username, branchId: branch.id, active: true },
+      create: {
+        email: b.email,
+        username: b.username,
+        name: b.name,
+        passwordHash: jbBranchHash,
+        role: 'client',
+        tenantId: ingegar.id,
+        clientId: jbClient.id,
+        branchId: branch.id,
+        active: true,
+      },
+    })
+  }
+
   const decPassword = process.env.SEED_DEC_PASSWORD ?? 'Decathlon@2026'
   const decHash = await bcrypt.hash(decPassword, 10)
 
@@ -290,16 +351,21 @@ async function main() {
   })
 
   console.log('\n✅ Seed completo — usuarios y credenciales:')
-  console.log('\n  Usuario (nick / email)                Contraseña          Rol')
-  console.log('  ─────────────────────────────────────────────────────────────────────')
+  console.log('\n  INGEGAR staff:')
   console.log(`  ingegar  / admin@ingegarchile.cl       ${adminPassword.padEnd(20)} super`)
   console.log(`  sgarrido / sgarrido@ingegarchile.cl    ${sebastianPassword.padEnd(20)} supervisor`)
   console.log(`  cristian / cristian@ingegarchile.cl    ${cristianPassword.padEnd(20)} supervisor`)
   console.log(`  jesus    / jesus@ingegarchile.cl       Tecnico@2026         tecnico`)
-  console.log('\n  Portales cliente:')
-  console.log(`  justburger / portal@justburger.cl      ${jbPassword.padEnd(20)} → /portal/justburger`)
-  console.log(`  decathlon  / portal@decathlon.cl       ${decPassword.padEnd(20)} → /portal/decathlon`)
-  console.log(`  happyland  / portal@happyland.cl       ${hlPassword.padEnd(20)} → /portal/happyland`)
+  console.log('\n  Portales cliente (acceso general):')
+  console.log(`  justburger  / portal@justburger.cl     ${jbPassword.padEnd(20)} → /portal/justburger`)
+  console.log(`  decathlon   / portal@decathlon.cl      ${decPassword.padEnd(20)} → /portal/decathlon`)
+  console.log(`  happyland   / portal@happyland.cl      ${hlPassword.padEnd(20)} → /portal/happyland`)
+  console.log('\n  Just Burger — Admin cliente:')
+  console.log(`  jb.carolina / carolina@justburger.cl   ${carolinaPassword.padEnd(20)} client-admin (aprueba tickets)`)
+  console.log('\n  Just Burger — Usuarios por sucursal:')
+  for (const b of jbBranches) {
+    console.log(`  ${b.username.padEnd(16)} / ${b.email.padEnd(30)} ${jbBranchPassword.padEnd(20)} → ${b.name}`)
+  }
 }
 
 main()

@@ -10,6 +10,7 @@ import { getPresignedUrl, isR2Key } from '@/lib/r2'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalCommentForm } from '@/components/tickets/portal-comment-form'
 import { PortalTicketActions } from '@/components/tickets/portal-ticket-actions'
+import { PortalApprovalActions } from '@/components/tickets/portal-approval-actions'
 import { PortalInformeBtn } from '@/components/tickets/portal-informe-btn'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
 import { resolvePortalTheme } from '@/lib/portal-theme'
@@ -135,6 +136,13 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   const ticket = await getClientTicket(client.id, id)
   if (!ticket) notFound()
 
+  // Branch users can only view tickets from their own branch
+  const userBranchId = session?.user?.branchId ?? null
+  const isClientAdmin = session?.user?.isClientAdmin ?? false
+  if (userBranchId && !isClientAdmin && ticket.branch?.id && ticket.branch.id !== userBranchId) {
+    redirect(`/portal/${slug}/tickets`)
+  }
+
   // Pre-sign document URLs (1h expiry)
   const signedDocs = await Promise.all(
     ticket.documents.map(async (doc) => ({
@@ -153,13 +161,15 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   const theme = resolvePortalTheme(client.portalTheme)
   const acc = theme.primary
 
+  const isPendingApproval = ticket.status === 'pendiente_aprobacion'
   const si = STEPS.indexOf(ticket.status)
   const isResolved = ['resuelto', 'cancelado'].includes(ticket.status)
   const isCancelled = ticket.status === 'cancelado'
-  const canComment = !isStaffViewing(session) && !isResolved
+  const canComment = !isStaffViewing(session) && !isResolved && !isPendingApproval
   const isClientViewing = !isStaffViewing(session) && session?.user?.role === 'client'
   const canEdit = isClientViewing && ticket.status === 'nuevo'
   const canAddItems = isClientViewing && ['nuevo', 'en_revision'].includes(ticket.status)
+  const canApprove = isClientAdmin && isPendingApproval
 
   const mediaDocs = signedDocs.filter(d => isMedia(d.mimeType))
   const fileDocs  = signedDocs.filter(d => !isMedia(d.mimeType))
@@ -247,6 +257,22 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             </div>
           </div>
         </div>
+
+        {/* ── PENDIENTE APROBACIÓN (para sucursales) ───────────────────── */}
+        {isPendingApproval && !isClientAdmin && (
+          <div style={{ background: '#fef3c7', border: '1.5px solid #fcd34d', borderRadius: 'var(--r2)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="#f59e0b" style={{ flexShrink: 0 }}><path d="M10 2L18 17H2L10 2z"/><path d="M10 8v4M10 14v.5" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: '700', color: '#92400e', margin: 0 }}>Solicitud en revisión</p>
+              <p style={{ fontSize: '12px', color: '#b45309', marginTop: '2px' }}>Tu solicitud fue enviada al administrador para aprobación. Te notificaremos cuando sea procesada.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── ACCIONES DE APROBACIÓN (solo cliente admin) ──────────────── */}
+        {canApprove && (
+          <PortalApprovalActions ticketId={ticket.id} slug={slug} primary={acc} />
+        )}
 
         {/* ── PROGRESO ─────────────────────────────────────────────────── */}
         {si >= 0 && !isResolved && (

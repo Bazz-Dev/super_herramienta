@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
-import { notifyTenantStaff } from '@/lib/push'
+import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
 import type { TicketUrgency } from '@/generated/prisma/enums'
 
 function buildTicketCode(urgency: string, branchName: string, clientPrefix: string): string {
@@ -22,11 +22,12 @@ export async function createPortalTicket(fd: FormData) {
   const role = session?.user?.role
   const isStaff = role === 'super' || role === 'supervisor'
   const isClient = role === 'client'
+  const isClientAdmin = session?.user?.isClientAdmin ?? false
   if (!session?.user || (!isStaff && !isClient)) return { success: false }
 
   const clientId      = String(fd.get('clientId') ?? '')
   const createdById   = String(fd.get('createdById') ?? session.user.id)
-  const branchId      = String(fd.get('branchId') ?? '') || undefined
+  const branchId      = String(fd.get('branchId') ?? '') || (session.user.branchId ?? undefined)
   const urgency       = String(fd.get('urgency') ?? 'no_urgente')
   const category      = String(fd.get('category') ?? '') || undefined
   const title         = String(fd.get('title') ?? '').trim()
@@ -53,6 +54,10 @@ export async function createPortalTicket(fd: FormData) {
   const existing = await prisma.ticket.findUnique({ where: { ticketCode }, select: { id: true } })
   const finalCode = existing ? `${ticketCode}-${Date.now().toString(36).slice(-4)}` : ticketCode
 
+  // Branch users (non-admin clients) → pendiente_aprobacion for Carolina to review
+  const isBranchUser = isClient && !isClientAdmin
+  const ticketStatus = isBranchUser ? 'pendiente_aprobacion' : 'nuevo'
+
   const ticket = await prisma.ticket.create({
     data: {
       ticketCode: finalCode,
@@ -61,7 +66,7 @@ export async function createPortalTicket(fd: FormData) {
       clientComment,
       urgency: urgency as TicketUrgency,
       category,
-      status: 'nuevo',
+      status: ticketStatus,
       clientId,
       branchId,
       tenantId: client.tenantId,
@@ -73,23 +78,94 @@ export async function createPortalTicket(fd: FormData) {
     data: {
       ticketId: ticket.id,
       userId: createdById,
-      toStatus: 'nuevo',
+      toStatus: ticketStatus,
       note: isStaff
         ? `Solicitud registrada por INGEGAR en nombre de ${client.name}`
-        : 'Solicitud creada por cliente',
+        : isBranchUser
+          ? 'Solicitud creada por sucursal — pendiente aprobación del cliente administrador'
+          : 'Solicitud creada por cliente',
       isInternal: false,
     },
   })
 
   const urgencyLabel: Record<string, string> = { emergencia: '🚨 EMERGENCIA', urgencia: '⚠️ Urgente', no_urgente: 'Normal', preventivo: 'Preventivo' }
-  await notifyTenantStaff(client.tenantId, {
-    type: 'ticket_new',
-    title: `Nuevo ticket — ${client.name}`,
-    body: `${urgencyLabel[urgency] ?? urgency}: ${title}${branch ? ` · ${branch.name}` : ''}`,
-    href: `/tickets/${ticket.id}`,
-  }).catch(() => {})
+
+  if (isBranchUser) {
+    // Notify the client admin (Carolina) to approve or reject
+    const clientAdmin = await prisma.user.findFirst({
+      where: { clientId, isClientAdmin: true, active: true },
+      select: { id: true },
+    })
+    if (clientAdmin) {
+      await sendPushToUser(clientAdmin.id, {
+        title: `Nueva solicitud de ${branch?.name ?? 'sucursal'} — revisar`,
+        body: `${urgencyLabel[urgency] ?? urgency}: ${title}`,
+        href: `/portal/${client.portalSlug ?? 'portal'}/tickets/${ticket.id}`,
+      }).catch(() => {})
+    }
+  } else {
+    await notifyTenantStaff(client.tenantId, {
+      type: 'ticket_new',
+      title: `Nuevo ticket — ${client.name}`,
+      body: `${urgencyLabel[urgency] ?? urgency}: ${title}${branch ? ` · ${branch.name}` : ''}`,
+      href: `/tickets/${ticket.id}`,
+    }).catch(() => {})
+  }
 
   return { success: true, id: ticket.id }
+}
+
+export async function approvePortalTicket(ticketId: string, decision: 'approve' | 'reject', reason?: string) {
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'client' || !session.user.isClientAdmin) return { success: false }
+
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId, clientId: session.user.clientId ?? '', status: 'pendiente_aprobacion', deletedAt: null },
+    select: {
+      id: true, title: true, tenantId: true, urgency: true, createdById: true,
+      branch: { select: { name: true } },
+      client: { select: { portalSlug: true } },
+    },
+  })
+  if (!ticket) return { success: false, error: 'Ticket no encontrado o ya procesado' }
+
+  const newStatus = decision === 'approve' ? 'nuevo' : 'cancelado'
+  const note = decision === 'approve'
+    ? 'Solicitud aprobada — INGEGAR notificado para asignación'
+    : `Solicitud rechazada${reason ? `: ${reason}` : ''}`
+
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: { status: newStatus, ...(decision === 'reject' ? { closedDate: new Date() } : {}) },
+  })
+
+  await prisma.ticketHistory.create({
+    data: {
+      ticketId,
+      userId: session.user.id,
+      fromStatus: 'pendiente_aprobacion',
+      toStatus: newStatus,
+      note,
+      isInternal: false,
+    },
+  })
+
+  if (decision === 'approve') {
+    await notifyTenantStaff(ticket.tenantId, {
+      type: 'ticket_new',
+      title: `Ticket aprobado — pendiente asignación`,
+      body: `${ticket.title}${ticket.branch?.name ? ` · ${ticket.branch.name}` : ''}`,
+      href: `/tickets/${ticketId}`,
+    }).catch(() => {})
+  } else if (ticket.createdById) {
+    await sendPushToUser(ticket.createdById, {
+      title: 'Solicitud no aprobada',
+      body: `"${ticket.title}"${reason ? ` — ${reason}` : ''}`,
+      href: `/portal/${ticket.client?.portalSlug ?? 'portal'}/tickets/${ticketId}`,
+    }).catch(() => {})
+  }
+
+  return { success: true }
 }
 
 export async function updatePortalTicket(ticketId: string, data: {
@@ -173,10 +249,9 @@ export async function addPortalComment(ticketId: string, note: string) {
   const trimmed = note.trim()
   if (!trimmed) return { success: false }
 
-  // Verify this user's client owns the ticket
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, clientId: session.user.clientId ?? '' },
-    select: { id: true },
+    select: { id: true, tenantId: true, title: true },
   })
   if (!ticket) return { success: false }
 
@@ -188,6 +263,14 @@ export async function addPortalComment(ticketId: string, note: string) {
       isInternal: false,
     },
   })
+
+  // Notify INGEGAR staff of the new comment for traceability
+  await notifyTenantStaff(ticket.tenantId, {
+    type: 'ticket_comment',
+    title: `Comentario en ticket`,
+    body: `${session.user.name ?? 'Cliente'}: ${trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed}`,
+    href: `/tickets/${ticketId}`,
+  }).catch(() => {})
 
   return { success: true }
 }

@@ -51,6 +51,7 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
             clientName={client.name}
             createdById={session!.user.id}
             branches={client.branches}
+            defaultBranchId={session!.user.branchId ?? null}
             primary={theme.primary}
             bg={theme.bg ?? '#f4f3f1'}
             textColor={theme.text ?? '#18130e'}
