@@ -18,11 +18,13 @@ test('rrhh: dashboard renders with KPIs', async ({ page }) => {
   // Page heading is "Recursos Humanos"
   await expect(page.getByRole('heading', { name: 'Recursos Humanos' })).toBeVisible()
 
-  // At least one KPI card is visible — the labels are "Plantilla activa",
-  // "Permisos pendientes", and "Masa salarial (mes)"
-  await expect(page.getByText('Plantilla activa')).toBeVisible()
+  // Summary chips: Equipo activo, Permisos pendientes, Firmas pendientes, Masa salarial
+  await expect(page.getByText('Equipo activo')).toBeVisible()
   await expect(page.getByText('Permisos pendientes')).toBeVisible()
-  await expect(page.getByText('Masa salarial (mes)')).toBeVisible()
+  await expect(page.getByText('Masa salarial')).toBeVisible()
+
+  // Team roster section header
+  await expect(page.getByText('Equipo activo').first()).toBeVisible()
 })
 
 test('rrhh: vacaciones page renders', async ({ page }) => {

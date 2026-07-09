@@ -103,6 +103,23 @@ export default async function PortalReportesPage({
   })
   const branchRows = Object.entries(byBranch).sort((a, b) => b[1].total - a[1].total)
 
+  // By técnico
+  const byTecnico: Record<string, { total: number; resolved: number; totalDays: number; resolvedCount: number }> = {}
+  tickets.forEach(t => {
+    const name = t.assignedTo?.name ?? 'Sin asignar'
+    if (!byTecnico[name]) byTecnico[name] = { total: 0, resolved: 0, totalDays: 0, resolvedCount: 0 }
+    byTecnico[name].total++
+    if (t.status === 'resuelto') {
+      byTecnico[name].resolved++
+      if (t.closedDate) {
+        const days = Math.max(0, Math.ceil((new Date(String(t.closedDate)).getTime() - new Date(t.createdAt).getTime()) / 86400000))
+        byTecnico[name].totalDays += days
+        byTecnico[name].resolvedCount++
+      }
+    }
+  })
+  const tecnicoRows = Object.entries(byTecnico).sort((a, b) => b[1].total - a[1].total)
+
   // By urgency
   const byUrgency: Record<string, number> = {}
   tickets.forEach(t => { byUrgency[t.urgency] = (byUrgency[t.urgency] ?? 0) + 1 })
@@ -291,6 +308,50 @@ export default async function PortalReportesPage({
             </table>
           </div>
         )}
+        {/* By técnico table */}
+        {tecnicoRows.length > 1 && (
+          <div className="pcard" style={{ overflow: 'hidden', marginTop: '14px' }}>
+            <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--p-bd)', fontSize: '13px', fontWeight: '700', color: 'var(--p-text)' }}>
+              Desempeño por técnico
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--p-bd)' }}>
+                  {['Técnico','Total','Resueltos','% Resolución','Tiempo prom.'].map(h => (
+                    <th key={h} style={{ padding: '9px 16px', fontSize: '10px', fontWeight: '700', color: 'var(--p-t3)', textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tecnicoRows.map(([name, { total, resolved, totalDays, resolvedCount }], i) => {
+                  const pct = total ? Math.round((resolved / total) * 100) : 0
+                  const avgDays = resolvedCount > 0 ? Math.round(totalDays / resolvedCount) : null
+                  return (
+                    <tr key={name} style={{ borderBottom: i < tecnicoRows.length - 1 ? '1px solid var(--p-bd)' : 'none' }}>
+                      <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '600', color: 'var(--p-text)' }}>{name}</td>
+                      <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '700', color: 'var(--p-text)', fontVariantNumeric: 'tabular-nums' }}>{total}</td>
+                      <td style={{ padding: '10px 16px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: resolved > 0 ? '#22c55e' : 'var(--p-t3)' }}>{resolved}</span>
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '60px', height: '5px', background: 'var(--p-bd)', borderRadius: '5px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', background: pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : theme.primary, width: `${pct}%` }} />
+                          </div>
+                          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--p-t2)' }}>{pct}%</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 16px', fontSize: '12px', color: 'var(--p-t2)' }}>
+                        {avgDays !== null ? `${avgDays} días` : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
       </div>
     </PortalShell>
   )

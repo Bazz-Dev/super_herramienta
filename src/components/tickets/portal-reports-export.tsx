@@ -47,16 +47,29 @@ export function PortalReportsExport({ rows, clientName, primary }: { rows: Ticke
   }
 
   return (
-    <button
-      onClick={exportCsv}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: '6px',
-        padding: '8px 16px', borderRadius: '8px',
-        background: primary, color: '#111', fontSize: '12px', fontWeight: '700',
-        border: 'none', cursor: 'pointer',
-      }}
-    >
-      ↓ Exportar CSV
-    </button>
+    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <button
+        onClick={() => window.print()}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          padding: '8px 14px', borderRadius: '8px',
+          background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: '12px', fontWeight: '700',
+          border: '1px solid rgba(255,255,255,0.35)', cursor: 'pointer',
+        }}
+      >
+        ⎙ Imprimir
+      </button>
+      <button
+        onClick={exportCsv}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          padding: '8px 16px', borderRadius: '8px',
+          background: primary, color: '#111', fontSize: '12px', fontWeight: '700',
+          border: 'none', cursor: 'pointer',
+        }}
+      >
+        ↓ Exportar CSV
+      </button>
+    </div>
   )
 }
