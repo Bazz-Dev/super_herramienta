@@ -158,6 +158,7 @@ export default async function PortalReportesPage({
               }))}
             />
           </div>
+          </div>
           {/* Period filter pills */}
           <Suspense fallback={null}>
             <PortalPeriodFilter primary={theme.primary} active={periodo ?? 'total'} />
