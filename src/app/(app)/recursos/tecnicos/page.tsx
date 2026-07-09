@@ -50,8 +50,8 @@ export default async function TecnicosPage({
   const technicians = await listTechnicians(actor, q)
 
   const active     = technicians.filter((t) => t.active)
-  const terminated = technicians.filter((t) => !t.active && CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as never))
-  const inactive   = technicians.filter((t) => !t.active && !CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as never))
+  const terminated = technicians.filter((t) => !t.active && CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as ContractTypeId))
+  const inactive   = technicians.filter((t) => !t.active && !CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as ContractTypeId))
 
   return (
     <div className="mx-auto max-w-6xl">

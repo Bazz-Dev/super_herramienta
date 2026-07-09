@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { tenantScope, type TenantActor } from '@/lib/tenant'
+import type { CollectionStatus, JobType } from '@/generated/prisma/enums'
 
 type Actor = TenantActor
 
@@ -27,8 +28,8 @@ export async function listJobs(
     where: {
       ...tenantScope(actor),
       ...(opts.clientId ? { clientId: opts.clientId } : {}),
-      ...(opts.collectionStatus ? { collectionStatus: opts.collectionStatus as never } : {}),
-      ...(opts.tipo ? { type: opts.tipo as never } : {}),
+      ...(opts.collectionStatus ? { collectionStatus: opts.collectionStatus as CollectionStatus } : {}),
+      ...(opts.tipo ? { type: opts.tipo as JobType } : {}),
       ...(opts.branchId ? { branchId: opts.branchId } : {}),
       ...(opts.from || opts.to
         ? {

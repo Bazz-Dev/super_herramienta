@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { notifyTenantStaff } from '@/lib/push'
+import type { TicketUrgency } from '@/generated/prisma/enums'
 
 function buildTicketCode(urgency: string, branchName: string, clientPrefix: string): string {
   const now = new Date()
@@ -58,7 +59,7 @@ export async function createPortalTicket(fd: FormData) {
       title,
       description,
       clientComment,
-      urgency: urgency as never,
+      urgency: urgency as TicketUrgency,
       category,
       status: 'nuevo',
       clientId,
@@ -110,12 +111,14 @@ export async function updatePortalTicket(ticketId: string, data: {
   })
   if (!ticket) return { success: false, error: 'Ticket no encontrado o no editable' }
 
-  const updates: Record<string, string> = {}
-  if (data.title?.trim()) updates.title = data.title.trim()
-  if (data.description !== undefined) updates.description = data.description
-  if (data.urgency) updates.urgency = data.urgency
-
-  await prisma.ticket.update({ where: { id: ticketId }, data: updates as never })
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: {
+      ...(data.title?.trim()             ? { title: data.title.trim() }                   : {}),
+      ...(data.description !== undefined ? { description: data.description }              : {}),
+      ...(data.urgency                   ? { urgency: data.urgency as TicketUrgency }     : {}),
+    },
+  })
 
   await prisma.ticketHistory.create({
     data: {

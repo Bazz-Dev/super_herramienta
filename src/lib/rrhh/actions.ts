@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { tenantScope, requireActor } from '@/lib/tenant'
 import { revalidatePath } from 'next/cache'
 import { fromDateInput } from '@/lib/cashflow/dates'
+import type { LeaveType, LeaveStatus, PayrollStatus } from '@/generated/prisma/enums'
 
 // ─── Leave Requests ────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ export async function createLeaveRequest(data: {
     data: {
       tenantId: scope.tenantId ?? actor.tenantId,
       technicianId: data.technicianId,
-      type: data.type as never,
+      type: data.type as LeaveType,
       startDate: fromDateInput(data.startDate)!,
       endDate: fromDateInput(data.endDate)!,
       days: data.days,
@@ -51,7 +52,7 @@ export async function updateLeaveStatus(id: string, status: 'aprobado' | 'rechaz
 
   await prisma.leaveRequest.update({
     where: { id },
-    data: { status: status as never, approvedById: actor.id },
+    data: { status: status as LeaveStatus, approvedById: actor.id },
   })
   revalidatePath('/rrhh')
   revalidatePath('/rrhh/vacaciones')
@@ -99,7 +100,7 @@ export async function updatePayrollStatus(id: string, status: 'emitido' | 'pagad
 
   await prisma.payroll.updateMany({
     where: { id, tenantId: scope.tenantId },
-    data: { status: status as never, ...(status === 'pagado' ? { paidAt: new Date() } : {}) },
+    data: { status: status as PayrollStatus, ...(status === 'pagado' ? { paidAt: new Date() } : {}) },
   })
   revalidatePath('/rrhh/liquidaciones')
 }

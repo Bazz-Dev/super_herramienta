@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { canAccessTenant } from '@/lib/tenant'
 import { uploadToR2, deleteFromR2, isR2Key } from '@/lib/r2'
 import { fromDateInput } from '@/lib/cashflow/dates'
+import type { DocType } from '@/generated/prisma/enums'
 
 export const runtime = 'nodejs'
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const doc = await prisma.technicianDocument.create({
     data: {
       technicianId: techId,
-      type: type as never,
+      type: type as DocType,
       label,
       fileUrl: key,
       expiryDate: fromDateInput(expiryDate),

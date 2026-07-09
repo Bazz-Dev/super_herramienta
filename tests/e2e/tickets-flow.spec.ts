@@ -83,21 +83,20 @@ test.describe('tickets', () => {
     await page.goto('/tickets')
     await page.waitForLoadState('load')
 
-    // URGENCY_LABEL values: Emergencia, Urgencia, No urgente, Preventivo
-    const urgencyTexts = ['Emergencia', 'Urgencia', 'No urgente', 'Preventivo']
-    const anyUrgency = urgencyTexts.map((t) => page.getByText(t, { exact: true }).first())
+    // Urgency is rendered as a colored dot with a `title` attribute, not as
+    // visible text. URGENCY_LABEL values: Emergencia, Urgencia, No urgente, Preventivo.
+    const urgencyDots = page.locator('[title="Emergencia"],[title="Urgencia"],[title="No urgente"],[title="Preventivo"]')
+    const dotCount = await urgencyDots.count()
 
-    // If there are tickets on the board, at least one urgency badge should appear.
-    // We count how many kanban columns have card content beyond the header.
-    const cards = page.locator('[class*="rounded"][class*="border"]').filter({ hasText: /(Emergencia|Urgencia|No urgente|Preventivo)/ })
-    const cardCount = await cards.count()
-
-    if (cardCount > 0) {
-      await expect(cards.first()).toBeVisible()
+    if (dotCount > 0) {
+      // At least one urgency indicator is present — it's attached to the DOM
+      // (dots are in table rows that may scroll, so check attachment not visibility).
+      await expect(urgencyDots.first()).toBeAttached()
     } else {
-      // No tickets yet — the board is empty, test passes vacuously.
-      // Verify at least the columns are visible (already covered by prior test).
-      await expect(page.getByText('Nuevo', { exact: true }).first()).toBeVisible()
+      // No tickets yet — the board is empty; verify the filter bar is rendered.
+      // Status filter buttons contain "Todos", "Nuevo", etc. (use regex for partial match
+      // because count spans like "Nuevo 2" are appended when tickets exist).
+      await expect(page.getByRole('button', { name: /Todos/i }).first()).toBeVisible()
     }
   })
 

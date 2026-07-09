@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { requireActor } from '@/lib/tenant'
 import { getTechnicianProfile } from '@/lib/rrhh/queries'
 import { prisma } from '@/lib/prisma'
-import { CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, DOC_TYPE_LABELS } from '@/lib/resources/labels'
+import { CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, DOC_TYPE_LABELS, type ContractTypeId } from '@/lib/resources/labels'
 import { LEAVE_TYPE_LABEL, LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL, PAYROLL_STATUS_BADGE, PAYROLL_STATUS_LABEL, MONTH_NAMES, formatClp } from '@/lib/rrhh/labels'
 import { TechnicianHRForm } from '@/components/rrhh/technician-hr-form'
 
@@ -42,7 +42,7 @@ export default async function TechnicianProfilePage({ params }: Props) {
       })
     : []
 
-  const isActive = tech.active && CONTRACT_TYPE_ACTIVE.includes(tech.contractType as never)
+  const isActive = tech.active && CONTRACT_TYPE_ACTIVE.includes(tech.contractType as ContractTypeId)
   const totalLeavedays = tech.leaveRequests.filter(l => l.status === 'aprobado').reduce((s, l) => s + l.days, 0)
 
   return (

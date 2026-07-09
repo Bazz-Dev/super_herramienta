@@ -1,15 +1,15 @@
 import Link from 'next/link'
 import { requireActor } from '@/lib/tenant'
 import { getHRDashboard } from '@/lib/rrhh/queries'
-import { CONTRACT_TYPE_ACTIVE, CONTRACT_TYPE_TERMINATED, CONTRACT_TYPE_LABELS } from '@/lib/resources/labels'
+import { CONTRACT_TYPE_ACTIVE, CONTRACT_TYPE_TERMINATED, CONTRACT_TYPE_LABELS, type ContractTypeId } from '@/lib/resources/labels'
 import { LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL, LEAVE_TYPE_LABEL, MONTH_NAMES, formatClp } from '@/lib/rrhh/labels'
 
 export default async function RRHHPage() {
   const actor = await requireActor(['super', 'supervisor'])
   const { technicians, leaveRequests, payrolls } = await getHRDashboard(actor)
 
-  const active = technicians.filter(t => t.active && CONTRACT_TYPE_ACTIVE.includes(t.contractType as never))
-  const terminated = technicians.filter(t => !t.active || CONTRACT_TYPE_TERMINATED.includes(t.contractType as never))
+  const active = technicians.filter(t => t.active && CONTRACT_TYPE_ACTIVE.includes(t.contractType as ContractTypeId))
+  const terminated = technicians.filter(t => !t.active || CONTRACT_TYPE_TERMINATED.includes(t.contractType as ContractTypeId))
   const pendingLeaves = leaveRequests.filter(l => l.status === 'pendiente')
   const recentLeaves = leaveRequests.slice(0, 5)
 

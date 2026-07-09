@@ -25,6 +25,11 @@ export type AuthActor = TenantActor & {
   tenantSlug: string
 }
 
+// Minimal type required by tenantScope / canAccessTenant — callers that only
+// have { role, tenantId } (e.g. API routes) can use this without building a
+// full TenantActor. TenantActor and AuthActor both satisfy it structurally.
+export type ScopeActor = Pick<TenantActor, 'role' | 'tenantId'>
+
 export async function requireActor(allowedRoles?: Role[]): Promise<AuthActor> {
   const session = await auth()
   if (!session?.user?.tenantId) redirect('/login')
@@ -40,11 +45,11 @@ export async function requireActor(allowedRoles?: Role[]): Promise<AuthActor> {
   }
 }
 
-export function tenantScope(actor: TenantActor): { tenantId?: string } {
+export function tenantScope(actor: ScopeActor): { tenantId?: string } {
   if (actor.role === 'super') return {}
   return { tenantId: actor.tenantId }
 }
 
-export function canAccessTenant(actor: TenantActor, tenantId: string): boolean {
+export function canAccessTenant(actor: ScopeActor, tenantId: string): boolean {
   return actor.role === 'super' || actor.tenantId === tenantId
 }

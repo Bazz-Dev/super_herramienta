@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { tenantScope, type TenantActor } from '@/lib/tenant'
+import type { TicketStatus } from '@/generated/prisma/enums'
 
 export type TicketWithRelations = Awaited<ReturnType<typeof getTickets>>[number]
 export type TicketDetail = Awaited<ReturnType<typeof getTicket>>
@@ -41,8 +42,8 @@ export async function getTickets(actor: TenantActor, filters?: {
       ...(filters?.clientId     ? { clientId: filters.clientId }        : {}),
       ...(filters?.assignedToId ? { assignedToId: filters.assignedToId }: {}),
       status: filters?.status
-        ? (filters.status as never)
-        : { notIn: ['fusionado', 'cancelado'] as never[] },
+        ? (filters.status as TicketStatus)
+        : { notIn: ['fusionado', 'cancelado'] as TicketStatus[] },
     },
     select: ticketSelect,
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
@@ -99,7 +100,7 @@ export type ClientTicket = Awaited<ReturnType<typeof getClientTickets>>[number]
 // Portal: client-scoped, strips internal data
 export async function getClientTickets(clientId: string) {
   return prisma.ticket.findMany({
-    where: { clientId, showToClient: true, deletedAt: null, status: { notIn: ['fusionado'] as never[] } },
+    where: { clientId, showToClient: true, deletedAt: null, status: { notIn: ['fusionado'] as TicketStatus[] } },
     select: clientTicketSelect,
     orderBy: { createdAt: 'desc' },
   })

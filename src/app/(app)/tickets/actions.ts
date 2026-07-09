@@ -8,6 +8,7 @@ import { assertRole } from '@/lib/policies'
 import { notify } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
 import { fromDateInput } from '@/lib/cashflow/dates'
+import type { TicketStatus } from '@/generated/prisma/enums'
 
 const createSchema = z.object({
   ticketCode: z.string().min(1),
@@ -122,7 +123,7 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
   await prisma.ticket.update({
     where: { id: ticketId },
     data: {
-      status: newStatus as never,
+      status: newStatus as TicketStatus,
       ...(closedDate ? { closedDate } : {}),
     },
   })
@@ -190,7 +191,7 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
     data: {
       ...parsed,
       estimatedDate: parsed.estimatedDate !== undefined ? fromDateInput(parsed.estimatedDate) : undefined,
-      ...(autoStatus ? { status: autoStatus as never } : {}),
+      ...(autoStatus ? { status: autoStatus as TicketStatus } : {}),
     },
   })
 

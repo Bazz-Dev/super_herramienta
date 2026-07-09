@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useActionState } from 'react'
 import type { FormState } from '@/app/(app)/recursos/tecnicos/actions'
 import { Button, Field, TextArea, TextInput } from '@/components/quotes/ui'
-import { CONTRACT_TYPE, CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, CONTRACT_TYPE_TERMINATED } from '@/lib/resources/labels'
+import { CONTRACT_TYPE, CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, CONTRACT_TYPE_TERMINATED, type ContractTypeId } from '@/lib/resources/labels'
 
 type Values = {
   name?: string
@@ -41,7 +41,7 @@ export function TechnicianForm({
   const err = (f: string) => state.fieldErrors?.[f]?.[0]
 
   const [contractType, setContractType] = useState(initial.contractType ?? 'indefinido')
-  const isTerminated = CONTRACT_TYPE_TERMINATED.includes(contractType as never)
+  const isTerminated = CONTRACT_TYPE_TERMINATED.includes(contractType as ContractTypeId)
 
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-6">

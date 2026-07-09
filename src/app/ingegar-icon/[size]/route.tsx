@@ -1,7 +1,8 @@
 import { ImageResponse } from 'next/og'
 
 export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
+// Cache icon responses for 7 days — the isotipo never changes at runtime
+export const revalidate = 604800
 
 // Renders the INGEGAR isotipo (3 triangles) as a PNG at any requested size.
 // Used by the manifest.json and layout meta tags instead of static PNGs.

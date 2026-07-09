@@ -3,6 +3,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { deleteFromR2, getPresignedUrl, isR2Key } from '@/lib/r2'
 import { tenantScope } from '@/lib/tenant'
+import type { ClientDocType } from '@/generated/prisma/enums'
 
 export const runtime = 'nodejs'
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     data: {
       tenantId: session.user.tenantId ?? '',
       clientId,
-      type: (type ?? 'otro') as never,
+      type: (type ?? 'otro') as ClientDocType,
       title: title.trim(),
       fileKey: 'inline',  // no R2 file — data lives in dataJson
       dataJson: typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson),
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
 
   const id = req.nextUrl.searchParams.get('id')
   const clientId = req.nextUrl.searchParams.get('clientId')
-  const actor = { role: session.user.role, tenantId: session.user.tenantId ?? '' } as never
+  const actor = { role: session.user.role, tenantId: session.user.tenantId ?? '' }
 
   // Single document fetch (for editor reload)
   if (id) {

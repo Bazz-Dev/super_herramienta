@@ -51,8 +51,12 @@ export default async function FlujoPage({
   ])
 
   const m = computeMetrics(jobs as unknown as JobLike[], new Date())
-  const clientBreakdown = cliente ? [] : computeClientBreakdown(allJobs as never)
-  const monthlyTrend = cliente ? [] : computeMonthlyTrend(monthlyJobs as never)
+  // Double-cast: Prisma enum types aren't directly assignable to the string-literal
+  // unions in JobLike, but values are runtime-compatible.
+  type ClientInput = Parameters<typeof computeClientBreakdown>[0]
+  type TrendInput  = Parameters<typeof computeMonthlyTrend>[0]
+  const clientBreakdown = cliente ? [] : computeClientBreakdown(allJobs as unknown as ClientInput)
+  const monthlyTrend    = cliente ? [] : computeMonthlyTrend(monthlyJobs as unknown as TrendInput)
 
   const cobradoPct =
     m.facturado > 0 ? Math.round((m.cobrado / m.facturado) * 100) : null
