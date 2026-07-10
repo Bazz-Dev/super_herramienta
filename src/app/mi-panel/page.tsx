@@ -14,6 +14,7 @@ import {
   LEAVE_TYPE_LABEL, LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL,
   PAYROLL_STATUS_BADGE, PAYROLL_STATUS_LABEL, MONTH_NAMES, formatClp,
 } from '@/lib/rrhh/labels'
+import { TecnicoLeaveForm } from '@/components/rrhh/tecnico-leave-form'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -117,6 +118,7 @@ export default async function MiPanelPage() {
     allExpenses,
     recentExpenses,
     leaveRequests,
+    pendingLeavesCount,
     lastPayroll,
     techDocs,
     pendingSignatures,
@@ -170,6 +172,10 @@ export default async function MiPanelPage() {
       where: { technicianId: actor.technicianId },
       orderBy: { createdAt: 'desc' },
       take: 5,
+    }),
+
+    prisma.leaveRequest.count({
+      where: { technicianId: actor.technicianId, status: 'pendiente' },
     }),
 
     prisma.payroll.findFirst({
@@ -544,13 +550,19 @@ export default async function MiPanelPage() {
 
           {/* Permisos y licencias */}
           <div className="rounded-lg bg-gray-50 border border-gray-100 p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
-              Permisos y licencias
-            </p>
-            {leaveRequests.length === 0 ? (
-              <p className="text-xs text-gray-400">Sin solicitudes.</p>
-            ) : (
-              <ul className="space-y-2">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                Permisos y licencias
+              </p>
+              {pendingLeavesCount > 0 && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                  {pendingLeavesCount} pendiente{pendingLeavesCount !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <TecnicoLeaveForm />
+            {leaveRequests.length > 0 && (
+              <ul className="mt-3 space-y-2 border-t border-gray-200 pt-3">
                 {leaveRequests.map(lr => (
                   <li key={lr.id} className="text-xs">
                     <div className="flex items-center gap-1.5 flex-wrap">

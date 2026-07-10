@@ -7,9 +7,10 @@ import { addPortalComment } from '@/app/portal/[slug]/tickets/actions'
 interface Props {
   ticketId: string
   primary: string
+  inline?: boolean // when true: no top border/padding/label (parent card handles it)
 }
 
-export function PortalCommentForm({ ticketId, primary }: Props) {
+export function PortalCommentForm({ ticketId, primary, inline }: Props) {
   const [text, setText] = useState('')
   const [isPending, startTransition] = useTransition()
   const [sent, setSent] = useState(false)
@@ -32,10 +33,12 @@ export function PortalCommentForm({ ticketId, primary }: Props) {
   }
 
   return (
-    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--p-bd)' }}>
-      <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        Agregar comentario
-      </p>
+    <div style={inline ? {} : { marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--p-bd)' }}>
+      {!inline && (
+        <p style={{ fontSize: '12px', fontWeight: '700', color: 'var(--p-t2)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          Agregar comentario
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="pcomment-form">
         <textarea
           ref={ref}
