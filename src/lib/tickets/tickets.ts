@@ -124,7 +124,7 @@ export async function getClientTicket(clientId: string, ticketId: string) {
       history: {
         where: { isInternal: false },
         orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, name: true } } },
+        include: { user: { select: { id: true, name: true, role: true } } },
       },
     },
   })

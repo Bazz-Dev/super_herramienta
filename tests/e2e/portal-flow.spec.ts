@@ -198,7 +198,53 @@ test('portal tickets: create a ticket', async ({ page }) => {
 })
 
 // ---------------------------------------------------------------------------
-// 10. Logout works
+// 10. New ticket form has file attachment section
+// ---------------------------------------------------------------------------
+test('portal tickets: new ticket form shows file attachment', async ({ page }) => {
+  await loginPortal(page)
+  await page.goto('/portal/justburger/tickets/new')
+  await page.waitForLoadState('load')
+
+  // The file input should exist (hidden but present in DOM)
+  const fileInput = page.locator('input[type="file"][multiple]')
+  await expect(fileInput).toHaveCount(1)
+
+  // The "Adjuntar archivo" button should be visible
+  await expect(page.getByRole('button', { name: /Adjuntar archivo/i })).toBeVisible()
+})
+
+// ---------------------------------------------------------------------------
+// 11. Ticket detail comment form has file attachment button
+// ---------------------------------------------------------------------------
+test('portal ticket detail: comment form shows attach button', async ({ page }) => {
+  await loginPortal(page)
+  await page.goto('/portal/justburger/tickets')
+  await page.waitForLoadState('load')
+
+  // Find a ticket link (if any exist) and open it
+  const ticketLinks = page.locator('a[href*="/portal/justburger/tickets/"]').filter({ hasNot: page.locator('[href$="/new"]') })
+  const count = await ticketLinks.count()
+  if (count === 0) {
+    test.skip(true, 'No tickets in DB — create one first')
+    return
+  }
+
+  await ticketLinks.first().click()
+  await page.waitForLoadState('load')
+
+  // Attach button in comment form
+  const attachBtn = page.getByRole('button', { name: /Adjuntar/i })
+  const commentTextarea = page.locator('textarea.pcomment-input')
+
+  // At least one of these must be present (ticket might be resolved = no comment form)
+  const hasCommentForm = await commentTextarea.count() > 0
+  if (hasCommentForm) {
+    await expect(attachBtn.first()).toBeVisible({ timeout: 5000 })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// 13. Logout works
 // ---------------------------------------------------------------------------
 test('portal: logout works', async ({ page }) => {
   await loginPortal(page)

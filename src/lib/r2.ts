@@ -34,6 +34,11 @@ export async function deleteFromR2(key: string): Promise<void> {
   await r2.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
 }
 
+/** Generate a presigned URL for browser-direct PUT upload to R2. Default expiry: 5 min. */
+export async function getPresignedPutUrl(key: string, contentType: string, expiresIn = 300): Promise<string> {
+  return getSignedUrl(r2, new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }), { expiresIn })
+}
+
 /**
  * Generate a presigned URL for downloading/viewing a file.
  * Default expiry: 1 hour. Suitable for in-app "Ver" / "Descargar" links.

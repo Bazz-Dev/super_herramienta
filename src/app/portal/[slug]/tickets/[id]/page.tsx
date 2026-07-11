@@ -49,7 +49,7 @@ type HistoryItem = {
   fromStatus: string | null
   toStatus: string | null
   createdAt: Date
-  user: { id: string; name: string } | null
+  user: { id: string; name: string; role: string } | null
 }
 
 function parseNoteJson(note: string): Record<string, unknown> | null {
@@ -125,7 +125,41 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
   const ticket = await getClientTicket(client.id, id)
-  if (!ticket) notFound()
+  if (!ticket) {
+    // Check if the ticket exists but was merged (fusionado) into another
+    const merged = await prisma.ticket.findFirst({
+      where: { id, clientId: client.id, status: 'fusionado', deletedAt: null },
+      select: { ticketCode: true, title: true, createdAt: true },
+    })
+    if (!merged) notFound()
+    const mt = resolvePortalTheme(client.portalTheme)
+    return (
+      <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'}
+        primary={mt.primary} bg={mt.bg} cardBg={mt.card} textColor={mt.text}
+        activeHref={`/portal/${slug}/tickets`} topbarTitle={merged.title} topbarSub={merged.ticketCode}
+        topbarRight={<Link href={`/portal/${slug}/tickets`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--t2)', textDecoration: 'none', fontWeight: '500' }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11L5 7l4-4"/></svg>Mis solicitudes</Link>}
+        isAdmin={isStaffViewing(session)}>
+        <div className="pg" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="pcard" style={{ padding: '32px 24px', textAlign: 'center' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#f3f4f6', display: 'grid', placeItems: 'center', margin: '0 auto 18px' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            </div>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--tx)', margin: '0 0 10px' }}>Solicitud consolidada</h2>
+            <p style={{ fontSize: '13px', color: 'var(--t2)', margin: '0 0 6px', lineHeight: '1.65', maxWidth: '360px', marginInline: 'auto' }}>
+              Esta solicitud fue consolidada junto a otras similares para atenderse de forma conjunta por el equipo INGEGAR.
+              Si tienes dudas sobre su estado, contáctate directamente con tu ejecutivo.
+            </p>
+            <p style={{ fontSize: '11px', color: 'var(--t3)', margin: '16px 0 0' }}>
+              {merged.ticketCode} · Creada el {new Date(merged.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '16px' }}>
+            <Link href={`/portal/${slug}/tickets`} className="pbtn pbtn-ghost" style={{ textDecoration: 'none' }}>← Volver a mis solicitudes</Link>
+          </div>
+        </div>
+      </PortalShell>
+    )
+  }
 
   // Branch users can only view tickets from their own branch
   const userBranchId = session?.user?.branchId ?? null
@@ -387,8 +421,36 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
                 )
               }
 
-              // Comment / note with optional status context → chat bubble
+              // Comment / note with optional status context → chat bubble or staff card
               if (!displayNote || isBoringNote) return null
+
+              const isStaffNote = h.user?.role && h.user.role !== 'client'
+
+              // Staff / técnico update → accented card (Avance INGEGAR)
+              if (isStaffNote) {
+                return (
+                  <div key={h.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '5px' }}>
+                    {isStatusChange && SL[h.fromStatus!] !== SL[h.toStatus!] && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '12px', padding: '2px 9px' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--t3)' }}>{SL[h.fromStatus!] ?? h.fromStatus} → {SL[h.toStatus!] ?? h.toStatus}</span>
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: acc, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2L8 4M2 10l2-2M8 4L6 6M6 6L4 8M8 4C7.5 3.5 6.3 3 5.5 3.8L3.8 5.5M4 8L2 10"/></svg>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: acc }}>INGEGAR</span>
+                      {h.user?.name && <span style={{ fontSize: '11px', color: 'var(--t3)' }}>· {h.user.name}</span>}
+                      <span style={{ fontSize: '10px', color: 'var(--t3)' }}>· {relativeTime(new Date(h.createdAt))}</span>
+                    </div>
+                    <div style={{ background: `color-mix(in srgb, ${acc} 7%, white)`, border: `1px solid color-mix(in srgb, ${acc} 18%, transparent)`, borderRadius: '12px 12px 12px 3px', padding: '12px 16px', maxWidth: '88%' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--tx)', lineHeight: '1.55', whiteSpace: 'pre-wrap', margin: 0 }}>{displayNote}</p>
+                    </div>
+                  </div>
+                )
+              }
+
+              // Client comment → chat bubble (right = mine, left = other client)
               return (
                 <div key={h.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMyMsg ? 'flex-end' : 'flex-start', gap: '4px' }}>
                   {isStatusChange && SL[h.fromStatus!] !== SL[h.toStatus!] && (

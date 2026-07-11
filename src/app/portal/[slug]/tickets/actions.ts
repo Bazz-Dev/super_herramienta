@@ -58,6 +58,10 @@ export async function createPortalTicket(fd: FormData) {
   const isBranchUser = isClient && !isClientAdmin
   const ticketStatus = isBranchUser ? 'pendiente_aprobacion' : 'nuevo'
 
+  const uploadedFiles = JSON.parse(String(fd.get('uploadedFiles') ?? '[]')) as {
+    key: string; name: string; mimeType: string
+  }[]
+
   const ticket = await prisma.ticket.create({
     data: {
       ticketCode: finalCode,
@@ -73,6 +77,18 @@ export async function createPortalTicket(fd: FormData) {
       createdById,
     },
   })
+
+  if (uploadedFiles.length > 0) {
+    await prisma.ticketDocument.createMany({
+      data: uploadedFiles.map(f => ({
+        ticketId: ticket.id,
+        uploadedById: createdById,
+        name: f.name,
+        fileUrl: f.key,
+        mimeType: f.mimeType,
+      })),
+    })
+  }
 
   await prisma.ticketHistory.create({
     data: {
@@ -243,11 +259,15 @@ export async function addPortalTicketItem(ticketId: string, item: { title: strin
   return { success: true, item: newItem }
 }
 
-export async function addPortalComment(ticketId: string, note: string) {
+export async function addPortalComment(
+  ticketId: string,
+  note: string,
+  files?: { key: string; name: string; mimeType: string }[],
+) {
   const session = await auth()
   if (!session?.user || session.user.role !== 'client') return { success: false }
   const trimmed = note.trim()
-  if (!trimmed) return { success: false }
+  if (!trimmed && (!files || files.length === 0)) return { success: false }
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, clientId: session.user.clientId ?? '' },
@@ -255,20 +275,37 @@ export async function addPortalComment(ticketId: string, note: string) {
   })
   if (!ticket) return { success: false }
 
-  await prisma.ticketHistory.create({
-    data: {
-      ticketId,
-      userId: session.user.id,
-      note: trimmed,
-      isInternal: false,
-    },
-  })
+  if (trimmed) {
+    await prisma.ticketHistory.create({
+      data: {
+        ticketId,
+        userId: session.user.id,
+        note: trimmed,
+        isInternal: false,
+      },
+    })
+  }
+
+  if (files && files.length > 0) {
+    await prisma.ticketDocument.createMany({
+      data: files.map(f => ({
+        ticketId,
+        uploadedById: session.user.id,
+        name: f.name,
+        fileUrl: f.key,
+        mimeType: f.mimeType,
+      })),
+    })
+  }
 
   // Notify INGEGAR staff of the new comment for traceability
+  const body = trimmed
+    ? `${session.user.name ?? 'Cliente'}: ${trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed}`
+    : `${session.user.name ?? 'Cliente'} adjuntó ${files!.length} archivo(s)`
   await notifyTenantStaff(ticket.tenantId, {
     type: 'ticket_comment',
     title: `Comentario en ticket`,
-    body: `${session.user.name ?? 'Cliente'}: ${trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed}`,
+    body,
     href: `/tickets/${ticketId}`,
   }).catch(() => {})
 

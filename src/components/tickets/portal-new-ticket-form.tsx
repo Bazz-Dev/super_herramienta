@@ -1,8 +1,30 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createPortalTicket } from '@/app/portal/[slug]/tickets/actions'
+
+const ACCEPT = 'image/*,video/mp4,video/quicktime,.pdf,.doc,.docx,.xls,.xlsx'
+const MAX_FILE_MB = 50
+
+type UploadedFile = { key: string; name: string; mimeType: string }
+
+async function uploadFiles(files: File[]): Promise<UploadedFile[]> {
+  const results: UploadedFile[] = []
+  for (const file of files) {
+    const res = await fetch('/api/portal-upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream' }),
+    })
+    if (!res.ok) throw new Error(`Error al preparar subida de ${file.name}`)
+    const { url, key } = await res.json()
+    const putRes = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
+    if (!putRes.ok) throw new Error(`Error al subir ${file.name}`)
+    results.push({ key, name: file.name, mimeType: file.type })
+  }
+  return results
+}
 
 interface Props {
   slug: string
@@ -39,6 +61,9 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState('')
   const [urgency, setUrgency] = useState('no_urgente')
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
+  const [uploadStatus, setUploadStatus] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
   const lockedBranch = defaultBranchId ? branches.find(b => b.id === defaultBranchId) : null
 
   const inp: React.CSSProperties = {
@@ -58,6 +83,18 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
     e.currentTarget.style.boxShadow = 'none'
   }
 
+  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? [])
+    const oversized = picked.filter(f => f.size > MAX_FILE_MB * 1024 * 1024)
+    if (oversized.length) { setError(`Archivo(s) demasiado grandes. Máximo ${MAX_FILE_MB} MB por archivo.`); return }
+    setPendingFiles(prev => [...prev, ...picked])
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function removeFile(i: number) {
+    setPendingFiles(prev => prev.filter((_, idx) => idx !== i))
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
@@ -65,6 +102,18 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
     fd.set('createdById', createdById)
     setError('')
     startTransition(async () => {
+      if (pendingFiles.length > 0) {
+        setUploadStatus(`Subiendo ${pendingFiles.length} archivo(s)…`)
+        try {
+          const uploaded = await uploadFiles(pendingFiles)
+          fd.set('uploadedFiles', JSON.stringify(uploaded))
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Error al subir archivos')
+          setUploadStatus('')
+          return
+        }
+        setUploadStatus('')
+      }
       const res = await createPortalTicket(fd)
       if (!res.success) { setError('Error al crear la solicitud. Inténtalo nuevamente.'); return }
       if (isStaff) {
@@ -179,6 +228,31 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
         <p style={{ fontSize: '11px', color: T3, marginTop: '5px' }}>Opcional — solo visible para ti y el equipo INGEGAR.</p>
       </div>
 
+      {/* Adjuntar archivos */}
+      <div>
+        {label('Adjuntar archivos')}
+        <input ref={fileRef} type="file" multiple accept={ACCEPT} onChange={handleFilePick}
+          style={{ display: 'none' }} aria-label="Seleccionar archivos" />
+        <button type="button" onClick={() => fileRef.current?.click()}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', borderRadius: '9px', border: `1.5px dashed ${BORDER}`, background: bg, color: T2, fontSize: '13px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 10V5.5L7 3.5h4.5a1 1 0 011 1V10M5 10H3a1 1 0 00-1 1v.5A1.5 1.5 0 003.5 13h9a1.5 1.5 0 001.5-1.5V11a1 1 0 00-1-1H5z"/><path d="M7 3.5V6H5"/></svg>
+          Adjuntar archivo
+        </button>
+        <p style={{ fontSize: '11px', color: T3, marginTop: '5px' }}>Imágenes, videos, PDF, Word, Excel. Máximo {MAX_FILE_MB} MB por archivo.</p>
+        {pendingFiles.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '8px' }}>
+            {pendingFiles.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 10px', background: `color-mix(in srgb, ${primary} 6%, ${bg})`, borderRadius: '7px', border: `1px solid color-mix(in srgb, ${primary} 20%, transparent)` }}>
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke={primary} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12.5h8a1 1 0 001-1V4L9.5 1.5H3a1 1 0 00-1 1v9a1 1 0 001 1z"/><path d="M9.5 1.5V4H12"/></svg>
+                <span style={{ fontSize: '12px', color: textColor, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                <span style={{ fontSize: '11px', color: T3 }}>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                <button type="button" onClick={() => removeFile(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T3, padding: '0 2px', fontSize: '16px', lineHeight: 1 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {error && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>⚠️</span>
@@ -193,7 +267,7 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
           cursor: isPending ? 'not-allowed' : 'pointer', opacity: isPending ? 0.6 : 1,
           fontFamily: 'Inter, sans-serif', transition: 'opacity 0.15s', minHeight: '44px',
         }}>
-          {isPending ? 'Enviando solicitud…' : 'Enviar solicitud →'}
+          {uploadStatus || (isPending ? 'Enviando solicitud…' : 'Enviar solicitud →')}
         </button>
         <a href={`/portal/${slug}/tickets`} style={{
           padding: '12px 18px', background: bg, color: T2,
