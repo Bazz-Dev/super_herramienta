@@ -4,15 +4,17 @@ Herramienta interna de gestión de INGEGAR: gestión de técnicos, cronogramas,
 cotizador con plantillas propias, pipeline comercial y portal cliente con tickets.
 Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 
-> **Versión actual: v1.8.0** — Auth + multi-tenant, Cotizador (editor + PDF + carpetas clientes),
+> **Versión actual: v1.9.0** — Auth + multi-tenant, Cotizador (editor + PDF + carpetas clientes),
 > Recursos (técnicos, vehículos, activos, cuadrillas, clientes), Cronograma,
 > Flujo de Caja, Tickets (interno + Portal JB/Decathlon/Happyland con PWA), Informe Técnico,
 > **RR.HH.** (fichas de empleado, permisos/vacaciones, liquidaciones, FES),
 > **Carpetas de clientes** (propuestas/informes guardados como JSON editable, PDF on-demand),
-> **Portal PWA multi-cliente** (isotipo INGEGAR isotipo dinámico PNG + icono dinámico por cliente + manifest independiente por portal).
-> **Fixes jul-2026**: márgenes PDF reducidos (10/14mm), SaveDocumentButton siempre visible con empty-state,
-> descarga PDF móvil corregida, documentos del cliente visibles desde detalle de trabajo.
-> **Pendiente**: módulo Pipeline (cotizaciones enviadas + seguimiento), import histórico Turso.
+> **Portal PWA multi-cliente** (isotipo INGEGAR dinámico PNG + icono dinámico por cliente + manifest independiente por portal).
+> **Nuevo v1.9 (jul-2026)**: Portal V2 redesign (chat-bubbles, progress stepper, estimatedDate+técnico visibles al cliente),
+> filtro período + CSV export en reportes, portal JB con cuentas de sucursal + flujo aprobación Carolina,
+> mi-panel técnico (FES, solicitud permisos, KPIs vehículo), ver-como (staff impersonation), auditoría de permisos,
+> gastos vinculados a trabajos, mutualidad + teléfono2 en ficha técnico.
+> **Pendiente**: módulo Pipeline, import histórico Turso, archivos adjuntos en nueva solicitud y comentarios del portal.
 
 ---
 
@@ -202,7 +204,7 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **IDs de cotización**: `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`.
 - **Commits**: inglés, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`).
 - **Componentes**: archivos enfocados; un propósito por archivo.
-- **Versión**: `package.json` → `"version": "1.8.0"`. Badge en sidebar y dashboard hero.
+- **Versión**: `package.json` → `"version": "1.9.0"`. Badge en sidebar y dashboard hero.
 
 ### Branding
 - Primario `#f5b100` (`bg-brand` / `text-brand`), texto `#111111` (`text-ink`).

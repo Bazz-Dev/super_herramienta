@@ -1,6 +1,6 @@
 {
   "name": "ingegar-platform",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -29,6 +29,7 @@
     "users:fix:prod": "npx tsx --env-file=.env.production.local scripts/fix-user-accounts.ts",
     "users:list:prod": "npx tsx --env-file=.env.production.local scripts/_list-users.ts",
     "setup:jb:prod": "npx tsx --env-file=.env.production.local scripts/setup-justburger-portal.ts",
+    "setup:jb:branches:prod": "npx tsx --env-file=.env.production.local scripts/setup-jb-branches.ts",
     "setup:hl:prod": "npx tsx --env-file=.env.production.local scripts/setup-happyland.ts",
     "import:jb:prod": "npx tsx --env-file=.env.production.local scripts/import-jb-tickets.ts",
     "import:flujo:prod": "npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts",
