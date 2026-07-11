@@ -60,6 +60,8 @@ const migrations = [
   '20260630222439_add_data_json_to_client_documents',
   '20260630223147_rrhh_module',
   '20260706041156_add_client_logo_url',
+  '20260709150320_add_technician_mutualidad_phone2',
+  '20260709215827_add_branch_client_admin_approval_status',
 ]
 
 const pending = migrations.filter((m) => !applied.has(m))
