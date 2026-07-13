@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useTransition, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/ui/spinner'
 import { renderQuoteHTML } from '@/lib/quotes/template'
 import { renderReportHTML } from '@/lib/reports/template'
+import { addToPipeline } from '@/lib/pipeline/actions'
+import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_COLORS } from '@/lib/pipeline/labels'
+import type { ProposalStatus } from '@/generated/prisma/enums'
 
 interface Doc {
   id: string
@@ -11,6 +15,8 @@ interface Doc {
   type: string
   createdAt: string
   createdBy: { name: string } | null
+  proposalStatus: ProposalStatus | null
+  proposalAmount: number | null
 }
 
 interface ClientFolder {
@@ -182,6 +188,8 @@ function DocCard({
 }) {
   const [hovering, setHovering] = useState(false)
   const [delPending, startDel] = useTransition()
+  const [pipelinePending, startPipeline] = useTransition()
+  const router = useRouter()
   const c = cfg(doc.type)
 
   function doDelete(e: React.MouseEvent) {
@@ -193,7 +201,17 @@ function DocCard({
     })
   }
 
+  function doAddPipeline(e: React.MouseEvent) {
+    e.stopPropagation()
+    startPipeline(async () => {
+      await addToPipeline(doc.id)
+      router.refresh()
+    })
+  }
+
   const editorHref = `/${doc.type === 'propuesta' ? 'cotizador' : 'informe'}?docId=${doc.id}`
+  const pStatus = doc.proposalStatus
+  const pColors = pStatus ? PROPOSAL_STATUS_COLORS[pStatus] : null
 
   return (
     <div
@@ -216,6 +234,12 @@ function DocCard({
           </span>
           <span className="truncate text-[11px] text-gray-400">{relDate(doc.createdAt)}</span>
         </div>
+        {/* Pipeline status badge */}
+        {pStatus && pColors && (
+          <span style={{ fontSize: '10px', fontWeight: '700', padding: '1px 7px', borderRadius: '10px', background: pColors.bg, color: pColors.text, border: `1px solid ${pColors.border}`, display: 'inline-block', width: 'fit-content' }}>
+            Pipeline: {PROPOSAL_STATUS_LABELS[pStatus]}
+          </span>
+        )}
         {doc.createdBy && (
           <p className="text-[11px] text-gray-400 truncate">{doc.createdBy.name}</p>
         )}
@@ -246,6 +270,23 @@ function DocCard({
             </svg>
             Vista previa
           </button>
+          {/* Add to pipeline (propuestas only) */}
+          {doc.type === 'propuesta' && !pStatus && (
+            <button
+              onClick={doAddPipeline}
+              disabled={pipelinePending}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+            >
+              {pipelinePending ? <Spinner size={11} /> : '+ Agregar al pipeline'}
+            </button>
+          )}
+          {doc.type === 'propuesta' && pStatus && (
+            <a href="/pipeline" onClick={e => e.stopPropagation()}
+              className="flex w-full items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white transition-colors"
+              style={{ background: PROPOSAL_STATUS_COLORS[pStatus].text }}>
+              Ver en pipeline →
+            </a>
+          )}
           <div className="flex w-full gap-2">
             <div className="flex-1">
               <DownloadPdfButton docId={doc.id} docType={doc.type} title={doc.title} />

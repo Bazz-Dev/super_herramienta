@@ -23,6 +23,8 @@ export default async function DocumentosPage() {
     createdAt: d.createdAt.toISOString(),
     createdBy: d.createdBy,
     client: d.client,
+    proposalStatus: d.proposalStatus ?? null,
+    proposalAmount: d.proposalAmount ?? null,
   }))
 
   // Group by client

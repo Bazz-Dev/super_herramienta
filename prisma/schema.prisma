@@ -655,24 +655,42 @@ enum ClientDocType {
   otro
 }
 
+enum ProposalStatus {
+  borrador    // guardada, no enviada
+  enviada     // enviada al cliente (email/WhatsApp)
+  vista       // cliente confirmó que la vio
+  aceptada    // cliente aceptó
+  rechazada   // cliente rechazó
+  perdida     // sin respuesta / descartada
+}
+
 model ClientDocument {
-  id          String          @id @default(cuid())
-  tenantId    String
-  clientId    String
-  type        ClientDocType   @default(otro)
-  title       String
-  fileKey     String          // R2 key, o "inline" cuando los datos están en dataJson
-  dataJson    String?         // JSON completo del editor (QuoteData | ReportData) — fuente de verdad para re-editar
-  metadata    String?         // JSON: { quoteId?, reportId?, amount?, version? }
-  createdById String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id              String          @id @default(cuid())
+  tenantId        String
+  clientId        String
+  type            ClientDocType   @default(otro)
+  title           String
+  fileKey         String          // R2 key, o "inline" cuando los datos están en dataJson
+  dataJson        String?         // JSON completo del editor (QuoteData | ReportData) — fuente de verdad para re-editar
+  metadata        String?         // JSON: { quoteId?, reportId?, amount?, version? }
+  createdById     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  // Pipeline fields (solo para type = propuesta)
+  proposalStatus  ProposalStatus?
+  proposalAmount  Int?            // CLP bruto de la propuesta
+  sentAt          DateTime?       // cuando se marcó como enviada
+  viewedAt        DateTime?       // cuando el cliente la vio
+  responseAt      DateTime?       // cuando respondió (aceptada/rechazada)
+  followUpAt      DateTime?       // recordatorio de seguimiento
+  proposalNote    String?         // notas comerciales internas
 
   client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([clientId])
+  @@index([proposalStatus])
   @@map("client_documents")
 }
 

@@ -4,17 +4,20 @@ Herramienta interna de gestión de INGEGAR: gestión de técnicos, cronogramas,
 cotizador con plantillas propias, pipeline comercial y portal cliente con tickets.
 Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 
-> **Versión actual: v1.9.0** — Auth + multi-tenant, Cotizador (editor + PDF + carpetas clientes),
+> **Versión actual: v1.10.0** — Auth + multi-tenant, Cotizador (editor + PDF + carpetas clientes),
 > Recursos (técnicos, vehículos, activos, cuadrillas, clientes), Cronograma,
 > Flujo de Caja, Tickets (interno + Portal JB/Decathlon/Happyland con PWA), Informe Técnico,
 > **RR.HH.** (fichas de empleado, permisos/vacaciones, liquidaciones, FES),
 > **Carpetas de clientes** (propuestas/informes guardados como JSON editable, PDF on-demand),
-> **Portal PWA multi-cliente** (isotipo INGEGAR dinámico PNG + icono dinámico por cliente + manifest independiente por portal).
+> **Portal PWA multi-cliente** (isotipo INGEGAR dinámico PNG + icono dinámico por cliente + manifest independiente por portal),
+> **Pipeline comercial** (`/pipeline` — kanban por estado, KPIs, monto en juego, integrado en carpetas).
 > **Nuevo v1.9 (jul-2026)**: Portal V2 redesign (chat-bubbles, progress stepper, estimatedDate+técnico visibles al cliente),
 > filtro período + CSV export en reportes, portal JB con cuentas de sucursal + flujo aprobación Carolina,
 > mi-panel técnico (FES, solicitud permisos, KPIs vehículo), ver-como (staff impersonation), auditoría de permisos,
-> gastos vinculados a trabajos, mutualidad + teléfono2 en ficha técnico.
-> **Pendiente**: módulo Pipeline, import histórico Turso, archivos adjuntos en nueva solicitud y comentarios del portal.
+> gastos vinculados a trabajos, mutualidad + teléfono2 en ficha técnico, adjuntos R2 en portal (nueva solicitud + comentarios).
+> **Nuevo v1.10 (jul-2026)**: Pipeline comercial — ProposalStatus enum, kanban columnar (Borrador/Enviada/Vista/Aceptada/Rechazada/Perdida),
+> KPIs (total, monto en juego, tasa de cierre, por vencer), integrado en `/documentos` (badge + botón "Agregar al pipeline").
+> **Pendiente**: import histórico Turso (`scripts/import-flujo.ts`), estadísticas por técnico.
 
 ---
 
@@ -158,6 +161,17 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **API** (`/api/client-documents`): POST (JSON body, no FormData), GET (lista o single por id, `dataJson` omitido en lista), PATCH (actualizar), DELETE.
 - No requiere R2 para propuestas/informes — `isR2Key("inline")` = false.
 
+### Módulo Pipeline (`src/lib/pipeline/`, `src/components/pipeline/`, `/pipeline`)
+- Acceso: solo `super` | `supervisor`.
+- **Modelo**: campos nuevos en `ClientDocument` (type = `propuesta`): `proposalStatus` (enum `ProposalStatus`), `proposalAmount` (CLP), `sentAt`, `viewedAt`, `responseAt`, `followUpAt`, `proposalNote`.
+- **`ProposalStatus` enum**: `borrador | enviada | vista | aceptada | rechazada | perdida`.
+- **`/pipeline`**: kanban columnar agrupado por estado. KPIs: total en pipeline, monto en juego (enviada+vista), tasa de cierre (aceptadas/cerradas), propuestas por vencer (>7 días sin respuesta).
+- **Integración `/documentos`**: propuestas muestran badge de estado pipeline. Hover-overlay: botón "Agregar al pipeline" si no está en pipeline; "Ver en pipeline →" si ya tiene estado.
+- **Acciones**: `addToPipeline`, `updatePipelineStatus`, `updatePipelineAmount`, `updateFollowUp`, `removeFromPipeline` en `src/lib/pipeline/actions.ts`.
+- `src/lib/pipeline/queries.ts` — `getPipelineDocs()` + `computeKPIs()`.
+- `src/lib/pipeline/labels.ts` — colores por estado, `formatCLP()`, `daysSince()`.
+- `src/components/pipeline/pipeline-board.tsx` — `PipelineBoard` (client) con `PipelineCard` expandible (cambiar estado, editar monto, notas, quitar del pipeline).
+
 ### Módulo RR.HH. (`src/lib/rrhh/`, `/rrhh`)
 - Acceso: solo `super` | `supervisor`. Requiere `requireActor(['super', 'supervisor'])`.
 - **`/rrhh`** — Dashboard: KPIs (headcount, permisos pendientes, masa salarial mes), lista equipo, permisos recientes, accesos rápidos.
@@ -230,12 +244,12 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 8. ✅ **Carpetas de clientes** (`/documentos`) — propuestas e informes guardados como JSON editable, re-abribles en editor, PDF generado on-demand.
 9. ✅ **RR.HH.** — fichas de empleado, permisos/vacaciones, liquidaciones mensuales, FES (Firma Electrónica Simple desde `/mi-panel`).
 10. ✅ **Portal PWA multi-cliente** — isotipo INGEGAR dinámico PNG (`/ingegar-icon/[size]`), manifest+icon independiente por portal, logo dinámico desde `Client.logoUrl`. `apple-touch-icon` iOS también usa la ruta dinámica.
-11. ⬜ **Pipeline** — cotizaciones enviadas, estados, alertas de seguimiento (se une con Cotizador).
+11. ✅ **Pipeline comercial** — `/pipeline` kanban columnar (Borrador/Enviada/Vista/Aceptada/Rechazada/Perdida), KPIs (total, monto en juego, tasa de cierre, por vencer >7d), integrado en `/documentos` con badge de estado y botón "Agregar al pipeline". `ProposalStatus` enum en `ClientDocument`. `src/lib/pipeline/` + `src/components/pipeline/pipeline-board.tsx`.
 
 **Próximos (sugeridos en orden de valor):**
-- Pipeline: historial de propuestas enviadas por cliente, estados (enviada/vista/aceptada/rechazada), alertas.
 - Import histórico Flujo de Caja a Turso en producción (`scripts/import-flujo.ts`).
 - Estadísticas por técnico: trabajos ejecutados, horas, distribución semanal.
+- Alertas automáticas de seguimiento en Pipeline (propuesta enviada > 7 días sin respuesta → push/email).
 
 ---
 

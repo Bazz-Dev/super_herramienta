@@ -26,6 +26,7 @@ const NAV_SECTIONS = [
       { href: '/cotizador', label: 'Propuestas', icon: DocIcon },
       { href: '/informe', label: 'Informes', icon: ReportIcon },
       { href: '/documentos', label: 'Carpetas clientes', icon: FolderIcon },
+      { href: '/pipeline', label: 'Pipeline', icon: PipelineIcon },
       { href: '/flujo', label: 'Flujo de Caja', icon: CashIcon },
     ],
   },
@@ -298,6 +299,16 @@ function ReceiptIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2z" />
       <path d="M9 8h6M9 12h6M9 16h4" />
+    </svg>
+  )
+}
+
+function PipelineIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2" y="3" width="5" height="18" rx="1"/>
+      <rect x="9.5" y="3" width="5" height="13" rx="1"/>
+      <rect x="17" y="3" width="5" height="8" rx="1"/>
     </svg>
   )
 }
