@@ -75,9 +75,21 @@ export async function createJob(_prev: FormState, form: FormData): Promise<FormS
     const tech = await prisma.technician.findFirst({ where: { id: parsed.data.technicianId, ...tenantScope(u) }, select: { id: true } })
     if (!tech) return { error: 'Técnico no válido.' }
   }
-  await prisma.job.create({ data: { tenantId: u.tenantId, clientId: parsed.data.clientId, ...jobData(parsed.data) } })
+  const originTicketId = (form.get('originTicketId') as string | null) || null
+  if (originTicketId) {
+    const tkt = await prisma.ticket.findFirst({ where: { id: originTicketId, tenantId: u.tenantId }, select: { id: true } })
+    if (!tkt) return { error: 'Ticket origen no válido.' }
+  }
+  const job = await prisma.job.create({
+    data: {
+      tenantId: u.tenantId,
+      clientId: parsed.data.clientId,
+      ...jobData(parsed.data),
+      ...(originTicketId ? { originTicketId } : {}),
+    },
+  })
   revalidatePath('/flujo')
-  redirect('/flujo/trabajos')
+  redirect(`/flujo/trabajos/${job.id}`)
 }
 
 export async function updateJob(id: string, _prev: FormState, form: FormData): Promise<FormState> {

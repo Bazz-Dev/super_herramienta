@@ -56,7 +56,12 @@ export async function listBranchesForClient(actor: Actor, clientId: string) {
 export async function getJob(actor: Actor, id: string) {
   return prisma.job.findFirst({
     where: { id, ...tenantScope(actor) },
-    include: { branch: true, client: true, costs: { orderBy: { createdAt: 'desc' } } },
+    include: {
+      branch: true,
+      client: true,
+      costs: { orderBy: { createdAt: 'desc' } },
+      originTicket: { select: { id: true, ticketCode: true, title: true, status: true } },
+    },
   })
 }
 

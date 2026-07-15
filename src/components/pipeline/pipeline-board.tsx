@@ -191,11 +191,21 @@ function PipelineCard({ doc }: { doc: PipelineDoc }) {
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
+          <div style={{ display: 'flex', gap: '8px', paddingTop: '4px', flexWrap: 'wrap' }}>
             <a href={`/cotizador?docId=${doc.id}`}
               style={{ fontSize: '12px', fontWeight: '600', color: '#1d4ed8', textDecoration: 'none', padding: '5px 10px', background: '#eff6ff', borderRadius: '7px' }}>
               Editar →
             </a>
+            {status === 'aceptada' && (() => {
+              const params = new URLSearchParams({ cliente: doc.client.id, desc: doc.title })
+              if (doc.proposalAmount) params.set('netAmount', String(doc.proposalAmount))
+              return (
+                <a href={`/flujo/trabajos/new?${params}`}
+                  style={{ fontSize: '12px', fontWeight: '600', color: '#15803d', textDecoration: 'none', padding: '5px 10px', background: '#f0fdf4', borderRadius: '7px', border: '1px solid #bbf7d0' }}>
+                  Crear trabajo en Flujo →
+                </a>
+              )
+            })()}
             <button onClick={remove}
               style={{ fontSize: '12px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}>
               Quitar del pipeline

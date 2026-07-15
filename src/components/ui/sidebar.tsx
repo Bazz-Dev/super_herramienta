@@ -139,7 +139,7 @@ export function Sidebar({
           </div>
         </a>
         <div className="mt-3">{logout}</div>
-        <p className="mt-3 text-center text-[10px] font-mono text-gray-300">INGEGAR One · v1.8.0</p>
+        <p className="mt-3 text-center text-[10px] font-mono text-gray-300">INGEGAR One · v1.10.0</p>
       </div>
     </div>
   )

@@ -208,9 +208,184 @@ function sectionHeader(title: string): string {
   return `<div class="section-header">${esc(title)}</div>`
 }
 
+function proStyles(): string {
+  return `
+  /* ===== Template: Pro ===== */
+  .tpl-pro .pro-header { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  .tpl-pro .pro-logo { font-size: 32px; font-weight: 900; color: var(--color-black); letter-spacing: -0.02em; }
+  .tpl-pro .pro-logo .dot { color: var(--color-primary); }
+  .tpl-pro .pro-tagline { font-size: 9px; color: var(--color-muted); margin-top: 4px; }
+  .tpl-pro .pro-proposal { text-align: right; }
+  .tpl-pro .pro-proposal strong { display: block; font-size: 11px; font-weight: 700; color: var(--color-black); }
+  .tpl-pro .pro-proposal span { display: block; font-size: 9px; color: var(--color-muted); margin-top: 2px; }
+  .tpl-pro .pro-meta { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 14px; margin-top: 14px; }
+  .tpl-pro .pro-meta small { display: block; color: #777; text-transform: uppercase; font-size: 7.5px; letter-spacing: 0.05em; }
+  .tpl-pro .pro-meta b { display: block; margin-top: 2px; font-size: 10px; font-weight: 600; color: var(--color-black); }
+  .tpl-pro .pro-rule { height: 4px; background: var(--color-primary); margin: 14px 0 8px; }
+  .tpl-pro .pro-hero { background: var(--color-black); color: #fff; border-left: 5px solid var(--color-primary); padding: 12px 14px; break-inside: avoid; margin-bottom: 18px; }
+  .tpl-pro .pro-hero .eyebrow { color: var(--color-primary); font-weight: 700; font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .tpl-pro .pro-hero h1 { margin: 0 0 6px; font-size: 18px; line-height: 1.1; color: #fff; }
+  .tpl-pro .pro-hero p { margin: 0; color: #d8d8d8; font-size: 10px; line-height: 1.55; }
+  .tpl-pro .pro-scope { border: 1px solid var(--color-border); }
+  .tpl-pro .pro-scope-item { padding: 9px 11px; border-bottom: 1px solid var(--color-border); font-size: 10px; }
+  .tpl-pro .pro-scope-item:last-child { border-bottom: none; }
+  .tpl-pro .pro-scope-item:nth-child(even) { background: var(--color-table-alt); }
+  .tpl-pro .pro-scope-item .st { display: block; font-weight: 600; color: var(--color-black); margin-bottom: 2px; font-size: 10.5px; }
+  .tpl-pro .pro-summary { width: 67%; margin: 12px 0 0 auto; }
+  .tpl-pro .pro-sumrow { display: grid; grid-template-columns: 1fr auto; padding: 7px 10px; border: 1px solid var(--color-border); border-top: none; font-size: 11px; align-items: center; gap: 12px; }
+  .tpl-pro .pro-sumrow:first-child { border-top: 1px solid var(--color-border); }
+  .tpl-pro .pro-sumrow b { font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .tpl-pro .pro-sumrow.iva { background: #fff8d5; }
+  .tpl-pro .pro-sumrow.final { background: var(--color-black); color: #fff; font-weight: 700; font-size: 13px; }
+  .tpl-pro .pro-sumrow.final b { color: var(--color-primary); }
+  .tpl-pro .pro-conditions { width: 100%; border-collapse: collapse; }
+  .tpl-pro .pro-conditions td { border: 1px solid var(--color-border); padding: 7px 10px; font-size: 10.5px; vertical-align: top; }
+  .tpl-pro .pro-conditions .cond-label { width: 26%; background: #f5f5f5; font-weight: 600; color: var(--color-black); }
+  `
+}
+
+function renderProTemplate(data: QuoteData): string {
+  const totals = computeTotals(data)
+  const taxPct = Math.round(data.taxRate * 100)
+
+  // Hero title: first scope title, or the quoteId as fallback
+  const heroTitle = data.scope.length > 0 ? data.scope[0].title : data.quoteId
+  // Hero eyebrow: short factual summary of the proposal scope
+  const heroEyebrow = [
+    data.scope.length > 1 ? `${data.scope.length} actividades en alcance` : '',
+    data.items.length > 0 ? `${data.items.length} ítem${data.items.length > 1 ? 's' : ''} cotizado${data.items.length > 1 ? 's' : ''}` : '',
+  ].filter(Boolean).join(' · ')
+
+  const scopeItems = data.scope.length
+    ? data.scope.map((s) => `<div class="pro-scope-item">
+        <span class="st">${esc(s.title)}</span>
+        ${s.detail ? `<span>${esc(s.detail)}</span>` : ''}
+      </div>`).join('')
+    : '<div class="pro-scope-item"><span class="muted">Sin alcance definido.</span></div>'
+
+  // Conditions: detect "Label: value" format for table layout
+  const conditionRows = data.commercialConditions.length
+    ? data.commercialConditions.map((c) => {
+        const colonIdx = c.indexOf(': ')
+        if (colonIdx > 0 && colonIdx < 45) {
+          return `<tr><td class="cond-label">${esc(c.slice(0, colonIdx))}</td><td>${esc(c.slice(colonIdx + 2))}</td></tr>`
+        }
+        return `<tr><td class="cond-label">—</td><td>${esc(c)}</td></tr>`
+      }).join('')
+    : `<tr><td colspan="2" style="color:#888;font-size:10px">Sin condiciones especificadas.</td></tr>`
+
+  const exclusions = data.exclusions.length
+    ? `<ol class="exclusions">${data.exclusions.map((e) => `<li>${esc(e)}</li>`).join('')}</ol>`
+    : '<p class="muted">Sin exclusiones.</p>'
+
+  const adjustmentRows = totals.adjustments.length
+    ? `<div class="pro-sumrow"><span>Costo base</span><b>${formatMoney(totals.base, data.currency)}</b></div>` +
+      totals.adjustments.map((a) =>
+        `<div class="pro-sumrow"><span>${esc(a.label)} (${a.percent}%)</span><b>${formatMoney(a.amount, data.currency)}</b></div>`,
+      ).join('')
+    : ''
+
+  const economicSummary = `<div class="pro-summary avoid">
+    ${adjustmentRows}
+    <div class="pro-sumrow"><span>Neto</span><b>${formatMoney(totals.net, data.currency)}</b></div>
+    ${taxPct > 0
+      ? `<div class="pro-sumrow iva"><span>IVA (${taxPct}%)</span><b>${formatMoney(totals.tax, data.currency)}</b></div>`
+      : `<div class="pro-sumrow"><span style="color:#888">Exento de IVA</span><b style="color:#888">—</b></div>`
+    }
+    <div class="pro-sumrow final"><span>TOTAL</span><b>${formatMoney(totals.total, data.currency)}</b></div>
+  </div>`
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>${esc(data.quoteId)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap" rel="stylesheet" />
+<style>${baseStyles()}${proStyles()}</style>
+</head>
+<body class="tpl-pro">
+
+  <div class="pro-header">
+    <div>
+      <div class="pro-logo">INGEGAR<span class="dot">.</span></div>
+      <div class="pro-tagline">${esc(data.tagline)}</div>
+    </div>
+    <div class="pro-proposal">
+      <strong>PROPUESTA DE SERVICIO</strong>
+      <span>${esc(data.scope.length > 0 ? data.scope[0].title : 'Propuesta de servicio técnico')}</span>
+      <span>${esc(data.contact.company)}</span>
+    </div>
+  </div>
+
+  <div class="pro-meta">
+    <div><small>Cotización</small><b>${esc(data.quoteId)}</b></div>
+    <div><small>Fecha</small><b>${esc(formatDate(data.date))}</b></div>
+    <div><small>Cliente</small><b>${esc(data.client.name)}</b></div>
+    <div><small>Contacto</small><b>${esc(data.client.contact ?? '—')}</b></div>
+    <div><small>RUT / cobertura</small><b>${esc(data.client.rut ?? '—')}</b></div>
+    <div><small>Validez</small><b>${esc(data.validityDays)} días corridos</b></div>
+  </div>
+
+  <div class="pro-rule"></div>
+
+  <div class="pro-hero">
+    ${heroEyebrow ? `<div class="eyebrow">${esc(heroEyebrow)}</div>` : ''}
+    <h1>${esc(heroTitle)}</h1>
+    ${data.executiveSummary ? `<p>${esc(data.executiveSummary)}</p>` : ''}
+  </div>
+
+  <div class="body-pad">
+    <section class="block">
+      ${sectionHeader('Alcance del servicio')}
+      <div class="pro-scope">${scopeItems}</div>
+    </section>
+
+    <section class="block">
+      ${sectionHeader('Detalle de precios')}
+      ${renderItemsTable(data)}
+      ${economicSummary}
+    </section>
+
+    <section class="block">
+      ${sectionHeader('Exclusiones')}
+      ${exclusions}
+    </section>
+
+    <section class="block">
+      ${sectionHeader('Condiciones comerciales')}
+      <table class="pro-conditions">
+        <tbody>${conditionRows}</tbody>
+      </table>
+      <div class="validity" style="margin-top:12px">Validez: <strong>${esc(data.validityDays)} días corridos</strong> desde ${esc(formatDate(data.date))}.</div>
+    </section>
+
+    ${renderImages(data)}
+
+    <section class="block">
+      <div class="signatures">
+        <div class="sign"><div class="line"></div><div class="who">${esc(data.contact.company)}</div><div class="role">Oferente</div></div>
+        <div class="sign"><div class="line"></div><div class="who">${esc(data.client.name)}</div><div class="role">Aceptación cliente</div></div>
+      </div>
+    </section>
+
+    <footer class="doc-footer avoid">
+      <div class="logo">INGEGAR<span class="dot">.</span></div>
+      <div class="contact">
+        ${esc(data.contact.company)}<br />
+        ${esc(data.contact.email)}${data.contact.phone ? ` · ${esc(data.contact.phone)}` : ''}<br />
+        ${esc(data.contact.web)}
+      </div>
+    </footer>
+  </div>
+
+</body>
+</html>`
+}
+
 export function renderQuoteHTML(data: QuoteData): string {
-  // Removed templates (e.g. 'minimal') fall back to clasico
-  if (data.template !== 'clasico') data = { ...data, template: 'clasico' }
+  if (data.template === 'pro') return renderProTemplate(data)
 
   const totals = computeTotals(data)
   const taxPct = Math.round(data.taxRate * 100)

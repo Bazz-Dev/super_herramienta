@@ -58,6 +58,25 @@ export const KANBAN_COLUMNS: { status: TicketStatusId; label: string; color: str
 export const ALL_STATUSES = Object.keys(STATUS_LABEL) as TicketStatusId[]
 export const ALL_URGENCIES = Object.keys(URGENCY_LABEL) as TicketUrgencyId[]
 
+// Lower = shown first in list views
+export const URGENCY_PRIORITY: Record<TicketUrgencyId, number> = {
+  emergencia: 0,
+  urgencia:   1,
+  no_urgente: 2,
+  preventivo: 3,
+}
+
+export const STATUS_PRIORITY: Record<TicketStatusId, number> = {
+  pendiente_aprobacion: 0,
+  nuevo:                1,
+  en_revision:          2,
+  en_ejecucion:         3,
+  esperando_aprobacion: 4,
+  resuelto:             5,
+  cancelado:            6,
+  fusionado:            7,
+}
+
 // Portal CSS badge classes (used with the portal design system in layout.tsx)
 export const PORTAL_STATUS_BADGE: Record<string, string> = {
   pendiente_aprobacion: 'badge badge-espera',

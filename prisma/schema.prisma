@@ -456,6 +456,9 @@ model Job {
   collectionStatus  CollectionStatus @default(sin_oc)
   paymentDate       DateTime?
 
+  originTicketId    String?
+  originTicket      Ticket?          @relation("JobOrigins", fields: [originTicketId], references: [id], onDelete: SetNull)
+
   costs             JobCost[]
   ticket            Ticket?
   createdAt         DateTime         @default(now())
@@ -463,6 +466,7 @@ model Job {
 
   @@index([tenantId, clientId])
   @@index([branchId])
+  @@index([originTicketId])
   @@map("jobs")
 }
 
@@ -545,6 +549,7 @@ model Ticket {
   collaborators TicketCollaborator[]
   expenses      Expense[]
   assignments   Assignment[]
+  originJobs    Job[]               @relation("JobOrigins")
 
   @@index([tenantId])
   @@index([clientId])

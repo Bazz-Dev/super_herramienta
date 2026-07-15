@@ -38,6 +38,7 @@ type JobInitial = {
   paymentMethodRaw?: string | null
   collectionStatus?: string
   paymentDate?: Date | null
+  originTicketId?: string | null
 }
 
 export function JobForm({
@@ -60,8 +61,11 @@ export function JobForm({
 
   return (
     <form action={formAction} className="flex max-w-3xl flex-col gap-6">
-      {/* Hidden tenant/client id */}
+      {/* Hidden ids */}
       <input type="hidden" name="clientId" value={clientId} />
+      {initial?.originTicketId && (
+        <input type="hidden" name="originTicketId" value={initial.originTicketId} />
+      )}
 
       {/* --- Identificación --- */}
       <section>

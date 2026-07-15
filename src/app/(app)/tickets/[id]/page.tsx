@@ -20,7 +20,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const ticket = await getTicket(actor, id)
   if (!ticket) notFound()
 
-  const [technicians, staffUsers, allInformes, ticketExpenses] = await Promise.all([
+  const [technicians, staffUsers, allInformes, ticketExpenses, originJobs] = await Promise.all([
     prisma.technician.findMany({
       where: { tenantId: actor.tenantId, active: true },
       select: { id: true, name: true },
@@ -40,6 +40,11 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       where: { ticketId: id, tenantId: actor.tenantId },
       include: { technician: { select: { name: true } } },
       orderBy: { date: 'desc' },
+    }),
+    prisma.job.findMany({
+      where: { originTicketId: id, tenantId: actor.tenantId },
+      select: { id: true, description: true, status: true, collectionStatus: true, netAmount: true, branch: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
     }),
   ])
 
@@ -156,8 +161,8 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           </div>
         )}
 
-        {/* Quick action: log expense for this ticket */}
-        <div className="mt-3 border-t border-gray-100 pt-3">
+        {/* Quick actions */}
+        <div className="mt-3 border-t border-gray-100 pt-3 flex flex-wrap gap-4">
           <Link
             href={`/gastos?ticketRef=${ticket.id}`}
             className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline font-medium"
@@ -165,6 +170,25 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v10M3 8h10"/></svg>
             Registrar gasto →
           </Link>
+          {(actor.role === 'super' || actor.role === 'supervisor') && (() => {
+            const params = new URLSearchParams({
+              cliente: ticket.clientId,
+              desc: ticket.title,
+              quoteRef: ticket.ticketCode,
+              ticketCode: ticket.ticketCode,
+              ticketId: ticket.id,
+            })
+            if (ticket.branchId) params.set('sucursal', ticket.branchId)
+            return (
+              <Link
+                href={`/flujo/trabajos/new?${params}`}
+                className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-ink hover:underline font-medium"
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="12" height="10" rx="1.5"/><path d="M5 2v4M11 2v4M2 8h12"/></svg>
+                Crear trabajo en Flujo →
+              </Link>
+            )
+          })()}
         </div>
       </div>
 
@@ -200,6 +224,32 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           )}
         </div>
       </div>
+
+      {/* Jobs originated from this ticket */}
+      {originJobs.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Trabajos en Flujo de Caja</h2>
+            <span className="text-xs text-gray-400">{originJobs.length} trabajo{originJobs.length > 1 ? 's' : ''}</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {originJobs.map((j) => (
+              <div key={j.id} className="flex items-center justify-between py-2.5 text-sm">
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-800 truncate">{j.description}</p>
+                  <p className="text-xs text-gray-400">{j.branch.name}</p>
+                </div>
+                <Link
+                  href={`/flujo/trabajos/${j.id}`}
+                  className="ml-3 shrink-0 text-xs font-semibold text-brand hover:underline"
+                >
+                  Ver trabajo →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Expenses linked to this ticket */}
       {ticketExpenses.length > 0 && (

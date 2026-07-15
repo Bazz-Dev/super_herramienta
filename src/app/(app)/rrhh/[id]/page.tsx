@@ -5,6 +5,7 @@ import { getTechnicianProfile } from '@/lib/rrhh/queries'
 import { prisma } from '@/lib/prisma'
 import { CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, DOC_TYPE_LABELS, type ContractTypeId } from '@/lib/resources/labels'
 import { LEAVE_TYPE_LABEL, LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL, PAYROLL_STATUS_BADGE, PAYROLL_STATUS_LABEL, MONTH_NAMES, formatClp } from '@/lib/rrhh/labels'
+import { JOB_STATUS_LABELS } from '@/lib/cashflow/labels'
 import { TechnicianHRForm } from '@/components/rrhh/technician-hr-form'
 
 type TechProfile = NonNullable<Awaited<ReturnType<typeof getTechnicianProfile>>>
@@ -23,6 +24,31 @@ export default async function TechnicianProfilePage({ params }: Props) {
   const actor = await requireActor(['super', 'supervisor'])
   const tech = await getTechnicianProfile(actor, id)
   if (!tech) notFound()
+
+  const [jobs, assignmentCount] = await Promise.all([
+    prisma.job.findMany({
+      where: { technicianId: tech.id, tenantId: actor.tenantId },
+      select: { status: true, netAmount: true, executionDate: true },
+      orderBy: { executionDate: 'desc' },
+    }),
+    prisma.assignmentAssignee.count({
+      where: { technicianId: tech.id, assignment: { tenantId: actor.tenantId } },
+    }),
+  ])
+
+  // Operational KPIs
+  const totalJobs = jobs.length
+  const totalBilled = jobs.reduce((s, j) => s + (j.netAmount ?? 0), 0)
+  const lastJob = jobs[0]?.executionDate ?? null
+  const jobsByStatus = Object.entries(
+    jobs.reduce<Record<string, { count: number; net: number }>>((acc, j) => {
+      const k = j.status
+      if (!acc[k]) acc[k] = { count: 0, net: 0 }
+      acc[k].count++
+      acc[k].net += j.netAmount ?? 0
+      return acc
+    }, {})
+  )
 
   const techTickets = tech.user
     ? await prisma.ticket.findMany({
@@ -153,6 +179,63 @@ export default async function TechnicianProfilePage({ params }: Props) {
 
         {/* Right: tabs panels */}
         <div className="flex flex-col gap-4 lg:col-span-2">
+          {/* Operational stats */}
+          <section className="rounded-xl border border-gray-200 bg-white">
+            <div className="border-b border-gray-100 px-5 py-3.5">
+              <h2 className="text-sm font-semibold">Estadísticas operacionales</h2>
+            </div>
+            <div className="p-5">
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Trabajos</p>
+                  <p className="mt-1 text-xl font-bold text-gray-800">{totalJobs}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Facturado neto</p>
+                  <p className="mt-1 text-xl font-bold text-gray-800">{totalBilled > 0 ? formatClp(totalBilled) : '—'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Asignaciones</p>
+                  <p className="mt-1 text-xl font-bold text-gray-800">{assignmentCount}</p>
+                </div>
+                <div className="rounded-lg bg-gray-50 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Último trabajo</p>
+                  <p className="mt-1 text-sm font-bold text-gray-800">{lastJob ? fDate(lastJob) : '—'}</p>
+                </div>
+              </div>
+
+              {/* Breakdown by status */}
+              {jobsByStatus.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Desglose por estado</p>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="pb-1 text-left font-medium text-gray-400">Estado</th>
+                        <th className="pb-1 text-right font-medium text-gray-400">Trabajos</th>
+                        <th className="pb-1 text-right font-medium text-gray-400">Monto neto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {jobsByStatus.map(([status, { count, net }]) => (
+                        <tr key={status}>
+                          <td className="py-1.5 font-medium text-gray-700">{JOB_STATUS_LABELS[status] ?? status}</td>
+                          <td className="py-1.5 text-right text-gray-600">{count}</td>
+                          <td className="py-1.5 text-right text-gray-600">{net > 0 ? formatClp(net) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {totalJobs === 0 && assignmentCount === 0 && (
+                <p className="mt-4 text-center text-xs text-gray-400">Sin datos operacionales registrados</p>
+              )}
+            </div>
+          </section>
+
           {/* Leave summary */}
           <section className="rounded-xl border border-gray-200 bg-white">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">

@@ -13,8 +13,11 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 6, delayMs = 800): P
   for (let i = 0; i < retries; i++) {
     try { return await fn() }
     catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('SQLITE_BUSY') && i < retries - 1) {
+      if (i < retries - 1) {
+        // ponytail: retry any error — all callers do idempotent upserts, safe to retry.
+        // Covers both SQLite (SQLITE_BUSY) and Turso/libSQL transient errors (SERVER_ERROR, timeout, LIBSQL_CLIENT_ERROR).
+        const msg = e instanceof Error ? e.message : String(e)
+        console.warn(`  [retry ${i + 1}/${retries - 1}] ${msg}`)
         await new Promise(r => setTimeout(r, delayMs * (i + 1)))
         continue
       }
@@ -202,3 +205,33 @@ main()
     console.error(e)
     process.exit(1)
   })
+
+/**
+ * Usage — production (Turso)
+ * ───────────────────────────────────────────────────────────────
+ * Prerequisites:
+ *   .env.production.local must contain:
+ *     DATABASE_URL=libsql://...
+ *     TURSO_AUTH_TOKEN=...
+ *
+ * Run from the project root (Excel files are relative to CWD):
+ *   npm run import:flujo:prod
+ *   # expands to: npx tsx --env-file=.env.production.local scripts/import-flujo-prod.ts
+ *
+ * Expected output (per client):
+ *   Importando Just Burger…
+ *     Just Burger: N trabajos, M sucursales, neto $X.XXX.XXX
+ *   Importando Decathlon…
+ *   ...
+ *   ✓ Total: N trabajos importados.
+ *   CSV actualizado: design-reference/flujo-consolidado.csv
+ *
+ * Idempotency:
+ *   Safe to run multiple times. Jobs are upserted by importRef (e.g. "JB#Sheet1#2").
+ *   Re-running updates existing rows with the current Excel values — no duplicates.
+ *
+ * Usage — local (SQLite dev)
+ * ───────────────────────────────────────────────────────────────
+ *   npm run import:flujo
+ *   # expands to: node --import tsx scripts/import-flujo.ts
+ */

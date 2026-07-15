@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { getTickets } from '@/lib/tickets/tickets'
 import { TicketListView } from '@/components/tickets/ticket-list-view'
+import { URGENCY_PRIORITY, STATUS_PRIORITY, type TicketUrgencyId, type TicketStatusId } from '@/lib/tickets/labels'
 
 export const metadata = { title: 'Tickets — INGEGAR' }
 
@@ -39,17 +40,28 @@ export default async function TicketsPage() {
     }),
   ])
 
-  // eslint-disable-next-line react-hooks/purity
+  // Sort: open tickets first, then by urgency priority, then newest
+  const sorted = [...tickets].sort((a, b) => {
+    const aResolved = a.status === 'resuelto'
+    const bResolved = b.status === 'resuelto'
+    if (aResolved !== bResolved) return aResolved ? 1 : -1
+    const urgDiff = (URGENCY_PRIORITY[a.urgency as TicketUrgencyId] ?? 9) - (URGENCY_PRIORITY[b.urgency as TicketUrgencyId] ?? 9)
+    if (urgDiff !== 0) return urgDiff
+    const statusDiff = (STATUS_PRIORITY[a.status as TicketStatusId] ?? 9) - (STATUS_PRIORITY[b.status as TicketStatusId] ?? 9)
+    if (statusDiff !== 0) return statusDiff
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  })
+
   const nowMs = Date.now()
-  const needsAttention = tickets.filter(t => t.status === 'nuevo' && !t.assignedToId).length
-  const emergencias    = tickets.filter(t => t.urgency === 'emergencia').length
-  const sinAbordar24h  = tickets.filter(t =>
+  const needsAttention = sorted.filter(t => t.status === 'nuevo' && !t.assignedToId).length
+  const emergencias    = sorted.filter(t => t.urgency === 'emergencia').length
+  const sinAbordar24h  = sorted.filter(t =>
     t.status === 'nuevo' &&
     (nowMs - new Date(t.createdAt).getTime()) > 86_400_000,
   ).length
 
   // Serialize dates to ISO strings for client component
-  const serialized = tickets.map(t => ({
+  const serialized = sorted.map(t => ({
     id: t.id,
     ticketCode: t.ticketCode,
     title: t.title,
@@ -84,7 +96,7 @@ export default async function TicketsPage() {
         <div>
           <h1 className="text-2xl font-bold text-ink">Tickets de mantención</h1>
           <div className="mt-1 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-gray-500">{tickets.length} activos</span>
+            <span className="text-sm text-gray-500">{sorted.length} activos</span>
             {needsAttention > 0 && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
                 {needsAttention} sin asignar
@@ -110,7 +122,7 @@ export default async function TicketsPage() {
         </Link>
       </div>
 
-      <TicketListView tickets={serialized} clients={clients} users={users} closedTickets={serializedClosed} />
+      <TicketListView tickets={serialized} clients={clients} users={users} closedTickets={serializedClosed}  />
     </div>
   )
 }

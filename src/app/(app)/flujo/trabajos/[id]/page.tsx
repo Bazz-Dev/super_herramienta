@@ -63,6 +63,19 @@ export default async function TrabajoDetailPage({
         ← Trabajos
       </Link>
 
+      {/* Origin ticket banner */}
+      {job.originTicket && (
+        <div className="mt-2 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm text-blue-800">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M6 5v3M6 10v1"/></svg>
+          <span>Creado desde ticket{' '}
+            <Link href={`/tickets/${job.originTicket.id}`} className="font-semibold hover:underline">
+              {job.originTicket.ticketCode}
+            </Link>
+            {' '}— {job.originTicket.title}
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
         <div>
