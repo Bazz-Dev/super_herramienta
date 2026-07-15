@@ -47,7 +47,7 @@ export async function getTickets(actor: TenantActor, filters?: {
     },
     select: ticketSelect,
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-    take: 200,
+    take: 500,
   })
 }
 
