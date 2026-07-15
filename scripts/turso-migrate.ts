@@ -63,6 +63,7 @@ const migrations = [
   '20260709150320_add_technician_mutualidad_phone2',
   '20260709215827_add_branch_client_admin_approval_status',
   '20260713045307_add_pipeline_fields',
+  '20260714000000_add_job_origin_ticket',
 ]
 
 const pending = migrations.filter((m) => !applied.has(m))

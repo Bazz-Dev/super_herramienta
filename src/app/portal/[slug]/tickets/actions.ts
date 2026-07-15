@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
+import { ticketFolderKey } from '@/lib/r2'
 import type { TicketUrgency } from '@/generated/prisma/enums'
 
 function buildTicketCode(urgency: string, branchName: string, clientPrefix: string): string {
@@ -75,6 +76,7 @@ export async function createPortalTicket(fd: FormData) {
       branchId,
       tenantId: client.tenantId,
       createdById,
+      folderKey: ticketFolderKey(client.portalSlug ?? clientPrefix, finalCode),
     },
   })
 

@@ -17,9 +17,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join, extname } from 'node:path'
 import { prisma } from '../src/lib/prisma'
 import { uploadToR2, ticketFolderKey } from '../src/lib/r2'
-import { randomUUID } from 'node:crypto'
 
-const DRIVE_DIR = join(process.cwd(), 'JUSTbURGER - Trabajos')
+const DRIVE_DIR = join(process.cwd(), 'JustBurger - Trabajos')
 const CLIENT_SLUG = 'justburger'
 const DRY_RUN = process.env.DRY_RUN === '1'
 
@@ -111,11 +110,11 @@ for (const folder of folders) {
         if (!existing) {
           await prisma.ticketDocument.create({
             data: {
-              id: randomUUID(),
               ticketId: ticket.id,
               name: file.name,
               fileUrl: safeKey,
-              uploadedById: null,  // migración histórica
+              mimeType: mime(ext),
+              uploadedById: null,
             },
           })
         }

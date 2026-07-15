@@ -4,8 +4,7 @@
  * Novedades:
  *   - Importa hoja Tecnicos → upsert en DB + enlace a usuarios existentes
  *   - Asigna assignedToId por nombre de técnico (col 10)
- *   - Guarda Carpeta_Drive en internalNotes (col 12)
- *   - ACTUALIZA tickets ya existentes (assignedToId + Drive note)
+ *   - ACTUALIZA tickets ya existentes (assignedToId + fechas)
  *   - Historia idempotente por (ticketId, minuto-bucket, nota)
  *   - Normaliza fromStatus/toStatus a enum lowercase
  *
@@ -78,6 +77,14 @@ function normalizeUrgency(raw: unknown): TicketUrgency {
 
 const tenant = await prisma.tenant.findUniqueOrThrow({ where: { slug: 'ingegar' } })
 const adminUser = await prisma.user.findFirstOrThrow({ where: { tenantId: tenant.id, role: 'super' } })
+
+// Fallback assignee for tickets whose tech doesn't have a user account in INGEGAR
+const jesusDiaz = await prisma.user.findFirst({
+  where: { tenantId: tenant.id, name: { contains: 'Jesus' } },
+  select: { id: true, name: true },
+})
+if (jesusDiaz) console.log(`  ↳ Fallback técnico: ${jesusDiaz.name}`)
+else console.log(`  ⚠ No se encontró usuario "Jesus Diaz" — tickets sin técnico quedará sin asignar`)
 
 let jbClient = await prisma.client.findFirst({
   where: { tenantId: tenant.id, portalSlug: CLIENT_SLUG },
@@ -190,15 +197,17 @@ console.log(`✓ Técnicos: ${techNameToId.size}`)
 
 async function findUserId(techName: string | null): Promise<string | null> {
   if (!techName) return null
-  return findUserByNormName(norm(techName))
+  const found = findUserByNormName(norm(techName))
+  // Tech named but no user account → fallback to Jesus Diaz
+  return found ?? jesusDiaz?.id ?? null
 }
 
 // ── 3. Tickets ────────────────────────────────────────────────────────────────
 // Col: 1=Ticket_ID 2=Fecha_Creacion 3=Sucursal 4=Urgencia 5=Estado 6=Titulo
-//      7=Observacion 8=Fecha_Compromiso 9=Fecha_Cierre 10=Tecnico 11=OT_Link
-//      12=Carpeta_Drive 14=Creado_Por 15=Ultima_Actualizacion 17=Mostrar
-//      20=Categoria 21=Descripcion 22=OT_Numero 23=Comentario_Cliente
-//      24=Notas_Internas 25=Fecha_Estimada 26=Resumen_Trabajo
+//      7=Observacion 8=Fecha_Compromiso 9=Fecha_Cierre 10=Tecnico
+//      14=Creado_Por 15=Ultima_Actualizacion 17=Mostrar 20=Categoria
+//      21=Descripcion 22=OT_Numero 23=Comentario_Cliente 24=Notas_Internas
+//      25=Fecha_Estimada 26=Resumen_Trabajo  (col 12=Carpeta_Drive ignorada — migrado a R2)
 
 const wsTickets = wb.getWorksheet('Tickets')
 if (!wsTickets) throw new Error('Hoja "Tickets" no encontrada en el Excel')
@@ -212,7 +221,6 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
   if (!ticketCode) continue
 
   const techName     = str(cell(row, 10))
-  const driveUrl     = str(cell(row, 12))
   const assignedToId = await findUserId(techName)
 
   const existing = await prisma.ticket.findUnique({
@@ -224,27 +232,19 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
     ticketIdMap.set(ticketCode, existing.id)
 
     const needsAssignee = assignedToId && existing.assignedToId !== assignedToId
-    const hasDriveNote  = existing.internalNotes?.includes('[Carpeta Drive:')
-    const needsDrive    = driveUrl && !hasDriveNote
 
     // Patch dates if the stored value was set to today (import bug) instead of the Excel date
     const excelCreatedAt  = asDate(cell(row, 2))
     const excelClosedDate = asDate(cell(row, 9))
     const storedMs = existing.createdAt.getTime()
-    // Consider it wrong if Excel has a date and stored value is within 2 days of NOW (import bug)
     const importBugThreshold = Date.now() - 2 * 86_400_000
     const needsDatePatch = excelCreatedAt && storedMs > importBugThreshold
 
-    if (needsAssignee || needsDrive || needsDatePatch) {
+    if (needsAssignee || needsDatePatch) {
       await prisma.ticket.update({
         where: { id: existing.id },
         data: {
           ...(needsAssignee ? { assignedToId } : {}),
-          ...(needsDrive ? {
-            internalNotes: existing.internalNotes
-              ? `${existing.internalNotes}\n[Carpeta Drive: ${driveUrl}]`
-              : `[Carpeta Drive: ${driveUrl}]`,
-          } : {}),
           ...(needsDatePatch ? {
             createdAt: excelCreatedAt,
             updatedAt: asDate(cell(row, 15)) ?? excelCreatedAt,
@@ -262,10 +262,7 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
   // New ticket
   const branchId   = await getBranchId(str(cell(row, 3)) ?? 'Sin sucursal')
   const createdAt  = asDate(cell(row, 2)) ?? new Date()
-  const baseNotes  = str(cell(row, 24))
-  const driveNote  = driveUrl
-    ? (baseNotes ? `${baseNotes}\n[Carpeta Drive: ${driveUrl}]` : `[Carpeta Drive: ${driveUrl}]`)
-    : baseNotes
+  const driveNote  = str(cell(row, 24)) // internalNotes — Drive URL omitted intentionally (migrado a R2)
 
   const data: Prisma.TicketUncheckedCreateInput = {
     ticketCode,
