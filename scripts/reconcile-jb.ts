@@ -56,14 +56,29 @@ await wb.xlsx.readFile(FILE)
 const wsTickets = wb.getWorksheet('Tickets')!
 const wsHist    = wb.getWorksheet('Historial')!
 
+// Urgencia Excel → enum Turso. 'desconocido' si no calza (nunca adivinar).
+function normalizeUrgency(raw: unknown): string {
+  const s = norm(str(raw) ?? '')
+  if (!s) return 'desconocido'
+  if (s.includes('no urgente') || s.includes('no_urgente')) return 'no_urgente'
+  if (s.includes('emerg'))   return 'emergencia'
+  if (s.includes('prevent')) return 'preventivo'
+  if (s.includes('urgen'))   return 'urgencia'
+  return 'desconocido'
+}
+
 interface ExcelTicket {
   code:     string
   status:   string
   rawStatus: string
   tecnico:  string | null
   sucursal: string | null
+  urgencia: string
+  ot:       string | null
+  adjuntos: string | null
   createdAt: Date | null
   closedAt:  Date | null
+  ultimaAct: Date | null
 }
 
 const excelTickets = new Map<string, ExcelTicket>()
@@ -78,8 +93,12 @@ for (let r = 2; r <= wsTickets.rowCount; r++) {
     rawStatus,
     tecnico:   str(cell(row, 10)),
     sucursal:  str(cell(row, 3)),
+    urgencia:  normalizeUrgency(cell(row, 4)),
+    ot:        str(cell(row, 22)),
+    adjuntos:  str(cell(row, 13)),
     createdAt: cell(row, 2) instanceof Date ? cell(row, 2) as Date : null,
     closedAt:  cell(row, 9) instanceof Date ? cell(row, 9) as Date : null,
+    ultimaAct: cell(row, 15) instanceof Date ? cell(row, 15) as Date : null,
   })
 }
 
@@ -124,7 +143,7 @@ console.log(`🌐 TURSO — Cliente: ${jbClientName} (${jbClientId})`)
 
 // Todos los tickets JB (tablas: tickets, users, branches)
 const tursoRes = await db.execute(
-  `SELECT t.ticketCode, t.status, t.assignedToId, t.createdAt, t.closedDate, t.showToClient,
+  `SELECT t.ticketCode, t.status, t.urgency, t.otNumber, t.assignedToId, t.createdAt, t.updatedAt, t.closedDate, t.showToClient,
           u.name as tecnicoNombre,
           b.name as sucursalNombre
    FROM tickets t
@@ -137,8 +156,11 @@ const tursoRes = await db.execute(
 interface TursoTicket {
   ticketCode:    string
   status:        string
+  urgency:       string
+  otNumber:      string | null
   assignedToId:  string | null
   createdAt:     string
+  updatedAt:     string
   closedDate:    string | null
   showToClient:  number
   tecnicoNombre: string | null
@@ -163,6 +185,32 @@ const tursoHistCount = new Map<string, number>()
 for (const r of histRes.rows) {
   tursoHistCount.set(r['ticketCode'] as string, Number(r['cnt']))
 }
+
+// Documentos (R2) por ticketCode en Turso
+const docRes = await db.execute(
+  `SELECT t.ticketCode, COUNT(d.id) as cnt
+   FROM ticket_documents d
+   JOIN tickets t ON t.id = d.ticketId
+   WHERE t.clientId = '${jbClientId}'
+   GROUP BY t.ticketCode`
+)
+const tursoDocCount = new Map<string, number>()
+for (const r of docRes.rows) tursoDocCount.set(r['ticketCode'] as string, Number(r['cnt']))
+
+// Historial completo para detectar eventos duplicados (mismo ticket+minuto+nota)
+const histFullRes = await db.execute(
+  `SELECT t.ticketCode, h.createdAt, h.note
+   FROM ticket_history h
+   JOIN tickets t ON t.id = h.ticketId
+   WHERE t.clientId = '${jbClientId}'`
+)
+const histKeyCount = new Map<string, number>()
+for (const r of histFullRes.rows) {
+  const ts = new Date(r['createdAt'] as string).getTime()
+  const key = `${r['ticketCode']}|${Math.floor(ts / 60000)}|${((r['note'] as string | null) ?? '').slice(0, 80)}`
+  histKeyCount.set(key, (histKeyCount.get(key) ?? 0) + 1)
+}
+const histDuplicados = [...histKeyCount.entries()].filter(([, n]) => n > 1)
 
 // Estado por status en Turso
 const tursoByStatus: Record<string, number> = {}
@@ -247,6 +295,68 @@ for (const [code, et] of excelTickets) {
     difTecnico.push({ code, excelTec: et.tecnico, tursoTec: tt.tecnicoNombre })
   }
 }
+
+// 3j. Diferencias de sucursal / urgencia / OT (solo tickets coincidentes)
+interface DifCampo { code: string; excel: string; turso: string }
+const difSucursal: DifCampo[] = []
+const difUrgencia: DifCampo[] = []
+const difOT:       DifCampo[] = []
+for (const [code, et] of excelTickets) {
+  const tt = tursoTickets.get(code)
+  if (!tt) continue
+  const es = et.sucursal ? norm(et.sucursal) : ''
+  const ts = tt.sucursalNombre ? norm(tt.sucursalNombre) : ''
+  // containment en ambos sentidos: "Providencia" vs "JB Providencia"
+  if (es !== ts && !(es && ts && (es.includes(ts) || ts.includes(es)))) {
+    difSucursal.push({ code, excel: et.sucursal ?? '—', turso: tt.sucursalNombre ?? '—' })
+  }
+  if (et.urgencia !== 'desconocido' && et.urgencia !== tt.urgency) {
+    difUrgencia.push({ code, excel: et.urgencia, turso: tt.urgency })
+  }
+  const eo = et.ot?.trim() ?? ''
+  const to = tt.otNumber?.trim() ?? ''
+  if (eo !== to) difOT.push({ code, excel: eo || '—', turso: to || '—' })
+}
+
+// 3k. Última modificación por fuente (clave para la fecha de corte)
+let excelMasNuevo = 0, tursoMasNuevo = 0, sinUltimaAct = 0
+let maxExcelAct: Date | null = null, maxTursoAct: Date | null = null
+const excelNuevoDetalle: { code: string; excel: string; turso: string }[] = []
+for (const [code, et] of excelTickets) {
+  const tt = tursoTickets.get(code)
+  if (!tt) continue
+  const tu = new Date(tt.updatedAt)
+  if (maxTursoAct === null || tu > maxTursoAct) maxTursoAct = tu
+  if (!et.ultimaAct) { sinUltimaAct++; continue }
+  if (maxExcelAct === null || et.ultimaAct > maxExcelAct) maxExcelAct = et.ultimaAct
+  if (et.ultimaAct > tu) {
+    excelMasNuevo++
+    excelNuevoDetalle.push({ code, excel: et.ultimaAct.toISOString().slice(0, 16), turso: tu.toISOString().slice(0, 16) })
+  } else {
+    tursoMasNuevo++
+  }
+}
+
+// 3l. Sospecha timezone: fecha creación difiere entre 1 min y 25 h entre fuentes
+const tzSospechosa: { code: string; excel: string; turso: string; difH: string }[] = []
+for (const [code, et] of excelTickets) {
+  const tt = tursoTickets.get(code)
+  if (!tt || !et.createdAt) continue
+  const difMs = Math.abs(et.createdAt.getTime() - new Date(tt.createdAt).getTime())
+  if (difMs > 60_000 && difMs <= 25 * 3_600_000) {
+    tzSospechosa.push({
+      code,
+      excel: et.createdAt.toISOString().slice(0, 16),
+      turso: new Date(tt.createdAt).toISOString().slice(0, 16),
+      difH: (difMs / 3_600_000).toFixed(1),
+    })
+  }
+}
+
+// 3m. Adjuntos declarados en Excel sin documento en Turso (relación archivo↔dato perdida)
+const adjuntosSinDoc = [...excelTickets.values()]
+  .filter(et => et.adjuntos && tursoCodes.has(et.code))
+  .filter(et => (tursoDocCount.get(et.code) ?? 0) === 0)
 
 // ── 4. Reporte ─────────────────────────────────────────────────────────────────
 
@@ -352,6 +462,36 @@ console.log(`    Por estado: ${JSON.stringify(soloPorStatus)}`)
 console.log(`    Ejemplos: ${JSON.stringify(soloEnTurso.slice(0, 5))}`)
 console.log()
 
+console.log(`11. DIFERENCIAS DE SUCURSAL (${difSucursal.length}):`)
+difSucursal.slice(0, 10).forEach(d => console.log(`   - ${d.code}: Excel="${d.excel}" vs Turso="${d.turso}"`))
+console.log()
+
+console.log(`12. DIFERENCIAS DE URGENCIA (${difUrgencia.length}):`)
+difUrgencia.slice(0, 10).forEach(d => console.log(`   - ${d.code}: Excel="${d.excel}" vs Turso="${d.turso}"`))
+console.log()
+
+console.log(`13. DIFERENCIAS DE OT (${difOT.length}):`)
+difOT.slice(0, 10).forEach(d => console.log(`   - ${d.code}: Excel="${d.excel}" vs Turso="${d.turso}"`))
+console.log()
+
+console.log(`14. ÚLTIMA MODIFICACIÓN POR FUENTE (tickets coincidentes):`)
+console.log(`   Excel más nuevo que Turso: ${excelMasNuevo} | Turso más nuevo: ${tursoMasNuevo} | sin Ultima_Actualizacion en Excel: ${sinUltimaAct}`)
+console.log(`   Actividad más reciente — Excel: ${maxExcelAct?.toISOString().slice(0, 16) ?? '—'} | Turso: ${maxTursoAct?.toISOString().slice(0, 16) ?? '—'}`)
+excelNuevoDetalle.slice(0, 10).forEach(d => console.log(`   - ${d.code}: Excel=${d.excel} > Turso=${d.turso}`))
+console.log()
+
+console.log(`15. SOSPECHA TIMEZONE — creación difiere 1min–25h entre fuentes (${tzSospechosa.length}):`)
+tzSospechosa.slice(0, 10).forEach(d => console.log(`   - ${d.code}: Excel=${d.excel} vs Turso=${d.turso} (${d.difH}h)`))
+console.log()
+
+console.log(`16. ADJUNTOS EXCEL SIN DOCUMENTO EN TURSO (${adjuntosSinDoc.length}):`)
+adjuntosSinDoc.slice(0, 10).forEach(et => console.log(`   - ${et.code}: "${(et.adjuntos ?? '').slice(0, 60)}"`))
+console.log()
+
+console.log(`17. EVENTOS DE HISTORIAL DUPLICADOS EN TURSO (${histDuplicados.length}):`)
+histDuplicados.slice(0, 10).forEach(([k, n]) => console.log(`   - ${k.split('|')[0]} ×${n}: "${k.split('|')[2]}"`))
+console.log()
+
 // Resumen ejecutivo
 console.log('═══════════════════════════════════════════════════════')
 console.log('  RESUMEN EJECUTIVO')
@@ -363,6 +503,13 @@ const warns = [
   sinHistTurso.length > 0 && `${sinHistTurso.length} sin historial`,
   difHist.length > 0      && `${difHist.length} dif. historial`,
   fechaSospechosa.length > 0 && `${fechaSospechosa.length} fechas sospechosas`,
+  difSucursal.length > 0  && `${difSucursal.length} dif. sucursal`,
+  difUrgencia.length > 0  && `${difUrgencia.length} dif. urgencia`,
+  difOT.length > 0        && `${difOT.length} dif. OT`,
+  tzSospechosa.length > 0 && `${tzSospechosa.length} sospecha TZ`,
+  adjuntosSinDoc.length > 0 && `${adjuntosSinDoc.length} adjuntos sin doc`,
+  histDuplicados.length > 0 && `${histDuplicados.length} historial duplicado`,
+  excelMasNuevo > 0       && `${excelMasNuevo} tickets con Excel más nuevo`,
 ].filter(Boolean)
 
 if (ok && warns.length === 0) {
