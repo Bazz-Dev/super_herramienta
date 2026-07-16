@@ -5,18 +5,7 @@ import { auth } from '@/auth'
 import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
 import type { TicketUrgency } from '@/generated/prisma/enums'
-
-function buildTicketCode(urgency: string, branchName: string, clientPrefix: string): string {
-  const now = new Date()
-  const yy = String(now.getFullYear()).slice(2)
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  const urgMap: Record<string, string> = { emergencia: 'EM', urgencia: 'UR', no_urgente: 'RQ', preventivo: 'PR' }
-  const code = urgMap[urgency] ?? 'RQ'
-  const suc    = branchName.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)
-  const prefix = clientPrefix.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4)
-  return `${yy}${mm}${dd}-${prefix}-${code}1-${suc}`
-}
+import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 
 export async function createPortalTicket(fd: FormData) {
   const session = await auth()
@@ -49,8 +38,7 @@ export async function createPortalTicket(fd: FormData) {
   // Staff: can only create for clients belonging to their tenant
   if (isStaff && client.tenantId !== session.user.tenantId) return { success: false }
 
-  const clientPrefix = client.portalSlug ?? client.name.split(' ')[0]
-  const ticketCode = buildTicketCode(urgency, branch?.name ?? 'SUCURSAL', clientPrefix)
+  const ticketCode = buildTicketCode(urgency, branch?.name ?? 'SUCURSAL', clientTicketPrefix(client))
 
   const existing = await prisma.ticket.findUnique({ where: { ticketCode }, select: { id: true } })
   const finalCode = existing ? `${ticketCode}-${Date.now().toString(36).slice(-4)}` : ticketCode
@@ -76,7 +64,7 @@ export async function createPortalTicket(fd: FormData) {
       branchId,
       tenantId: client.tenantId,
       createdById,
-      folderKey: ticketFolderKey(client.portalSlug ?? clientPrefix, finalCode),
+      folderKey: ticketFolderKey(clientTicketPrefix(client), finalCode),
     },
   })
 

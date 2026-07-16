@@ -15,7 +15,7 @@ export default async function NewTicketPage() {
   const [clients, users] = await Promise.all([
     prisma.client.findMany({
       where: tenantScope(actor),
-      select: { id: true, name: true, branches: { select: { id: true, name: true }, orderBy: { name: 'asc' } } },
+      select: { id: true, name: true, portalSlug: true, branches: { select: { id: true, name: true }, orderBy: { name: 'asc' } } },
       orderBy: { name: 'asc' },
     }),
     prisma.user.findMany({

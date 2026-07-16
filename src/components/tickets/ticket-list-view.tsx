@@ -16,6 +16,7 @@ const URG_DOT: Record<string, string> = {
 }
 
 const STATUS_COLS = [
+  { v: 'pendiente_aprobacion', label: 'Pend. aprob.' },
   { v: 'nuevo',                label: 'Nuevo' },
   { v: 'en_revision',          label: 'En Revisión' },
   { v: 'en_ejecucion',         label: 'En Ejecución' },

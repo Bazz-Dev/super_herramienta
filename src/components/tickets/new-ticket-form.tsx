@@ -5,26 +5,16 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createTicket } from '@/app/(app)/tickets/actions'
 import { URGENCY_LABEL, type TicketUrgencyId } from '@/lib/tickets/labels'
+import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 import { Spinner } from '@/components/ui/spinner'
 
 type Branch = { id: string; name: string }
-type Client = { id: string; name: string; branches: Branch[] }
+type Client = { id: string; name: string; portalSlug: string | null; branches: Branch[] }
 
 interface Props {
   clients: Client[]
   users: { id: string; name: string; role: string }[]
   createdById: string
-}
-
-function buildCode(urgency: string, branchName: string): string {
-  const now = new Date()
-  const yy = String(now.getFullYear()).slice(2)
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  const urgMap: Record<string, string> = { emergencia: 'EM', urgencia: 'UR', no_urgente: 'RQ', preventivo: 'PR' }
-  const code = urgMap[urgency] ?? 'RQ'
-  const suc = branchName.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
-  return `${yy}${mm}${dd}-JB-${code}1-${suc}`
 }
 
 export function NewTicketForm({ clients, users, createdById }: Props) {
@@ -49,7 +39,7 @@ export function NewTicketForm({ clients, users, createdById }: Props) {
 
   // Auto-build ticket code preview
   const branchName = branches.find(b => b.id === branchId)?.name ?? 'SUCURSAL'
-  const codePreview = buildCode(urgency, branchName)
+  const codePreview = buildTicketCode(urgency, branchName, selectedClient ? clientTicketPrefix(selectedClient) : 'CLIENTE')
 
   function handleClientChange(id: string) {
     setClientId(id)
