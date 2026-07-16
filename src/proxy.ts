@@ -9,6 +9,6 @@ const { auth } = NextAuth(authConfig)
 export default auth
 
 export const config = {
-  // Run on everything except static assets, image optimizer and the auth API.
-  matcher: ['/((?!api/auth|_next/static|_next/image|favicon.ico).*)'],
+  // Run on everything except static assets, image optimizer, HMR socket and the auth API.
+  matcher: ['/((?!api/auth|_next/static|_next/image|_next/webpack-hmr|favicon.ico).*)'],
 }
