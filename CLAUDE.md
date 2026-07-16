@@ -140,7 +140,7 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 
 ### Módulo Cotizador (`src/lib/quotes/`, `src/components/quotes/`)
 - **Editor online** (`/cotizador`): campos editables, alcance/exclusiones/condiciones, tabla con **columnas dinámicas**, ajustes (utilidad/admin/comercial con %) cálculo neto/IVA/total, **preview en vivo** (debounce 250ms), descarga PDF.
-- **2 plantillas A4**: `clasico` y `minimal`. Una sola fuente de verdad: `renderQuoteHTML(data)` → mismo HTML para preview (iframe) y PDF (Playwright).
+- **3 plantillas A4**: `clasico`, `basica` y `pro`. Una sola fuente de verdad: `renderQuoteHTML(data)` → mismo HTML para preview (iframe) y PDF (Playwright). `basica` = variante CSS liviana sobre el flujo del clásico; `pro` = layout propio (hero negro, grilla meta, condiciones en tabla) con banner de portada opcional. Docs legacy con template `minimal` se mapean a `basica` en el schema Zod.
 - **PDF márgenes**: `top:10mm / bottom:14mm / left:10mm / right:10mm` en `src/lib/pdf/render.ts`. `.body-pad { padding-top: 6px }` en `template.ts`. El mismo `renderHtmlToPdf()` sirve propuestas e informes.
 - **Imágenes**: data URI en cliente (no se suben al servidor), compatibles con Vercel serverless.
 - **`SaveDocumentButton`** (`src/components/quotes/save-document-button.tsx`): siempre visible (no se oculta cuando no hay clientes). Si `clients.length === 0` → modal muestra aviso amarillo + link a `/recursos/clientes`. Botón "Guardar" deshabilitado hasta que haya cliente seleccionado. Para re-editar doc existente (`existingDocId` prop) → PATCH en lugar de POST, omitiendo el selector de cliente.

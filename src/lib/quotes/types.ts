@@ -2,16 +2,18 @@ import { z } from 'zod'
 
 // Data model for a quote ("cotización"). A4 paginated, multi-template.
 
-export const TEMPLATES = ['clasico', 'pro'] as const
+export const TEMPLATES = ['clasico', 'basica', 'pro'] as const
 export type TemplateId = (typeof TEMPLATES)[number]
 
 export const TEMPLATE_LABELS: Record<TemplateId, string> = {
   clasico: 'Clásico',
+  basica: 'Básica',
   pro: 'Pro',
 }
 
 export const TEMPLATE_DESCRIPTIONS: Record<TemplateId, string> = {
   clasico: 'Bandas de sección, presentación formal',
+  basica: 'Limpia y liviana, sin bandas — para cotizaciones rápidas',
   pro: 'Hero negro, grilla meta, condiciones en tabla — ideal para contratos multi-sucursal',
 }
 
@@ -61,7 +63,8 @@ export const quoteScopeSchema = z.object({
 })
 
 export const quoteDataSchema = z.object({
-  template: z.enum(TEMPLATES).default('clasico'),
+  // Docs saved before the rename may carry the removed 'minimal' template → map to 'basica'
+  template: z.preprocess((v) => (v === 'minimal' ? 'basica' : v), z.enum(TEMPLATES).default('clasico')),
   coverImageUrl: z.string().optional(), // optional banner image on the cover
   images: z.array(quoteImageSchema).default([]), // optional photo annex
 

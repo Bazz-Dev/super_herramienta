@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { renderQuoteHTML } from '../../src/lib/quotes/template.ts'
 import { sampleQuote } from '../../src/lib/quotes/sample.ts'
-import type { QuoteData } from '../../src/lib/quotes/types.ts'
+import { quoteDataSchema, type QuoteData } from '../../src/lib/quotes/types.ts'
 
 test('renderQuoteHTML: incluye las secciones principales', () => {
   const html = renderQuoteHTML(sampleQuote)
@@ -87,4 +87,25 @@ test('renderQuoteHTML: fecha no se desplaza al día anterior (bug UTC)', () => {
   const html = renderQuoteHTML(data)
   assert.ok(html.includes('1 de julio de 2026'), 'el 1° de julio no debe aparecer como 30 de junio')
   assert.ok(!html.includes('30 de junio'), 'no debe mostrar 30 de junio para date 2026-07-01')
+})
+
+test('renderQuoteHTML: plantilla básica usa tpl-basica y mantiene las secciones del clásico', () => {
+  const html = renderQuoteHTML({ ...sampleQuote, template: 'basica' })
+  assert.ok(html.includes('class="tpl-basica"'), 'el body debe llevar la clase tpl-basica')
+  assert.ok(html.includes('.tpl-basica .section-header'), 'debe incluir los estilos de la variante básica')
+  for (const s of ['Resumen ejecutivo', 'Alcance de trabajo', 'Detalle de precios', 'Condiciones comerciales']) {
+    assert.ok(html.includes(s), `falta la sección "${s}"`)
+  }
+})
+
+test('renderQuoteHTML: plantilla pro muestra banner de portada solo si hay coverImageUrl', () => {
+  const conBanner = renderQuoteHTML({ ...sampleQuote, template: 'pro', coverImageUrl: 'data:image/png;base64,x' })
+  assert.ok(conBanner.includes('class="cover-banner"'), 'pro debe renderizar el banner de portada')
+  const sinBanner = renderQuoteHTML({ ...sampleQuote, template: 'pro', coverImageUrl: undefined })
+  assert.ok(!sinBanner.includes('class="cover-banner"'), 'sin coverImageUrl no debe haber banner')
+})
+
+test('quoteDataSchema: mapea el template legacy "minimal" a "basica"', () => {
+  const parsed = quoteDataSchema.parse({ ...sampleQuote, template: 'minimal' })
+  assert.equal(parsed.template, 'basica')
 })

@@ -4,7 +4,7 @@ import { esc, formatDate, formatMoney } from './format'
 // Parameterized HTML template — single source of truth shared by the in-app
 // QuotePreview (iframe) and the Playwright PDF, so they are identical.
 //
-// A4 paginated, 3 visual templates (minimal | clasico | imagen-hd).
+// A4 paginated, 3 visual templates (clasico | basica | pro).
 // Colors come from DESIGN-SYSTEM.MD tokens.
 
 const TOKENS = `
@@ -117,6 +117,23 @@ function baseStyles(): string {
   /* ===== Template: Clásico ===== */
   .tpl-clasico .cover { padding: 4px 0 0; }
   .tpl-clasico .cover .logo { font-size: 34px; }
+
+  /* ===== Template: Básica ===== */
+  /* Same document flow as clásico, lighter skin: no black bands, no zebra rows. */
+  .tpl-basica .cover .logo { font-size: 28px; }
+  .tpl-basica .stripe { height: 3px; margin-top: 18px; }
+  .tpl-basica .section-header {
+    background: none; color: var(--color-black); border-left: none;
+    border-bottom: 2px solid var(--color-primary); padding: 0 0 5px;
+  }
+  .tpl-basica table.prices thead th { background: none; color: var(--color-black); border-bottom: 2px solid var(--color-black); }
+  .tpl-basica table.prices tbody tr:nth-child(even) { background: none; }
+  .tpl-basica .totals tr.total td { background: none; color: var(--color-black); border-top: 2px solid var(--color-black); }
+  .tpl-basica .validity { background: none; border-left: 3px solid var(--color-primary); padding: 6px 10px; }
+  .tpl-basica ul.conditions li { border-bottom: none; padding: 3px 0 3px 14px; }
+  .tpl-basica ul.conditions li::before { top: 9px; }
+  .tpl-basica .doc-footer { background: none; color: var(--color-muted); border-top: 1px solid var(--color-border); padding: 14px 0 0; }
+  .tpl-basica .doc-footer .logo { color: var(--color-black); font-size: 15px; }
 
   /* ===== Optional cover banner ===== */
   .cover-banner {
@@ -248,6 +265,10 @@ function renderProTemplate(data: QuoteData): string {
   const totals = computeTotals(data)
   const taxPct = Math.round(data.taxRate * 100)
 
+  const banner = data.coverImageUrl
+    ? `<div class="cover-banner" style="background-image:url('${data.coverImageUrl}')"></div>`
+    : ''
+
   // Hero title: first scope title, or the quoteId as fallback
   const heroTitle = data.scope.length > 0 ? data.scope[0].title : data.quoteId
   // Hero eyebrow: short factual summary of the proposal scope
@@ -307,6 +328,7 @@ function renderProTemplate(data: QuoteData): string {
 </head>
 <body class="tpl-pro">
 
+  ${banner}
   <div class="pro-header">
     <div>
       <div class="pro-logo">INGEGAR<span class="dot">.</span></div>
