@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -18,11 +18,17 @@ interface Props {
   existingDocId?: string
   // Link the saved document to a ticket (stored in metadata.ticketId)
   ticketId?: string
+  // Pre-select a client (e.g. when creating from a ticket context)
+  defaultClientId?: string
 }
 
-export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentType, existingDocId, ticketId }: Props) {
+export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentType, existingDocId, ticketId, defaultClientId }: Props) {
   const [open, setOpen] = useState(false)
-  const [clientId, setClientId] = useState('')
+  const [clientId, setClientId] = useState(defaultClientId ?? '')
+
+  useEffect(() => {
+    if (defaultClientId) setClientId(defaultClientId)
+  }, [defaultClientId])
   const [title, setTitle] = useState(defaultTitle)
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')

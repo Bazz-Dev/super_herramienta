@@ -21,6 +21,23 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
   const [data, setData] = useState<ReportData>(initial)
   const set = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }))
 
+  // Derive initial ticket selection synchronously so SaveDocumentButton gets the right clientId on first render
+  const initialTicket = ticketId ? tickets.find(t => t.id === ticketId) : undefined
+  const [selectedTicketId, setSelectedTicketId] = useState(initialTicket?.id ?? '')
+  const [selectedClientId, setSelectedClientId] = useState(initialTicket?.clientId ?? '')
+
+  // Auto-fill form fields when coming from a ticket link (runs once)
+  useEffect(() => {
+    if (!initialTicket) return
+    set({
+      client: initialTicket.clientName,
+      branch: initialTicket.branchName,
+      workOrder: initialTicket.otNumber ?? '',
+      subject: initialTicket.title,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const [html, setHtml] = useState(() => renderReportHTML(initial))
   useEffect(() => {
     const t = setTimeout(() => setHtml(renderReportHTML(data)), 250)
@@ -47,10 +64,12 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
                 <span className="ml-1.5 font-normal text-gray-400">(autocompletará cliente, sucursal y OT)</span>
               </label>
               <select
-                defaultValue=""
+                value={selectedTicketId}
                 onChange={(e) => {
+                  setSelectedTicketId(e.target.value)
                   const t = tickets.find(t => t.id === e.target.value)
-                  if (!t) return
+                  if (!t) { setSelectedClientId(''); return }
+                  setSelectedClientId(t.clientId)
                   set({
                     client: t.clientName,
                     branch: t.branchName,
@@ -160,6 +179,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
               documentType="informe"
               existingDocId={docId}
               ticketId={ticketId}
+              defaultClientId={selectedClientId}
             />
           </div>
         </div>
