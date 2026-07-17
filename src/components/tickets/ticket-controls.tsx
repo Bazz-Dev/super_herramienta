@@ -53,7 +53,11 @@ function fileIcon(mimeType: string | null, name: string): string {
 }
 
 export function TicketControls({ ticket, staffUsers, technicians, linkedInformes = [] }: Props) {
-  const [isPending, startTransition] = useTransition()
+  // G24: transiciones separadas — un guardado en curso no bloquea las otras
+  // acciones ni deja todo el panel en "Guardando…".
+  const [fieldsPending, startFields] = useTransition()
+  const [statusPending, startStatus] = useTransition()
+  const [commentPending, startComment] = useTransition()
   const [comment, setComment] = useState('')
   const [isInternal, setIsInternal] = useState(false)
   const [docs, setDocs] = useState<Doc[]>(ticket.documents)
@@ -67,7 +71,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   const [saved, setSaved] = useState(false)
 
   function handleSaveFields() {
-    startTransition(async () => {
+    startFields(async () => {
       await updateTicketFields(ticket.id, {
         otNumber: otNumber || undefined,
         assignedToId: assignedToId || null,
@@ -81,12 +85,12 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   }
 
   function handleStatusChange(newStatus: string) {
-    startTransition(async () => { await updateTicketStatus(ticket.id, newStatus) })
+    startStatus(async () => { await updateTicketStatus(ticket.id, newStatus) })
   }
 
   function handleComment() {
     if (!comment.trim()) return
-    startTransition(async () => {
+    startComment(async () => {
       await addTicketComment(ticket.id, comment.trim(), isInternal)
       setComment('')
     })
@@ -135,11 +139,14 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Estado</label>
+            <label className="block text-xs text-gray-500 mb-1">
+              Estado{statusPending && <span className="ml-1 text-amber-600">· guardando…</span>}
+            </label>
             <select
               value={ticket.status}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40"
+              disabled={statusPending}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-50"
             >
               {ALL_STATUSES.map((s) => (
                 <option key={s} value={s}>{STATUS_LABEL[s as TicketStatusId]}</option>
@@ -178,10 +185,10 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             <button
               type="button"
               onClick={handleSaveFields}
-              disabled={isPending}
+              disabled={fieldsPending}
               className="rounded-md bg-brand px-4 py-1.5 text-sm font-semibold text-ink shadow-sm transition hover:opacity-90 disabled:opacity-50"
             >
-              {isPending ? 'Guardando…' : 'Guardar cambios'}
+              {fieldsPending ? 'Guardando…' : 'Guardar cambios'}
             </button>
             {saved && <span className="text-xs text-green-600">✓ Guardado</span>}
           </div>
@@ -377,7 +384,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
           <button
             type="button"
             onClick={handleComment}
-            disabled={isPending || !comment.trim()}
+            disabled={commentPending || !comment.trim()}
             className="rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-gray-700 disabled:opacity-40"
           >
             {isInternal ? '🔒 Guardar nota' : 'Publicar comentario'}
