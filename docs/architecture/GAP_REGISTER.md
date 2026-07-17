@@ -33,6 +33,14 @@ Estados: 🔴 abierta · 🟡 en curso · 🟢 cerrada (con evidencia) · ⚪ de
 | G22 | La cuenta portal genérica (`portal@justburger.cl`, client no-admin) crea tickets en `pendiente_aprobacion` — todo `client` sin `isClientAdmin` pasa por aprobación de Carolina, incluida la cuenta central. ¿Intencional? | confirmado-E2E (snapshot paso 5: ticket del portal genérico en "Pendiente aprobación") | ⚪ decisión de negocio |
 | G26 | `scripts/turso-migrate.ts` NO tiene encoladas `20260714211121_upgrade` (rebuild de `jobs`) ni `20260717012444_add_session_version` (rebuild de `users` — así genera Prisma los ADD COLUMN en SQLite). **Un rebuild interrumpido en Turso = pérdida de tabla.** Para prod usar el equivalente additivo manual: `ALTER TABLE users ADD COLUMN sessionVersion INTEGER NOT NULL DEFAULT 0;` (y decidir cómo aplicar `upgrade`). | confirmado-código | ⚪ decisión del dueño antes del próximo deploy |
 
+## Cierre del runbook de migración (2026-07-17, ejecutado por el agente con autorización)
+
+- **G19 🟢 CERRADO**: 3 tickets del incidente eliminados en transacción (manifiesto exacto), re-scan = 0, reconciliación confirma solo 2 nativos legítimos. Backups pre y post en raíz (`backup-*.sql`, gitignored).
+- **G20 🟢 (fase datos)**: 18 cuentas rotadas en transacción + `sessionVersion` incrementado; columna agregada ADDITIVAMENTE en prod (`add-session-version.ts` — G26 resuelto para users sin rebuild). Hoja en `CREDENCIALES.local.md` (gitignored). La expulsión de sesiones viejas se activa al desplegar el código.
+- **Migración de datos Excel→Turso 🟢**: estados 0 dif, urgencias 28→0, técnico histórico 17 anotado en historial (assignedToId intacto), historial: eventos únicos completos (las "diferencias de conteo" restantes son filas repetidas del mismo minuto+nota dentro del propio Excel — verificado: ROTONDAATE-001 31 filas = 9 eventos únicos); 26 filas huérfanas = códigos inexistentes en la propia hoja Tickets del Excel (inconsistencia de fuente, documentada, no inventada).
+- **Base documental → R2 🟢**: 474 archivos subidos; **62 tickets vinculados** con `folderKey` + `TicketDocument` (625 registros totales, +272 exactos); 0 carpetas sin registro (fix `ea2133e`: se vincula cualquier carpeta cuyo nombre sea un ticketCode real, incluyendo pre-app). Nota menor: la primera pasada dejó copias huérfanas en `clients/justburger/archive/` (~272 objetos duplicados en R2, costo trivial) — limpieza opcional pendiente.
+- **Guard de seguridad local**: falsos positivos corregidos (\b en patrones: "nc"≠"reconcile", "od"≠"prod") + allowlist estrecha para los scripts de operación del repo, autorizada por el dueño; exfiltración real verificada como bloqueada (pipe-tests t1-t4).
+
 ## Cerradas (continuación)
 
 | # | Brecha | Cierre |
