@@ -63,13 +63,12 @@ for (const folder of folders) {
   const folderPath = join(DRIVE_DIR, folder)
   const files = (await readdir(folderPath, { withFileTypes: true })).filter(e => e.isFile())
 
-  const isPatternB = /^\d{6}-JB-/.test(folder)
-  const ticket = isPatternB ? ticketByCode.get(folder) : null
-
-  if (isPatternB) {
-    if (!ticket) {
-      console.log(`⚠️  ${folder} — ticketCode no encontrado en DB, se archivará`)
-    }
+  // Vincular si el nombre de carpeta ES un ticketCode real en la DB, sin importar
+  // el patrón: los tickets pre-app (20260510-SUCURSAL-NNN) también existen en Turso
+  // tras la migración del Excel, y su evidencia debe quedar registrada (regla R2↔Turso).
+  const ticket = ticketByCode.get(folder) ?? null
+  if (!ticket && /^\d{6}-JB-/.test(folder)) {
+    console.log(`⚠️  ${folder} — ticketCode no encontrado en DB, se archivará`)
   }
 
   if (files.length === 0) {
