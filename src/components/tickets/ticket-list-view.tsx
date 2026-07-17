@@ -41,7 +41,6 @@ export interface ListTicket {
   urgency: string
   createdAt: string
   estimatedDate: string | null
-  showToClient?: boolean
   client: { id: string; name: string }
   branch: { id: string; name: string } | null
   assignedTo: { id: string; name: string } | null
@@ -73,6 +72,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
   const [status, setStatus] = useState('')
   const [clientId, setCli]  = useState('')
   const [userId, setUser]   = useState('')
+  const [unassignedOnly, setUnassignedOnly] = useState(false)
   const [tab, setTab]       = useState<'activos' | 'cerrados'>('activos')
 
   const filtered = useMemo(() => {
@@ -88,8 +88,11 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
     if (status)   arr = arr.filter(t => t.status === status)
     if (clientId) arr = arr.filter(t => t.client.id === clientId)
     if (userId)   arr = arr.filter(t => t.assignedTo?.id === userId)
+    if (unassignedOnly) arr = arr.filter(t => !t.assignedTo)
     return arr
-  }, [tickets, q, status, clientId, userId])
+  }, [tickets, q, status, clientId, userId, unassignedOnly])
+
+  const unassignedCount = useMemo(() => tickets.filter(t => !t.assignedTo).length, [tickets])
 
   const byStatus = useMemo(() => {
     const m: Record<string, number> = {}
@@ -98,8 +101,8 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
   }, [tickets])
 
   const [nowMs] = useState<number>(Date.now())
-  const hasFilters = q || status || clientId || userId
-  const clearAll = () => { setQ(''); setStatus(''); setCli(''); setUser('') }
+  const hasFilters = q || status || clientId || userId || unassignedOnly
+  const clearAll = () => { setQ(''); setStatus(''); setCli(''); setUser(''); setUnassignedOnly(false) }
 
   return (
     <div className="space-y-3">
@@ -174,6 +177,12 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                   {byStatus[col.v] ? <span className="ml-1 opacity-60">{byStatus[col.v]}</span> : null}
                 </button>
               ))}
+              {unassignedCount > 0 && (
+                <button onClick={() => setUnassignedOnly(v => !v)}
+                  className={`rounded-full px-3 py-2.5 min-h-11 text-xs font-semibold transition ${unassignedOnly ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+                  ⚠ Sin asignar <span className="ml-1 opacity-70">{unassignedCount}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -265,17 +274,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
 
                             {/* Title + description */}
                             <td className="max-w-72 px-3 py-3">
-                              <p className="truncate font-medium text-gray-800">
-                                {ticket.title}
-                                {ticket.showToClient === false && (
-                                  <span
-                                    className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 align-middle text-[9px] font-semibold uppercase tracking-wide text-gray-500"
-                                    title="Este ticket no es visible en el portal del cliente (por eso el portal muestra menos tickets)"
-                                  >
-                                    🔒 oculto al cliente
-                                  </span>
-                                )}
-                              </p>
+                              <p className="truncate font-medium text-gray-800">{ticket.title}</p>
                               {ticket.description && (
                                 <p className="truncate text-[11px] text-gray-400 mt-0.5">{ticket.description}</p>
                               )}
@@ -336,8 +335,9 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                             </td>
 
                             {/* Date */}
-                            <td className="whitespace-nowrap px-3 py-3">
-                              <div className="text-[11px] text-gray-400">{age(ticket.createdAt)}</div>
+                            <td className="whitespace-nowrap px-3 py-3" title={`Creado: ${new Date(ticket.createdAt).toLocaleString('es-CL')}`}>
+                              <div className="text-[11px] font-medium text-gray-500">{age(ticket.createdAt)}</div>
+                              <div className="text-[10px] text-gray-400">{new Date(ticket.createdAt).toLocaleDateString('es-CL')}</div>
                               {overdue && <div className="text-[10px] font-semibold text-red-500">vencido</div>}
                             </td>
                           </tr>

@@ -104,13 +104,15 @@ export async function createTicket(_: unknown, fd: FormData) {
 
   // Notify assigned user if staff assigned on creation
   if (assignedToId) {
-    const assignee = await prisma.user.findUnique({ where: { id: assignedToId }, select: { id: true, tenantId: true } })
+    const assignee = await prisma.user.findUnique({ where: { id: assignedToId }, select: { id: true, tenantId: true, role: true } })
     if (assignee) {
+      // El técnico no tiene acceso a /tickets — su detalle vive en /mi-panel/tickets
+      const href = assignee.role === 'tecnico' ? `/mi-panel/tickets/${ticket.id}` : `/tickets/${ticket.id}`
       notify(assignee.id, assignee.tenantId, {
         type: 'ticket_assigned',
         title: `Ticket asignado: ${ticket.ticketCode}`,
         body: ticket.title,
-        href: `/tickets/${ticket.id}`,
+        href,
       }).catch(() => {})
     }
   }
@@ -124,7 +126,7 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId },
-    select: { id: true, status: true, title: true, ticketCode: true, createdById: true, showToClient: true, client: { select: { portalSlug: true } } },
+    select: { id: true, status: true, title: true, ticketCode: true, createdById: true, client: { select: { portalSlug: true } } },
   })
   if (!ticket) return { success: false }
 
@@ -154,7 +156,8 @@ export async function updateTicketStatus(ticketId: string, newStatus: string, no
     en_revision: 'En revisión', en_ejecucion: 'En ejecución',
     resuelto: 'Resuelto ✅', cancelado: 'Cancelado',
   }
-  if (ticket.showToClient && ticket.createdById && STATUS_ES[newStatus]) {
+  // El cliente ve todos sus tickets (paridad de portal) → siempre se notifica.
+  if (ticket.createdById && STATUS_ES[newStatus]) {
     const creator = await prisma.user.findUnique({
       where: { id: ticket.createdById },
       select: { id: true, role: true, tenantId: true },
@@ -226,13 +229,14 @@ export async function updateTicketFields(ticketId: string, data: z.infer<typeof 
 
   // Notify newly assigned user
   if (parsed.assignedToId && assigneeChanged) {
-    const assignee = await prisma.user.findUnique({ where: { id: parsed.assignedToId }, select: { id: true, tenantId: true } })
+    const assignee = await prisma.user.findUnique({ where: { id: parsed.assignedToId }, select: { id: true, tenantId: true, role: true } })
     if (assignee) {
+      const href = assignee.role === 'tecnico' ? `/mi-panel/tickets/${ticketId}` : `/tickets/${ticketId}`
       notify(assignee.id, assignee.tenantId, {
         type: 'ticket_assigned',
         title: `Ticket asignado: ${ticket.ticketCode}`,
         body: ticket.title,
-        href: `/tickets/${ticketId}`,
+        href,
       }).catch(() => {})
     }
   }

@@ -46,7 +46,8 @@ export async function getTickets(actor: TenantActor, filters?: {
         : { notIn: ['fusionado', 'cancelado'] as TicketStatus[] },
     },
     select: ticketSelect,
-    orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+    // Ordenado por fecha de creación: lo no atendido suele ser lo más nuevo.
+    orderBy: { createdAt: 'desc' },
     take: 500,
   })
 }
@@ -97,13 +98,14 @@ const clientTicketSelect = {
 
 export type ClientTicket = Awaited<ReturnType<typeof getClientTickets>>[number]
 
-// Portal: client-scoped, strips internal data
+// Portal: client-scoped, strips internal data. Paridad con /tickets interno:
+// el cliente ve TODOS sus tickets (incluidos resueltos) — el cliente crea,
+// nosotros atendemos, y el estado debe reflejarse siempre en el portal.
 // branchId: if set, only return tickets for that branch (branch user scoping)
 export async function getClientTickets(clientId: string, branchId?: string | null) {
   return prisma.ticket.findMany({
     where: {
       clientId,
-      showToClient: true,
       deletedAt: null,
       status: { notIn: ['fusionado'] as TicketStatus[] },
       ...(branchId ? { branchId } : {}),
@@ -115,7 +117,7 @@ export async function getClientTickets(clientId: string, branchId?: string | nul
 
 export async function getClientTicket(clientId: string, ticketId: string) {
   const t = await prisma.ticket.findFirst({
-    where: { id: ticketId, clientId, showToClient: true },
+    where: { id: ticketId, clientId },
     include: {
       branch: { select: { id: true, name: true, city: true } },
       assignedTo: { select: { id: true, name: true } },
