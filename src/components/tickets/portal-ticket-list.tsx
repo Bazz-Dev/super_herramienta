@@ -95,7 +95,7 @@ function daysAgoStr(n: number) { const d = new Date(); d.setDate(d.getDate()-n);
 function datePart(s: string) { return String(s).substring(0, 10) }
 
 type Preset = ''|'today'|'yesterday'|'week'|'month'
-type Grupo  = ''|'abiertos'|'cerrados'|'vencidos'
+type Grupo  = ''|'abiertos'|'cerrados'|'vencidos'|'sinasignar'
 
 function FilterDropdown({ label, options, selected, onChange, primary, cardBg, textColor, bg }: {
   label: string; options: {v:string;l:string}[]; selected: Set<string>; onChange: (v:string)=>void
@@ -167,6 +167,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
     if (grupo === 'abiertos')   arr = arr.filter(t => OPEN.includes(t.status))
     if (grupo === 'cerrados')   arr = arr.filter(t => ['resuelto','cancelado'].includes(t.status))
     if (grupo === 'vencidos')   arr = arr.filter(t => t.estimatedDate && daysBetween(t.estimatedDate) < 0 && OPEN.includes(t.status))
+    if (grupo === 'sinasignar') arr = arr.filter(t => !t.assignedTo && OPEN.includes(t.status))
     if (statuses.size)  arr = arr.filter(t => statuses.has(t.status))
     if (urgencies.size) arr = arr.filter(t => urgencies.has(t.urgency))
     if (branches.size)  arr = arr.filter(t => t.branch && branches.has(t.branch.name))
@@ -233,6 +234,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
             { l:'Abiertos', g:'abiertos' as Grupo },
             { l:'Cerrados', g:'cerrados' as Grupo },
             { l:'Vencidos', g:'vencidos' as Grupo },
+            { l:'Sin asignar', g:'sinasignar' as Grupo },
           ].map(p => <PillBtn key={p.l} label={p.l} active={grupo===p.g} onClick={() => { setGr(grupo===p.g ? '' : p.g); setPr('') }} />)}
           {/* Date range — desktop only */}
           {!isMobile && (
@@ -281,7 +283,9 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
                     <StatusDot s={t.status} />
                     <UrgDot u={t.urgency} />
                     {t.branch && <span style={{ color: C.t3 }}>{t.branch.name}</span>}
-                    {t.assignedTo && <span style={{ color: C.t3 }}>Téc: {t.assignedTo.name.split(' ')[0]}</span>}
+                    {t.assignedTo
+                      ? <span style={{ color: C.t3 }}>Téc: {t.assignedTo.name.split(' ')[0]}</span>
+                      : <span style={{ color: '#b45309', fontWeight: 600 }}>⚠ Sin asignar</span>}
                     <span style={{ marginLeft: 'auto', color: C.t4, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>{t.ticketCode}</span>
                   </div>
                   {overdue && (
@@ -298,7 +302,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: `2px solid ${C.bd}`, background: bg }}>
-                    {['ID','Título','Sucursal','Urgencia','Estado','Docs','Fecha'].map(h => (
+                    {['ID','Título','Sucursal','Técnico','Urgencia','Estado','Docs','Fecha'].map(h => (
                       <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                     <th style={{ width: 32 }}></th>
@@ -321,9 +325,13 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
                         <td style={{ padding: '10px 14px', maxWidth: 280 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
                           {t.description && <div style={{ fontSize: 11, color: C.t3, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>}
-                          {!t.description && t.assignedTo && <div style={{ fontSize: 11, color: C.t3, marginTop: 1 }}>Téc: {t.assignedTo.name}</div>}
                         </td>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: C.t2, whiteSpace: 'nowrap' }}>{t.branch?.name ?? '—'}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                          {t.assignedTo
+                            ? <span style={{ color: C.t2 }}>{t.assignedTo.name}</span>
+                            : <span style={{ color: '#b45309', fontWeight: 600, fontSize: 11 }}>⚠ Sin asignar</span>}
+                        </td>
                         <td style={{ padding: '10px 14px' }}><UrgDot u={t.urgency} /></td>
                         <td style={{ padding: '10px 14px' }}><StatusDot s={t.status} /></td>
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
