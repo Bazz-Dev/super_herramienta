@@ -14,13 +14,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { role, tenantId } = session.user
-  if (role !== 'super' && role !== 'supervisor') {
+  if (role !== 'super' && role !== 'supervisor' && role !== 'tecnico') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const { id: ticketId } = await params
-  const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, tenantId }, select: { id: true, folderKey: true } })
+  const ticket = await prisma.ticket.findFirst({ where: { id: ticketId, tenantId }, select: { id: true, folderKey: true, assignedToId: true } })
   if (!ticket) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  // G23: el técnico solo puede subir evidencia a tickets asignados a él
+  if (role === 'tecnico' && ticket.assignedToId !== session.user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const form = await req.formData()
   const file = form.get('file') as File | null

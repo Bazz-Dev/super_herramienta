@@ -29,9 +29,14 @@ export default async function MiPanelLayout({ children }: { children: React.Reac
     <div className="min-h-screen bg-gray-50">
       {/* Minimal top bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shadow-sm">
-        <Link href="/mi-panel" aria-label="Mi panel">
-          <Logo className="text-xl" />
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/mi-panel" aria-label="Mi panel">
+            <Logo className="text-xl" />
+          </Link>
+          <Link href="/mi-panel/tickets" className="text-sm font-semibold text-gray-600 transition hover:text-brand">
+            Mis tickets
+          </Link>
+        </div>
         <div className="flex items-center gap-3">
           <span className="hidden sm:block text-sm text-gray-500">{session.user.name}</span>
           <NotificationBell />

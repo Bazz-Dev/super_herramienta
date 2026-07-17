@@ -1,6 +1,15 @@
 export type TicketStatusId = 'pendiente_aprobacion' | 'nuevo' | 'en_revision' | 'en_ejecucion' | 'esperando_aprobacion' | 'resuelto' | 'cancelado' | 'fusionado'
 export type TicketUrgencyId = 'emergencia' | 'urgencia' | 'no_urgente' | 'preventivo'
 
+// G23 — transiciones que puede ejecutar el rol tecnico sobre SUS tickets.
+// El cierre (resuelto/cancelado) queda reservado a supervisión.
+export const TECNICO_TRANSITIONS: Record<string, TicketStatusId[]> = {
+  nuevo: ['en_ejecucion'],
+  en_revision: ['en_ejecucion'],
+  en_ejecucion: ['esperando_aprobacion'],
+  esperando_aprobacion: ['en_ejecucion'],
+}
+
 export const STATUS_LABEL: Record<TicketStatusId, string> = {
   pendiente_aprobacion: 'Pendiente aprobación',
   nuevo: 'Nuevo',
