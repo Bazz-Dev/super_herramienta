@@ -1,16 +1,13 @@
-import { redirect } from 'next/navigation'
-import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { tenantScope } from '@/lib/tenant'
+import { tenantScope, requireActor } from '@/lib/tenant'
 import Link from 'next/link'
 import { NewTicketForm } from '@/components/tickets/new-ticket-form'
 
 export const metadata = { title: 'Nuevo ticket — INGEGAR' }
 
 export default async function NewTicketPage() {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-  const actor = { id: session.user.id, tenantId: session.user.tenantId, role: session.user.role }
+  // requireActor aplica "ver como" (viewas) — no usar session.user directo aquí
+  const actor = await requireActor()
 
   const [clients, users] = await Promise.all([
     prisma.client.findMany({

@@ -1,8 +1,6 @@
 import Link from 'next/link'
-import { auth } from '@/auth'
-import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
-import { tenantScope } from '@/lib/tenant'
+import { tenantScope, requireActor } from '@/lib/tenant'
 import { getTickets } from '@/lib/tickets/tickets'
 import { TicketListView } from '@/components/tickets/ticket-list-view'
 import { URGENCY_PRIORITY, STATUS_PRIORITY, type TicketUrgencyId, type TicketStatusId } from '@/lib/tickets/labels'
@@ -10,9 +8,8 @@ import { URGENCY_PRIORITY, STATUS_PRIORITY, type TicketUrgencyId, type TicketSta
 export const metadata = { title: 'Tickets — INGEGAR' }
 
 export default async function TicketsPage() {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-  const actor = { id: session.user.id, tenantId: session.user.tenantId, role: session.user.role }
+  // requireActor aplica "ver como" (viewas) — no usar session.user directo aquí
+  const actor = await requireActor()
 
   const [tickets, clients, users, closed] = await Promise.all([
     getTickets(actor),

@@ -13,13 +13,15 @@ export async function applyViewAs(
   if (!userId) return actor
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true, role: true, tenantId: true },
+    select: { name: true, role: true, tenantId: true, technicianId: true },
   })
   if (!user || !user.tenantId) return actor
   return {
     ...actor,
     role: user.role as Role,
     tenantId: user.tenantId,
+    // technicianId del objetivo: mi-panel y filtros por técnico reflejan al suplantado
+    technicianId: user.technicianId ?? null,
     viewingAsName: user.name ?? userId,
   }
 }
