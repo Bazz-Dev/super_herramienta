@@ -120,13 +120,29 @@ test.describe.serial('flujo integral de tickets', () => {
     await expect(page.getByText(COMMENT_PUBLIC)).toBeVisible({ timeout: 15000 })
   })
 
-  test('7. rol técnico es redirigido fuera del detalle interno (GAP G23: no tiene vía para registrar atención)', async ({ page }) => {
+  test('7. técnico: sin acceso al interno, registra avance/atención/evidencia vía mi-panel (G23)', async ({ page }) => {
     await loginInternal(page, 'jesus@ingegarchile.cl', 'Tecnico@2026', '**/mi-panel')
-    // El middleware redirige a los técnicos fuera de /tickets — comportamiento actual.
-    // Consecuencia de negocio: el técnico NO puede registrar atención sobre el ticket
-    // desde la app (registrado como G23 en GAP_REGISTER — decisión requerida).
+    // Seguridad: el listado interno completo sigue vedado al técnico
     await page.goto(ticketUrl)
     await page.waitForURL('**/mi-panel', { timeout: 15000 })
+    // Flujo real: mi-panel → Mis tickets → detalle del ticket asignado
+    await page.goto('/mi-panel/tickets')
+    await page.getByText(TITLE).filter({ visible: true }).first().click()
+    await page.waitForURL(/\/mi-panel\/tickets\/[^/]+$/, { timeout: 15000 })
+    // Avance de estado permitido: en_ejecucion → esperando_aprobacion
+    await page.getByRole('button', { name: /Enviar a aprobación/ }).click()
+    await expect(page.getByText('Esperando Aprobación').first()).toBeVisible({ timeout: 15000 })
+    // Registrar atención
+    await page.getByPlaceholder('Describe la atención realizada...').fill(`Atención técnico ${RUN}`)
+    await page.getByRole('button', { name: /Registrar atención/ }).click()
+    await expect(page.getByText(`Atención técnico ${RUN}`)).toBeVisible({ timeout: 15000 })
+    // Evidencia → R2 dev + metadata Turso, autorizada solo para el asignado
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    )
+    await page.locator('input[type="file"]').setInputFiles({ name: `evidencia-tec-${RUN}.png`, mimeType: 'image/png', buffer: png })
+    await expect(page.getByText(`evidencia-tec-${RUN}.png`)).toBeVisible({ timeout: 30000 })
   })
 
   test('8. cliente ve el comentario público pero NO la nota interna', async ({ page }) => {
