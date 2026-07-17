@@ -14,8 +14,11 @@
 import { createClient } from '@libsql/client'
 import bcrypt from 'bcryptjs'
 import { randomBytes } from 'node:crypto'
+import { writeFileSync } from 'node:fs'
 
 const APPLY = process.argv.includes('--apply')
+// Hoja de credenciales local (gitignored) — nunca se commitea ni se pega en chats
+const CRED_FILE = 'CREDENCIALES.local.md'
 
 // Cuentas sembradas y su password default en el repo (prisma/seed.ts)
 const SEED_DEFAULTS: Record<string, string> = {
@@ -62,8 +65,8 @@ async function main() {
   let hasSessionVersion = true
   try { await db.execute('SELECT sessionVersion FROM users LIMIT 1') } catch { hasSessionVersion = false }
 
-  console.log('\n═══ NUEVAS CREDENCIALES (guardar en gestor de contraseñas — no se vuelven a mostrar) ═══')
   const stmts: { sql: string; args: string[] }[] = []
+  const sheet: { email: string; role: string; pw: string }[] = []
   for (const a of affected) {
     const pw = newPassword()
     const hash = await bcrypt.hash(pw, 10)
@@ -71,9 +74,38 @@ async function main() {
     if (hasSessionVersion) {
       stmts.push({ sql: `UPDATE users SET sessionVersion = COALESCE(sessionVersion, 0) + 1 WHERE id = ?`, args: [a.id] })
     }
-    console.log(`  ${a.email}  →  ${pw}`)
+    sheet.push({ email: a.email, role: a.role, pw })
   }
   await db.batch(stmts, 'write')
+
+  // Hoja de credenciales + checklist de pruebas por perfil → archivo local gitignored
+  const portalOf = (email: string) =>
+    email.endsWith('@justburger.cl') ? '/portal/justburger'
+    : email.endsWith('@decathlon.cl') ? '/portal/decathlon'
+    : email.endsWith('@happyland.cl') ? '/portal/happyland'
+    : '/login'
+  const md = `# CREDENCIALES DE PRUEBA — INGEGAR One (generado ${new Date().toISOString().slice(0, 16)})
+
+> ⚠ Archivo LOCAL y gitignored. No commitear, no compartir por chat. Tras las pruebas,
+> mover a un gestor de contraseñas y borrar este archivo.
+
+| Cuenta | Rol | Password | Entrada |
+|--------|-----|----------|---------|
+${sheet.map(s => `| ${s.email} | ${s.role} | \`${s.pw}\` | ${portalOf(s.email)} |`).join('\n')}
+
+## Checklist de prueba de perfiles (en Vercel)
+
+1. **Admin (super)**: login → dashboard → /tickets ve TODOS los clientes → crear ticket interno para Decathlon sin sucursal (código \`-DECA-\`).
+2. **Supervisor**: login → asignar técnico a un ticket → cambiar estado → dejar nota interna y comentario público.
+3. **Técnico (jesus)**: login → cae en /mi-panel → "Mis tickets" → abrir asignado → avanzar estado → registrar atención → subir foto. Verificar que /tickets lo redirige fuera.
+4. **Portal JB (portal@justburger.cl)**: login en /portal/justburger → crear solicitud → queda "Pendiente aprobación" → verificar que el ticket NO aparece en /portal/decathlon.
+5. **Sucursal (quilin@justburger.cl)**: crear solicitud → queda pendiente de aprobación.
+6. **Carolina (client-admin)**: ve las solicitudes de sucursal pendientes → aprueba una → el equipo INGEGAR recibe push/notificación → el ticket pasa a "Nuevo" en /tickets interno.
+7. **Cliente en general**: verificar que ve comentarios públicos pero NO notas internas; descargar informe/documento si existe.
+8. **Sesiones**: la sesión vieja de una cuenta rotada debe quedar expulsada tras el deploy; login con password antiguo debe fallar.
+`
+  writeFileSync(CRED_FILE, md)
+  console.log(`\n✍ Credenciales + checklist escritos en ${CRED_FILE} (gitignored — NO commitear).`)
   console.log(`\n✓ ${affected.length} passwords rotados en transacción.`)
   if (hasSessionVersion) {
     console.log('✓ sessionVersion incrementado: sus sesiones vigentes quedan revocadas (requiere el código con verificación desplegado).')
