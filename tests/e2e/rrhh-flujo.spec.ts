@@ -18,13 +18,11 @@ test('rrhh: dashboard renders with KPIs', async ({ page }) => {
   // Page heading is "Recursos Humanos"
   await expect(page.getByRole('heading', { name: 'Recursos Humanos' })).toBeVisible()
 
-  // Summary chips: Equipo activo, Permisos pendientes, Firmas pendientes, Masa salarial
-  await expect(page.getByText('Equipo activo')).toBeVisible()
-  await expect(page.getByText('Permisos pendientes')).toBeVisible()
-  await expect(page.getByText('Masa salarial')).toBeVisible()
-
-  // Team roster section header
+  // Summary chips: Equipo activo, Permisos pendientes, Masa salarial
+  // ("Equipo activo" aparece como chip Y como encabezado de sección → .first())
   await expect(page.getByText('Equipo activo').first()).toBeVisible()
+  await expect(page.getByText('Permisos pendientes').first()).toBeVisible()
+  await expect(page.getByText('Masa salarial').first()).toBeVisible()
 })
 
 test('rrhh: vacaciones page renders', async ({ page }) => {
