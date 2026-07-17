@@ -5,6 +5,26 @@ import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient({ adapter: createPrismaAdapter() })
 
+// 🔒 G20: el seed escribe credenciales con defaults conocidos del repo.
+// NUNCA debe correr contra producción de forma silenciosa: los defaults en prod
+// son una brecha de seguridad (incidente 2026-07-16). Para un seed productivo
+// intencional se exige el flag explícito Y todos los passwords por env.
+const dbUrl = process.env.DATABASE_URL ?? 'file:./prisma/dev.db'
+if (/^(libsql|https?|wss?):\/\//.test(dbUrl)) {
+  if (process.env.SEED_ALLOW_PROD !== '1') {
+    console.error('🚨 seed.ts: DATABASE_URL apunta a una base remota (producción).')
+    console.error('   El seed usa passwords por defecto conocidos — prohibido en prod.')
+    console.error('   Si es intencional: SEED_ALLOW_PROD=1 y define TODOS los SEED_*_PASSWORD.')
+    process.exit(1)
+  }
+  const required = ['SEED_ADMIN_PASSWORD', 'SEED_JB_PASSWORD', 'SEED_CAROLINA_PASSWORD', 'SEED_JB_BRANCH_PASSWORD', 'SEED_DEC_PASSWORD', 'SEED_HL_PASSWORD', 'SEED_TECNICO_PASSWORD']
+  const missing = required.filter((k) => !process.env[k])
+  if (missing.length) {
+    console.error(`🚨 seed.ts contra prod sin passwords explícitos: faltan ${missing.join(', ')}`)
+    process.exit(1)
+  }
+}
+
 async function main() {
   // INGEGAR es el único tenant de esta plataforma.
   // Just Burger, Decathlon y Unity son CLIENTES de INGEGAR (tabla clients),
