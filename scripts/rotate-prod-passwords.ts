@@ -57,18 +57,31 @@ async function main() {
   if (!APPLY) { console.log('\n[dry-run] Nada rotado. Ejecuta con --apply para rotar SOLO las listadas.'); await db.close(); return }
   if (!affected.length) { console.log('✓ Nada que rotar.'); await db.close(); return }
 
+  // Revocación de sesiones (G20): solo posible si la columna sessionVersion ya
+  // existe en esta DB (additivo: ALTER TABLE users ADD COLUMN sessionVersion INTEGER NOT NULL DEFAULT 0)
+  let hasSessionVersion = true
+  try { await db.execute('SELECT sessionVersion FROM users LIMIT 1') } catch { hasSessionVersion = false }
+
   console.log('\n═══ NUEVAS CREDENCIALES (guardar en gestor de contraseñas — no se vuelven a mostrar) ═══')
-  const stmts: { sql: string; args: (string)[] }[] = []
+  const stmts: { sql: string; args: string[] }[] = []
   for (const a of affected) {
     const pw = newPassword()
     const hash = await bcrypt.hash(pw, 10)
     stmts.push({ sql: `UPDATE users SET passwordHash = ? WHERE id = ?`, args: [hash, a.id] })
+    if (hasSessionVersion) {
+      stmts.push({ sql: `UPDATE users SET sessionVersion = COALESCE(sessionVersion, 0) + 1 WHERE id = ?`, args: [a.id] })
+    }
     console.log(`  ${a.email}  →  ${pw}`)
   }
   await db.batch(stmts, 'write')
   console.log(`\n✓ ${affected.length} passwords rotados en transacción.`)
-  console.log('⚠ Los JWT ya emitidos siguen válidos hasta su expiración (30 días desde login).')
-  console.log('  Si sospechas uso activo no autorizado: rotar AUTH_SECRET en Vercel (desconecta a TODOS).')
+  if (hasSessionVersion) {
+    console.log('✓ sessionVersion incrementado: sus sesiones vigentes quedan revocadas (requiere el código con verificación desplegado).')
+  } else {
+    console.log('⚠ Columna sessionVersion NO existe en esta DB: la rotación no revoca sesiones ya emitidas (expiran a los 30 días del login).')
+    console.log('  Para habilitar revocación: ALTER TABLE users ADD COLUMN sessionVersion INTEGER NOT NULL DEFAULT 0;')
+  }
+  console.log('  Si sospechas uso activo no autorizado AHORA: rotar AUTH_SECRET en Vercel (desconecta a TODOS).')
   await db.close()
 }
 main()

@@ -10,6 +10,7 @@ declare module 'next-auth' {
     technicianId?: string | null
     branchId?: string | null
     isClientAdmin?: boolean
+    sessionVersion?: number
   }
 
   interface Session {
@@ -35,5 +36,6 @@ declare module 'next-auth/jwt' {
     technicianId?: string | null
     branchId?: string | null
     isClientAdmin?: boolean
+    sv?: number // sessionVersion al momento de emitir el token (revocación G20)
   }
 }

@@ -46,8 +46,37 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           technicianId: user.technicianId ?? null,
           branchId: user.branchId ?? null,
           isClientAdmin: user.isClientAdmin ?? false,
+          sessionVersion: user.sessionVersion ?? 0,
         }
       },
     }),
   ],
+  callbacks: {
+    ...authConfig.callbacks,
+    // Revocación por usuario (G20): el middleware edge no puede consultar la DB,
+    // pero toda página/route/action usa este auth() de Node — aquí sí se revoca.
+    // Incrementar users.sessionVersion invalida los JWT emitidos antes.
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role
+        token.tenantId = user.tenantId
+        token.tenantSlug = user.tenantSlug
+        token.clientId = user.clientId ?? null
+        token.technicianId = user.technicianId ?? null
+        token.branchId = user.branchId ?? null
+        token.isClientAdmin = user.isClientAdmin ?? false
+        token.sv = user.sessionVersion ?? 0
+        return token
+      }
+      if (token.sub) {
+        const u = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { sessionVersion: true, active: true },
+        })
+        const tokenSv = typeof token.sv === 'number' ? token.sv : 0
+        if (!u || !u.active || (u.sessionVersion ?? 0) > tokenSv) return null
+      }
+      return token
+    },
+  },
 })

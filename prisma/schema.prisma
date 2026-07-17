@@ -104,6 +104,9 @@ model User {
   passwordHash String
   role         Role     @default(client)
   active       Boolean  @default(true)
+  // Revocación de sesiones (G20): al incrementarse, los JWT emitidos con versión
+  // menor quedan inválidos en el próximo auth() del lado Node.
+  sessionVersion Int    @default(0)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
