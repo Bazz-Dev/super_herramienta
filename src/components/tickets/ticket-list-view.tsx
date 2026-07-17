@@ -41,6 +41,7 @@ export interface ListTicket {
   urgency: string
   createdAt: string
   estimatedDate: string | null
+  showToClient?: boolean
   client: { id: string; name: string }
   branch: { id: string; name: string } | null
   assignedTo: { id: string; name: string } | null
@@ -264,7 +265,17 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
 
                             {/* Title + description */}
                             <td className="max-w-72 px-3 py-3">
-                              <p className="truncate font-medium text-gray-800">{ticket.title}</p>
+                              <p className="truncate font-medium text-gray-800">
+                                {ticket.title}
+                                {ticket.showToClient === false && (
+                                  <span
+                                    className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 align-middle text-[9px] font-semibold uppercase tracking-wide text-gray-500"
+                                    title="Este ticket no es visible en el portal del cliente (por eso el portal muestra menos tickets)"
+                                  >
+                                    🔒 oculto al cliente
+                                  </span>
+                                )}
+                              </p>
                               {ticket.description && (
                                 <p className="truncate text-[11px] text-gray-400 mt-0.5">{ticket.description}</p>
                               )}
