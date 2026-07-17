@@ -32,6 +32,19 @@ Estados: 🔴 abierta · 🟡 en curso · 🟢 cerrada (con evidencia) · ⚪ de
 | G21 | Detalle de ticket interno: el guardado queda **"Guardando…" indefinidamente** (E2E paso 5, build prod + DB local): la transition nunca resuelve y el select de Estado no refleja el cambio. Causa exacta pendiente de trazar en `ticket-controls.tsx` + `updateTicket` action (sospecha: push/notify `await`-eado con endpoints inertes, o transition que no cierra). Reproducible: `E2E_PORT=3001` + paso 5 del spec. | confirmado-E2E (reproducido 1×; causa = hipótesis) | 🔴 **continuación del siguiente bloque** |
 | G22 | La cuenta portal genérica (`portal@justburger.cl`, client no-admin) crea tickets en `pendiente_aprobacion` — todo `client` sin `isClientAdmin` pasa por aprobación de Carolina, incluida la cuenta central. ¿Intencional? | confirmado-E2E (snapshot paso 5: ticket del portal genérico en "Pendiente aprobación") | ⚪ decisión de negocio |
 
+## Procedimiento de contención G19 (orden estricto — ejecuta el dueño)
+
+1. **Backup de Turso producción** (elige una):
+   - Dump lógico completo (recomendado, requiere Turso CLI logueado):
+     `turso db shell <nombre-db> .dump > backup-g19-$(date +%Y%m%d-%H%M).sql`
+   - Verificar el dump: que el archivo pese >0 y contenga `CREATE TABLE tickets`.
+   - Nota: los planes pagos de Turso incluyen point-in-time restore — si está activo, anotar el timestamp actual como punto de restauración.
+2. **Scan read-only** → genera el manifiesto de IDs exactos:
+   `npx tsx --env-file=.env.production.local scripts/cleanup-e2e-prod.ts --scan`
+3. **Revisión humana** del manifiesto `docs/architecture/incident-g19-manifest.json` + salida del scan → aprobación explícita en el chat.
+4. **Aplicar** (solo tras 1-3): `npx tsx --env-file=.env.production.local scripts/cleanup-e2e-prod.ts --apply --confirm-g19`
+   - Borra solo IDs del manifiesto, re-verificados campo a campo, en transacción. Aborta ante cualquier desviación. No toca usuarios, notificaciones ni R2.
+
 ## Regla de corte Excel/Turso (propuesta — decisión requerida)
 
 1. **Fecha de corte** = fecha de creación del primer ticket nativo de INGEGAR One (mínimo `createdAt` de los tickets "solo en Turso" que entrega la sección 10 del reconcile). No se elige a mano: sale de los datos.
