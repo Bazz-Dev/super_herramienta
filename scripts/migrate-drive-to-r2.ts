@@ -49,7 +49,7 @@ const tickets = await prisma.ticket.findMany({
   where: { clientId: client.id },
   select: { id: true, ticketCode: true, folderKey: true },
 })
-const ticketByCode = new Map(tickets.map(t => [t.ticketCode, t]))
+const ticketByCode = new Map<string, (typeof tickets)[number]>(tickets.map(t => [t.ticketCode, t]))
 console.log(`\n📋 Cliente: ${client.name} (${tickets.length} tickets en DB)`)
 
 // ── Scan Drive folders ────────────────────────────────────────────────────────
