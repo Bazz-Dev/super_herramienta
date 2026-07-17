@@ -60,6 +60,16 @@ export async function createTicket(_: unknown, fd: FormData) {
   const { assignedToId, internalNotes, otNumber, estimatedDate, ...ticketData } = parsed
   const initialStatus = assignedToId ? 'en_revision' : 'nuevo'
 
+  // ticketCode es único: dos tickets del mismo día/cliente/urgencia/sucursal colisionan
+  // (mismo patrón de dedup que el portal — sufijo corto en vez de fallar la creación)
+  const existingCode = await prisma.ticket.findUnique({
+    where: { ticketCode: ticketData.ticketCode },
+    select: { id: true },
+  })
+  if (existingCode) {
+    ticketData.ticketCode = `${ticketData.ticketCode}-${Date.now().toString(36).slice(-4)}`
+  }
+
   // Fetch client slug for R2 folder key
   const clientRecord = await prisma.client.findUnique({
     where: { id: parsed.clientId },
