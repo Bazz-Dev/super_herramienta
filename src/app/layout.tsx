@@ -36,9 +36,12 @@ export const viewport: Viewport = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // suppressHydrationWarning: el portal fija color-scheme/background inline
+  // antes de hidratar (anti-FOUC, ver portal/[slug]/layout.tsx) — mismatch
+  // esperado y documentado por React, no un bug real.
   return (
-    <html lang="es" className={inter.variable}>
-      <body className="font-sans antialiased">
+    <html lang="es" className={inter.variable} suppressHydrationWarning>
+      <body className="font-sans antialiased" suppressHydrationWarning>
         <PushProvider>
           {children}
         </PushProvider>
