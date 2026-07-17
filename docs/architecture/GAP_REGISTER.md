@@ -21,7 +21,7 @@ Estados: 🔴 abierta · 🟡 en curso · 🟢 cerrada (con evidencia) · ⚪ de
 | G10 | Matriz de permisos por rol verificada solo en UI; falta verificación server-side sistemática por acción | pendiente (paso 7 del E2E cubre un caso técnico) | 🔴 |
 | G11 | Flujo Ticket→Trabajo→Gasto→Costo→Cobro→Flujo de caja sin E2E; riesgo de doble conteo no verificado | pendiente | 🔴 |
 | G12 | Historial duplicado en Turso por posibles importaciones repetidas | hipótesis (sección 17 de `reconcile-jb.ts` lo mide) | 🟡 bloqueado por G13 |
-| G13 | Reconciliación JB: el security-guard local bloquea `--env-file=.env.production.local` + red; requiere ejecución manual del dueño | confirmado-integración (hook `security-guard.sh`) | 🟡 comando listo, espera ejecución manual |
+| G13 | Reconciliación JB | 🟢 **ejecutada por el dueño 2026-07-17** (read-only verificado); resultados procesados arriba | 🟢 |
 | G14 | Comentarios en código atan lógica genérica a "Carolina" (concepto = client-admin) — confunde mantenimiento | confirmado-código (`portal/[slug]/tickets/actions.ts`) | 🔴 cosmético |
 | G15 | Adjuntos históricos JB viven en Drive (`Carpeta_Drive`/`Adjuntos` en Excel) sin objeto R2 ni registro Turso | hipótesis (columnas Excel; sección 16 del reconcile lo mide) | 🟡 bloqueado por G13 |
 | G16 | **Turbopack dev NO hidrata React en esta máquina** (cero fibers en todas las páginas, todos los navegadores; el mismo código hidrata perfecto en build de producción). `.next` no se puede ni renombrar: locks de OneDrive — el repo vive en `OneDrive\Desktop`, violando la regla propia "repos fuera de C:\". Workaround activo: E2E contra build prod (`E2E_PORT=3001`). | confirmado-integración (probes con fibers React, dev vs prod, Chromium headless + Chrome real) | 🔴 mover repo fuera de OneDrive o limpiar `.next` con OneDrive pausado |
@@ -54,6 +54,17 @@ Estados: 🔴 abierta · 🟡 en curso · 🟢 cerrada (con evidencia) · ⚪ de
 3. **Revisión humana** del manifiesto `docs/architecture/incident-g19-manifest.json` + salida del scan → aprobación explícita en el chat.
 4. **Aplicar** (solo tras 1-3): `npx tsx --env-file=.env.production.local scripts/cleanup-e2e-prod.ts --apply --confirm-g19`
    - Borra solo IDs del manifiesto, re-verificados campo a campo, en transacción. Aborta ante cualquier desviación. No toca usuarios, notificaciones ni R2.
+
+## Reconciliación JB — resultados reales (2026-07-17, ejecutada por el dueño)
+
+**Cobertura**: 83/83 tickets del Excel presentes en Turso (0 faltantes); 5 solo-Turso = 2 nativos legítimos + los 3 del incidente G19. **0 diferencias de estado** (las fuentes convergieron solas), 0 dif. sucursal, 0 fechas sospechosas de import, 0 adjuntos huérfanos.
+
+**Hallazgo clave para la fecha de corte**: Turso es más reciente que el Excel en **83 de 83** tickets coincidentes (Excel máx 2026-07-13, Turso máx 2026-07-15). La operación ya vive íntegramente en INGEGAR One; el Excel dejó de moverse el 13-jul.
+
+Clasificación:
+- **Automáticos** (cuando se autorice `fix-jb-prod` — la sección A/estados quedó OBSOLETA por 0 diferencias): completar historial faltante del Excel donde Excel>Turso (6 tickets sin historial + subconjunto de los 57 con conteo distinto; donde Turso>Excel NO se toca). OT 260527: Turso más completo → mantener.
+- **Conflictos manuales**: 28 dif. urgencia con patrón sistemático (Excel `no_urgente` → Turso `urgencia`; huele a default del import) — decisión ÚNICA de negocio, no 28 casos; 1 sospecha TZ (260630-JB-RQ1-MANUELMONTT, 17.1h) — revisar puntual; 3 pares de historial duplicado en Turso (260608-LAREINA, 260622-PROVIDENCIA, 260624-LAREINA) — eliminar 1 de cada par, con revisión.
+- **Técnico histórico ≠ responsable actual**: las 17 dif. de técnico apuntan TODAS a Turso="Juan Jesús Díaz" (asignación masiva, probablemente `bulkAssignResolvedTickets`) vs Excel=Clarence Villablanca/Alex Martínez. Propuesta ratificable: preservar el técnico histórico del Excel como entrada de historial ("Técnico histórico: X — fuente Excel"), SIN tocar `assignedToId`. Los 29 sin técnico en estados abiertos los asigna operaciones, no el import.
 
 ## Regla de corte Excel/Turso (propuesta — decisión requerida)
 

@@ -1,0 +1,33 @@
+{
+  "incident": "G19",
+  "date": "2026-07-16",
+  "entries": [
+    {
+      "id": "cmrnovawp0000gotj2mgsyq59",
+      "ticketCode": "260716-JUST-RQ1-HUECHURABA",
+      "title": "E2E Full mrnouu0c",
+      "createdAt": "2026-07-16T15:53:46.489+00:00",
+      "historyCount": 1,
+      "documentCount": 0,
+      "itemCount": 0
+    },
+    {
+      "id": "cmrnow1bo0002gotjo6ybfui4",
+      "ticketCode": "260716-JUST-RQ1-HUECHURABA-w1bo",
+      "title": "E2E Full mrnovtgo",
+      "createdAt": "2026-07-16T15:54:20.725+00:00",
+      "historyCount": 1,
+      "documentCount": 0,
+      "itemCount": 0
+    },
+    {
+      "id": "cmrnp4mfb0004gotjgo9sbtn1",
+      "ticketCode": "260716-JUST-RQ1-HUECHURABA-4mfb",
+      "title": "E2E Full mrnp4cb2",
+      "createdAt": "2026-07-16T16:01:01.319+00:00",
+      "historyCount": 1,
+      "documentCount": 0,
+      "itemCount": 0
+    }
+  ]
+}
