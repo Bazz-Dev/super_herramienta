@@ -49,3 +49,4 @@ justburger-ingegar/
 .vercel
 docs/usuarios-produccion.md
 CREDENCIALES.local.md
+backup-*.sql
