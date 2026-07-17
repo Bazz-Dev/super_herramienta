@@ -496,7 +496,7 @@ export default async function MiPanelPage() {
                         </span>
                       )}
                     </div>
-                    <Link href={`/tickets/${t.id}`} className="text-sm font-medium text-ink hover:text-brand truncate block transition">
+                    <Link href={`/mi-panel/tickets/${t.id}`} className="text-sm font-medium text-ink hover:text-brand truncate block transition">
                       {t.title}
                     </Link>
                     <p className="text-xs text-gray-500 mt-0.5">
