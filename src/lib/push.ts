@@ -1,11 +1,17 @@
 import webpush from 'web-push'
 import { prisma } from '@/lib/prisma'
 
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL ?? 'mailto:admin@ingegarchile.cl',
-  process.env.NEXT_PUBLIC_VAPID_KEY ?? '',
-  process.env.VAPID_PRIVATE_KEY ?? '',
-)
+// PUSH_DISABLED=1 (E2E/local): no se envía ningún push real; la Notification en DB
+// sí se persiste (notify) — la operación principal nunca depende del push.
+const PUSH_DISABLED = process.env.PUSH_DISABLED === '1'
+
+if (!PUSH_DISABLED && process.env.NEXT_PUBLIC_VAPID_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL ?? 'mailto:admin@ingegarchile.cl',
+    process.env.NEXT_PUBLIC_VAPID_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  )
+}
 
 export interface NotificationPayload {
   title: string
@@ -16,6 +22,7 @@ export interface NotificationPayload {
 
 /** Send a push notification to all subscriptions of a user. */
 export async function sendPushToUser(userId: string, payload: NotificationPayload) {
+  if (PUSH_DISABLED) return
   const subs = await prisma.pushSubscription.findMany({ where: { userId } })
   const json = JSON.stringify({ ...payload, icon: payload.icon ?? '/icons/icon-192.png' })
   const dead: string[] = []

@@ -83,12 +83,17 @@ test.describe.serial('flujo integral de tickets', () => {
     await loginInternal(page, 'sgarrido@ingegarchile.cl', 'Ingegar@Ops1')
     await page.goto(ticketUrl)
     await page.waitForLoadState('load')
+    // 1) Asignar técnico y GUARDAR (el cambio de estado dispara un refresh que
+    //    resetearía la selección no guardada)
     const tecSelect = page.getByText('Técnico asignado').locator('..').locator('select')
     await tecSelect.selectOption({ label: 'Jesús Díaz' })
+    await page.getByRole('button', { name: /Guardar cambios/i }).click()
+    await expect(page.getByText('✓ Guardado')).toBeVisible({ timeout: 20000 })
+    // 2) Pasar a ejecución (onChange dispara updateTicketStatus de inmediato)
     const statusSelect = page.getByText('Estado', { exact: true }).locator('..').locator('select')
     await statusSelect.selectOption('en_ejecucion')
-    await page.getByRole('button', { name: /Guardar cambios/i }).click()
-    await expect(page.getByText(/guardado|actualizado/i).or(page.getByText('Jesús Díaz').first())).toBeVisible({ timeout: 15000 })
+    // La transition termina cuando el botón vuelve de "Guardando…"
+    await expect(page.getByRole('button', { name: /^Guardar cambios$/ })).toBeVisible({ timeout: 20000 })
   })
 
   test('6. supervisor deja nota interna + comentario público (historial)', async ({ page }) => {
@@ -149,14 +154,14 @@ test.describe.serial('flujo integral de tickets', () => {
   test('10. cierre: estado resuelto se propaga a interno y portal', async ({ page }) => {
     await loginInternal(page, 'admin@ingegarchile.cl', 'Ingegar@Super1')
     await page.goto(ticketUrl)
+    // Resumen del trabajo primero (y guardar), después el cambio de estado
+    const resumen = page.getByPlaceholder('Describe el trabajo realizado...')
+    await resumen.fill(`Trabajo completado E2E ${RUN}`)
+    await page.getByRole('button', { name: /Guardar cambios/i }).click()
+    await expect(page.getByText('✓ Guardado')).toBeVisible({ timeout: 20000 })
     const statusSelect = page.getByText('Estado', { exact: true }).locator('..').locator('select')
     await statusSelect.selectOption('resuelto')
-    const resumen = page.getByPlaceholder('Describe el trabajo realizado...')
-    if (await resumen.isVisible().catch(() => false)) {
-      await resumen.fill(`Trabajo completado E2E ${RUN}`)
-    }
-    await page.getByRole('button', { name: /Guardar cambios/i }).click()
-    await page.waitForTimeout(1500)
+    await expect(page.getByRole('button', { name: /^Guardar cambios$/ })).toBeVisible({ timeout: 20000 })
     // KPI/estado en el kanban interno: al filtrar Resuelto, el ticket está
     await page.goto('/tickets')
     await page.getByRole('button', { name: /Resuelto/i }).first().click()

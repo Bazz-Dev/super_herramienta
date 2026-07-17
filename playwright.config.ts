@@ -31,13 +31,15 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     // 🔒 Pin explícito: cualquier server que Playwright levante queda clavado a la DB
-    // local y auth local, aunque exista un .env.production.local en el directorio.
-    // (Incidente 2026-07-16: `next start` cargó .env.production.local y los E2E
-    // escribieron tickets en Turso producción.)
+    // de test y auth local, aunque exista un .env.production.local en el directorio.
+    // (Incidente G19 2026-07-16: `next start` cargó .env.production.local y los E2E
+    // escribieron tickets en Turso producción.) El fallback file: nunca puede ser
+    // prod; la exigencia de E2E_DATABASE_URL explícita la aplica global-setup.
     env: {
-      DATABASE_URL: 'file:./prisma/dev.db',
+      DATABASE_URL: process.env.E2E_DATABASE_URL ?? 'file:./prisma/e2e.db',
       AUTH_URL: baseURL,
       AUTH_TRUST_HOST: 'true',
+      PUSH_DISABLED: '1',
     },
   },
 })

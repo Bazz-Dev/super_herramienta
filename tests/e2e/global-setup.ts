@@ -1,43 +1,31 @@
 /**
- * Playwright globalSetup — runs once before the entire test suite.
+ * Playwright globalSetup — corre una vez antes de toda la suite.
  *
- * Guarantees that portal seed data exists in the local SQLite DB so that
- * portal-flow.spec.ts and mobile-audit.spec.ts can find the JustBurger
- * and Decathlon portal clients.
- *
- * Safety: throws if DATABASE_URL points to Turso (production) to prevent
- * accidental seed against real data.
+ * Blindaje G19: los E2E exigen E2E_DATABASE_URL explícita y local, verifican que
+ * un server externo (E2E_PORT) no tenga auth de producción, e imprimen el entorno
+ * efectivo. Cualquier condición insegura ABORTA la suite antes del primer test.
  */
 import { execSync } from 'child_process'
+import { assertSafeE2EDatabaseUrl, assertSafeE2EBaseUrl, assertExternalServerSafe } from './env-guard'
 
 export default async function globalSetup() {
-  const url = process.env.DATABASE_URL ?? 'file:./prisma/dev.db'
+  const dbUrl = assertSafeE2EDatabaseUrl(process.env.E2E_DATABASE_URL)
+  const port = Number(process.env.E2E_PORT ?? 3000)
+  const baseURL = `http://127.0.0.1:${port}`
+  assertSafeE2EBaseUrl(baseURL)
 
-  // Never seed production
-  if (/^(libsql|https?|wss?):\/\//.test(url)) {
-    throw new Error(
-      '🚨 E2E tests cannot run against Turso (production)!\n' +
-        'Set DATABASE_URL=file:./prisma/dev.db before running the suite.',
-    )
+  console.log('\n  [E2E] baseURL :', baseURL, process.env.E2E_PORT ? '(server externo)' : '(webServer de Playwright)')
+  console.log('  [E2E] DB      :', dbUrl, '→ SQLite local exclusiva de test')
+  console.log('  [E2E] push    : deshabilitado (PUSH_DISABLED=1 en webServer)')
+
+  if (process.env.E2E_PORT) {
+    await assertExternalServerSafe(baseURL)
+    console.log('  [E2E] server externo verificado: auth NO apunta a producción')
   }
 
-  // Apply any pending migrations first (non-interactive; safe on SQLite)
-  try {
-    execSync('npx prisma migrate deploy', { stdio: 'pipe', timeout: 60_000 })
-    console.log('  [globalSetup] ✅ Migrations up to date\n')
-  } catch (err) {
-    console.warn('  [globalSetup] ⚠️  migrate deploy failed — continuing with seed anyway.')
-  }
-
-  console.log('\n  [globalSetup] Seeding portal test data (idempotent upserts)…')
-  try {
-    execSync('npm run db:seed', {
-      stdio: 'pipe',
-      timeout: 90_000,
-    })
-    console.log('  [globalSetup] ✅ Seed complete\n')
-  } catch (err) {
-    console.warn('\n  [globalSetup] ⚠️  Seed failed; portal tests may skip.')
-    console.warn('  Run manually: npm run db:seed\n')
-  }
+  // Migraciones + seed SIEMPRE contra la DB de test (nunca la ambient DATABASE_URL)
+  const env = { ...process.env, DATABASE_URL: dbUrl }
+  execSync('npx prisma migrate deploy', { stdio: 'pipe', timeout: 60_000, env })
+  execSync('npm run db:seed', { stdio: 'pipe', timeout: 120_000, env })
+  console.log('  [E2E] ✅ Migraciones + seed aplicados a la DB de test\n')
 }
