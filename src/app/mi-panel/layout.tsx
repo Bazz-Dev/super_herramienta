@@ -1,7 +1,6 @@
-import Link from 'next/link'
-import { signOut } from '@/auth'
 import { requireActor } from '@/lib/tenant'
-import { Logo } from '@/components/ui/logo'
+import { MiPanelSidebar } from '@/components/ui/mi-panel-sidebar'
+import { LogoutButton } from '@/components/ui/logout-button'
 import { NotificationBell } from '@/components/ui/notification-bell'
 
 export default async function MiPanelLayout({ children }: { children: React.ReactNode }) {
@@ -10,42 +9,15 @@ export default async function MiPanelLayout({ children }: { children: React.Reac
   // a raw session.user.role check here would bypass "ver como" entirely.
   const actor = await requireActor(['tecnico'])
 
-  const logout = (
-    <form
-      action={async () => {
-        'use server'
-        await signOut({ redirectTo: '/login' })
-      }}
-    >
-      <button
-        type="submit"
-        className="cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-      >
-        Salir
-      </button>
-    </form>
-  )
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Minimal top bar */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 shadow-sm">
-        <div className="flex items-center gap-4">
-          <Link href="/mi-panel" aria-label="Mi panel">
-            <Logo className="text-xl" />
-          </Link>
-          <Link href="/mi-panel/tickets" className="text-sm font-semibold text-gray-600 transition hover:text-brand">
-            Mis tickets
-          </Link>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="hidden sm:block text-sm text-gray-500">{actor.viewingAsName ?? actor.name}</span>
+      <MiPanelSidebar userName={actor.viewingAsName ?? actor.name} logout={<LogoutButton />} />
+      <main className="md:pl-60">
+        {/* Topbar with notification bell — desktop only, matches internal app layout */}
+        <div className="sticky top-0 z-30 hidden items-center justify-end border-b border-gray-200 bg-white/90 px-6 py-2 backdrop-blur md:flex">
           <NotificationBell />
-          {logout}
         </div>
-      </header>
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        {children}
+        <div className="mx-auto max-w-4xl px-4 py-8">{children}</div>
       </main>
     </div>
   )
