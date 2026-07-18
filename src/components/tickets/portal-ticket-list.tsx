@@ -96,6 +96,7 @@ function datePart(s: string) { return String(s).substring(0, 10) }
 
 type Preset = ''|'today'|'yesterday'|'week'|'month'
 type Grupo  = ''|'abiertos'|'cerrados'|'vencidos'|'sinasignar'
+type SortKey = 'code' | 'title' | 'branch' | 'assignedTo' | 'urgency' | 'status' | 'date'
 
 function FilterDropdown({ label, options, selected, onChange, primary, cardBg, textColor, bg }: {
   label: string; options: {v:string;l:string}[]; selected: Set<string>; onChange: (v:string)=>void
@@ -145,6 +146,8 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
   const [grupo, setGr]      = useState<Grupo>('')
   const [desde, setDe]      = useState('')
   const [hasta, setHa]      = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [isMobile, setIsMobile] = useState(false)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
@@ -176,6 +179,32 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
     if (q) { const lq = q.toLowerCase(); arr = arr.filter(t => t.ticketCode.toLowerCase().includes(lq) || t.title.toLowerCase().includes(lq) || (t.branch?.name ?? '').toLowerCase().includes(lq)) }
     return arr
   }, [tickets, q, statuses, urgencies, branches, preset, grupo, desde, hasta])
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const sorted = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    const val = (t: PortalTicket): string | number => {
+      switch (sortKey) {
+        case 'code':       return t.ticketCode
+        case 'title':      return t.title
+        case 'branch':     return t.branch?.name ?? '￿'
+        case 'assignedTo': return t.assignedTo?.name ?? '￿'
+        case 'urgency':    return URG_LABEL[t.urgency] ?? t.urgency
+        case 'status':     return STATUS_LABEL[t.status] ?? t.status
+        case 'date':       return new Date(t.createdAt).getTime()
+      }
+    }
+    return [...filtered].sort((a, b) => {
+      const av = val(a), bv = val(b)
+      if (av < bv) return -1 * dir
+      if (av > bv) return 1 * dir
+      return 0
+    })
+  }, [filtered, sortKey, sortDir])
 
   function toggleSet<T>(set: Set<T>, val: T) { const n = new Set(set); n.has(val) ? n.delete(val) : n.add(val); return n }
   function clearAll() { setQ(''); setSt(new Set()); setUr(new Set()); setBr(new Set()); setPr(''); setGr(''); setDe(''); setHa('') }
@@ -266,7 +295,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
         <>
           {/* Mobile cards — hidden on md+ */}
           <div className="flex flex-col md:hidden" style={{ gap: 8 }}>
-            {filtered.map(t => {
+            {sorted.map(t => {
               const isOpen = OPEN.includes(t.status)
               const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
               return (
@@ -302,14 +331,29 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: `2px solid ${C.bd}`, background: bg }}>
-                    {['ID','Título','Sucursal','Técnico','Urgencia','Estado','Docs','Fecha'].map(h => (
-                      <th key={h} style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                    {([
+                      ['code', 'ID'], ['title', 'Título'], ['branch', 'Sucursal'], ['assignedTo', 'Técnico'],
+                      ['urgency', 'Urgencia'], ['status', 'Estado'],
+                    ] as [SortKey, string][]).map(([key, label]) => (
+                      <th key={key}
+                        onClick={() => toggleSort(key)}
+                        style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        {label}{sortKey === key && <span style={{ marginLeft: 4, color: primary }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                      </th>
                     ))}
+                    <th style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap' }}>Docs</th>
+                    <th
+                      onClick={() => toggleSort('date')}
+                      style={{ padding: '9px 14px', fontSize: 10, fontWeight: 700, color: C.t3, textTransform: 'uppercase', letterSpacing: '0.8px', textAlign: 'left', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      Fecha{sortKey === 'date' && <span style={{ marginLeft: 4, color: primary }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                    </th>
                     <th style={{ width: 32 }}></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((t, i) => {
+                  {sorted.map((t, i) => {
                     const isOpen = OPEN.includes(t.status)
                     const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
                     return (

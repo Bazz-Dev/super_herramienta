@@ -74,6 +74,14 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
   const [userId, setUser]   = useState('')
   const [unassignedOnly, setUnassignedOnly] = useState(false)
   const [tab, setTab]       = useState<'activos' | 'cerrados'>('activos')
+  type SortKey = 'code' | 'title' | 'branch' | 'client' | 'status' | 'assignedTo' | 'date'
+  const [sortKey, setSortKey] = useState<SortKey>('date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('asc') }
+  }
 
   const filtered = useMemo(() => {
     let arr = tickets
@@ -91,6 +99,27 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
     if (unassignedOnly) arr = arr.filter(t => !t.assignedTo)
     return arr
   }, [tickets, q, status, clientId, userId, unassignedOnly])
+
+  const sorted = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    const val = (t: ListTicket): string | number => {
+      switch (sortKey) {
+        case 'code':       return t.ticketCode
+        case 'title':      return t.title
+        case 'branch':     return t.branch?.name ?? '￿' // sin sucursal → al final
+        case 'client':     return t.client.name
+        case 'status':     return STATUS_LABEL[t.status as TicketStatusId] ?? t.status
+        case 'assignedTo': return t.assignedTo?.name ?? '￿' // sin asignar → al final
+        case 'date':       return new Date(t.createdAt).getTime()
+      }
+    }
+    return [...filtered].sort((a, b) => {
+      const av = val(a), bv = val(b)
+      if (av < bv) return -1 * dir
+      if (av > bv) return 1 * dir
+      return 0
+    })
+  }, [filtered, sortKey, sortDir])
 
   const unassignedCount = useMemo(() => tickets.filter(t => !t.assignedTo).length, [tickets])
 
@@ -201,7 +230,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
             <>
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
-                {filtered.map(ticket => {
+                {sorted.map(ticket => {
                   const st = ticket.status as TicketStatusId
                   return (
                     <a key={ticket.id} href={`/tickets/${ticket.id}`}
@@ -240,13 +269,29 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                   <table className="w-full text-sm">
                     <thead className="border-b border-gray-100 bg-gray-50">
                       <tr>
-                        {['', 'ID', 'Título', 'Sucursal', 'Cliente', 'Estado', 'Técnico', 'Docs', 'Fecha'].map(h => (
-                          <th key={h} className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap">{h}</th>
+                        <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400"></th>
+                        {([
+                          ['code', 'ID'], ['title', 'Título'], ['branch', 'Sucursal'], ['client', 'Cliente'],
+                          ['status', 'Estado'], ['assignedTo', 'Técnico'],
+                        ] as [SortKey, string][]).map(([key, label]) => (
+                          <th key={key}
+                            onClick={() => toggleSort(key)}
+                            className="cursor-pointer select-none px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap transition hover:text-gray-600"
+                          >
+                            {label}{sortKey === key && <span className="ml-1 text-brand">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                          </th>
                         ))}
+                        <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400">Docs</th>
+                        <th
+                          onClick={() => toggleSort('date')}
+                          className="cursor-pointer select-none px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap transition hover:text-gray-600"
+                        >
+                          Fecha{sortKey === 'date' && <span className="ml-1 text-brand">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filtered.map(ticket => {
+                      {sorted.map(ticket => {
                         const st = ticket.status as TicketStatusId
                         const urg = ticket.urgency as TicketUrgencyId
                         const overdue = ticket.estimatedDate &&
