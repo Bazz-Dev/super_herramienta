@@ -48,10 +48,21 @@ async function freeTechnician(technicianId: string, exceptVehicleId?: string) {
   })
 }
 
+async function plateTaken(tenantId: string, plate: string, excludeId?: string): Promise<boolean> {
+  const dup = await prisma.vehicle.findFirst({
+    where: { tenantId, plate, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    select: { id: true },
+  })
+  return !!dup
+}
+
 export async function createVehicle(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  if (await plateTaken(actor.tenantId, parsed.data.plate)) {
+    return { error: 'Ya existe un vehículo con esa patente.', fieldErrors: { plate: ['Patente duplicada'] } }
+  }
   const { technicianId, ...rest } = vehicleData(parsed.data)
   if (technicianId) await freeTechnician(technicianId)
   await prisma.vehicle.create({ data: { ...rest, technicianId: technicianId ?? null, tenantId: actor.tenantId } })
@@ -65,6 +76,9 @@ export async function updateVehicle(id: string, _prev: FormState, formData: Form
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  if (await plateTaken(actor.tenantId, parsed.data.plate, id)) {
+    return { error: 'Ya existe otro vehículo con esa patente.', fieldErrors: { plate: ['Patente duplicada'] } }
+  }
   const { technicianId, ...rest } = vehicleData(parsed.data)
   if (technicianId) await freeTechnician(technicianId, id)
   await prisma.vehicle.update({ where: { id }, data: { ...rest, technicianId: technicianId ?? null } })

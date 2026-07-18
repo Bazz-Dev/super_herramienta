@@ -208,6 +208,7 @@ model Technician {
   payrolls      Payroll[]
 
   @@index([tenantId])
+  @@unique([tenantId, rut])
   @@map("technicians")
 }
 
@@ -240,6 +241,7 @@ model Vehicle {
   assets Asset[] // herramientas en la camioneta (inventario)
 
   @@index([tenantId])
+  @@unique([tenantId, plate])
   @@map("vehicles")
 }
 

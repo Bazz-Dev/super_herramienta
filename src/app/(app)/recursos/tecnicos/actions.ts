@@ -38,11 +38,23 @@ function techData(p: ReturnType<typeof technicianInputSchema.parse>) {
   }
 }
 
+async function rutTaken(tenantId: string, rut: string | undefined, excludeId?: string): Promise<boolean> {
+  if (!rut) return false
+  const dup = await prisma.technician.findFirst({
+    where: { tenantId, rut, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    select: { id: true },
+  })
+  return !!dup
+}
+
 export async function createTechnician(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) {
     return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  }
+  if (await rutTaken(actor.tenantId, parsed.data.rut)) {
+    return { error: 'Ya existe un técnico con ese RUT.', fieldErrors: { rut: ['RUT duplicado'] } }
   }
   await prisma.technician.create({ data: { ...techData(parsed.data), tenantId: actor.tenantId } })
   revalidatePath('/recursos/tecnicos')
@@ -62,6 +74,9 @@ export async function updateTechnician(
   const parsed = parse(formData)
   if (!parsed.success) {
     return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  }
+  if (await rutTaken(actor.tenantId, parsed.data.rut, id)) {
+    return { error: 'Ya existe otro técnico con ese RUT.', fieldErrors: { rut: ['RUT duplicado'] } }
   }
   await prisma.technician.update({ where: { id }, data: techData(parsed.data) })
   revalidatePath('/recursos/tecnicos')
