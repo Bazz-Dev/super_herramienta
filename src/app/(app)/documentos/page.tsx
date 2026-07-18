@@ -20,6 +20,7 @@ export default async function DocumentosPage() {
     id: d.id,
     title: d.title,
     type: d.type,
+    fileKey: d.fileKey,
     createdAt: d.createdAt.toISOString(),
     createdBy: d.createdBy,
     client: d.client,

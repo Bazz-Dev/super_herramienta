@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useEffect, useCallback } from 'react'
+import { useState, useTransition, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Spinner } from '@/components/ui/spinner'
 import { renderQuoteHTML } from '@/lib/quotes/template'
@@ -13,6 +13,7 @@ interface Doc {
   id: string
   title: string
   type: string
+  fileKey: string
   createdAt: string
   createdBy: { name: string } | null
   proposalStatus: ProposalStatus | null
@@ -175,6 +176,41 @@ function DownloadPdfButton({ docId, docType, title }: { docId: string; docType: 
   )
 }
 
+// ─── View/download button for R2-backed files (no dataJson to edit/preview) ──
+
+function ViewFileButton({ docId }: { docId: string }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle')
+
+  async function open(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (state === 'loading') return
+    setState('loading')
+    try {
+      const res = await fetch(`/api/client-documents?id=${docId}`)
+      if (!res.ok) throw new Error()
+      const { viewUrl } = await res.json()
+      if (!viewUrl) throw new Error()
+      window.open(viewUrl, '_blank', 'noopener,noreferrer')
+      setState('idle')
+    } catch {
+      setState('error')
+      setTimeout(() => setState('idle'), 3000)
+    }
+  }
+
+  return (
+    <button
+      onClick={open}
+      disabled={state === 'loading'}
+      className={`flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 ${
+        state === 'error' ? 'bg-red-50 text-red-600' : 'bg-white text-gray-800 hover:bg-gray-100'
+      }`}
+    >
+      {state === 'loading' ? <Spinner size={12} /> : state === 'error' ? '✕ Error al abrir' : 'Ver / Descargar'}
+    </button>
+  )
+}
+
 // ─── Document card ────────────────────────────────────────────────────────────
 
 function DocCard({
@@ -212,13 +248,14 @@ function DocCard({
   const editorHref = `/${doc.type === 'propuesta' ? 'cotizador' : 'informe'}?docId=${doc.id}`
   const pStatus = doc.proposalStatus
   const pColors = pStatus ? PROPOSAL_STATUS_COLORS[pStatus] : null
+  const isFile = doc.fileKey !== 'inline'
 
   return (
     <div
       className="group relative flex flex-col rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      onClick={() => onPreview(doc.id, doc.title, doc.type)}
+      onClick={() => { if (!isFile) onPreview(doc.id, doc.title, doc.type) }}
     >
       {/* Card header — colored by type */}
       <div className={`flex items-center justify-center py-7 ${c.bg}`}>
@@ -251,25 +288,30 @@ function DocCard({
           className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl bg-black/60 p-3"
           onClick={e => e.stopPropagation()}
         >
-          <a
-            href={editorHref}
-            onClick={e => e.stopPropagation()}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-100 transition-colors"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M8 1.5l2.5 2.5-6 6H2v-2.5l6-6z"/>
-            </svg>
-            Editar
-          </a>
-          <button
-            onClick={e => { e.stopPropagation(); onPreview(doc.id, doc.title, doc.type) }}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-            </svg>
-            Vista previa
-          </button>
+          {!isFile && (
+            <a
+              href={editorHref}
+              onClick={e => e.stopPropagation()}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-100 transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M8 1.5l2.5 2.5-6 6H2v-2.5l6-6z"/>
+              </svg>
+              Editar
+            </a>
+          )}
+          {!isFile && (
+            <button
+              onClick={e => { e.stopPropagation(); onPreview(doc.id, doc.title, doc.type) }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              Vista previa
+            </button>
+          )}
+          {isFile && <ViewFileButton docId={doc.id} />}
           {/* Add to pipeline (propuestas only) */}
           {doc.type === 'propuesta' && !pStatus && (
             <button
@@ -288,9 +330,11 @@ function DocCard({
             </a>
           )}
           <div className="flex w-full gap-2">
-            <div className="flex-1">
-              <DownloadPdfButton docId={doc.id} docType={doc.type} title={doc.title} />
-            </div>
+            {!isFile && (
+              <div className="flex-1">
+                <DownloadPdfButton docId={doc.id} docType={doc.type} title={doc.title} />
+              </div>
+            )}
             <button
               onClick={doDelete}
               disabled={delPending}
@@ -306,6 +350,87 @@ function DocCard({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Drag & drop upload — para documentos previos a "guardar en carpeta" ──────
+
+async function uploadOne(clientId: string, file: File): Promise<Doc> {
+  const prep = await fetch('/api/client-documents/upload-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId, filename: file.name, mimeType: file.type || 'application/octet-stream' }),
+  })
+  if (!prep.ok) throw new Error(`No se pudo preparar la subida de ${file.name}`)
+  const { url, key } = await prep.json()
+
+  const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } })
+  if (!put.ok) throw new Error(`Error al subir ${file.name}`)
+
+  const title = file.name.replace(/\.[^.]+$/, '')
+  const create = await fetch('/api/client-documents', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId, type: 'otro', title, fileKey: key }),
+  })
+  if (!create.ok) throw new Error(`Error al registrar ${file.name}`)
+  const { id } = await create.json()
+
+  return { id, title, type: 'otro', fileKey: key, createdAt: new Date().toISOString(), createdBy: null, proposalStatus: null, proposalAmount: null }
+}
+
+function UploadDropzone({ clientId, onUploaded }: { clientId: string; onUploaded: (doc: Doc) => void }) {
+  const [dragging, setDragging] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function handleFiles(files: FileList | File[]) {
+    const list = Array.from(files)
+    if (!list.length) return
+    setBusy(true)
+    setError('')
+    for (const file of list) {
+      try {
+        const doc = await uploadOne(clientId, file)
+        onUploaded(doc)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Error al subir archivo')
+      }
+    }
+    setBusy(false)
+  }
+
+  return (
+    <div
+      onDragOver={e => { e.preventDefault(); setDragging(true) }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files) }}
+      onClick={() => inputRef.current?.click()}
+      className={`mb-4 flex cursor-pointer items-center justify-center gap-2.5 rounded-xl border-2 border-dashed px-4 py-4 text-sm transition-colors ${
+        dragging ? 'border-brand bg-brand/5 text-ink' : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:bg-gray-50'
+      }`}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={e => { if (e.target.files) handleFiles(e.target.files); e.target.value = '' }}
+      />
+      {busy ? (
+        <><Spinner size={14} /><span>Subiendo…</span></>
+      ) : (
+        <>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M8 2v8M4.5 6.5L8 3l3.5 3.5M2.5 11v1.5a1 1 0 001 1h9a1 1 0 001-1V11"/>
+          </svg>
+          <span className="font-semibold">Arrastra archivos aquí</span>
+          <span className="text-gray-400">o haz clic para subir — informes, órdenes de trabajo, evidencia previa</span>
+        </>
+      )}
+      {error && <span className="text-red-500">{error}</span>}
     </div>
   )
 }
@@ -358,6 +483,11 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
       if (!still) setActiveClientId(prev[0]?.id ?? null)
       return prev
     })
+  }
+
+  function addDoc(doc: Doc) {
+    if (!activeClientId) return
+    setFolders(prev => prev.map(f => f.id === activeClientId ? { ...f, docs: [doc, ...f.docs] } : f))
   }
 
   const activeFolder = folders.find(f => f.id === activeClientId)
@@ -473,6 +603,7 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
 
         {/* Document grid */}
         <div className="flex-1 overflow-y-auto p-5">
+          {activeFolder && <UploadDropzone clientId={activeFolder.id} onUploaded={addDoc} />}
           {!activeFolder ? (
             <div className="flex h-full items-center justify-center text-sm text-gray-400">
               Selecciona un cliente para ver sus documentos

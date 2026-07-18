@@ -15,10 +15,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { clientId, type, title, dataJson, metadata } = body
+  const { clientId, type, title, dataJson, metadata, fileKey } = body
 
-  if (!clientId || !title?.trim() || !dataJson) {
-    return NextResponse.json({ error: 'Missing required fields: clientId, title, dataJson' }, { status: 400 })
+  // Either the JSON-editable format (dataJson → fileKey='inline') or a real R2
+  // file already uploaded via /api/client-documents/upload-url (fileKey set).
+  if (!clientId || !title?.trim() || (!dataJson && !fileKey)) {
+    return NextResponse.json({ error: 'Missing required fields: clientId, title, dataJson or fileKey' }, { status: 400 })
   }
 
   const client = await prisma.client.findFirst({
@@ -33,8 +35,8 @@ export async function POST(req: NextRequest) {
       clientId,
       type: (type ?? 'otro') as ClientDocType,
       title: title.trim(),
-      fileKey: 'inline',  // no R2 file — data lives in dataJson
-      dataJson: typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson),
+      fileKey: fileKey && !dataJson ? fileKey : 'inline',
+      dataJson: dataJson ? (typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson)) : undefined,
       metadata: metadata ? JSON.stringify(metadata) : undefined,
       // FK real (G2) además del legado en metadata — el legado se mantiene por compat
       ticketId: metadata?.ticketId ?? undefined,
@@ -93,7 +95,8 @@ export async function GET(req: NextRequest) {
     })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     // Return top-level dataJson for convenient destructuring in portal downloads
-    return NextResponse.json({ doc, dataJson: doc.dataJson })
+    const viewUrl = isR2Key(doc.fileKey) ? await getPresignedUrl(doc.fileKey, 3600) : null
+    return NextResponse.json({ doc, dataJson: doc.dataJson, viewUrl })
   }
 
   const where = clientId

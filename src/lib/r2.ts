@@ -47,9 +47,9 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
   return getSignedUrl(r2, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn })
 }
 
-/** Returns true if an R2 key (not a legacy /uploads/ path or external URL). */
+/** Returns true if an R2 key (not "inline" JSON storage, a legacy /uploads/ path, or an external URL). */
 export function isR2Key(value: string): boolean {
-  return !value.startsWith('/') && !value.startsWith('http')
+  return value !== 'inline' && !value.startsWith('/') && !value.startsWith('http')
 }
 
 /**
