@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
+import { isR2Key, getPresignedUrl } from '@/lib/r2'
 
 export const runtime = 'nodejs'
 
@@ -15,19 +16,17 @@ export async function GET(req: NextRequest) {
 
   const doc = await prisma.clientDocument.findFirst({
     where: { id, type: 'propuesta' },
-    select: { id: true, clientId: true, dataJson: true, title: true },
+    select: { id: true, clientId: true, dataJson: true, fileKey: true, title: true },
   })
   if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { role } = session.user
-  if (role === 'super' || role === 'supervisor') {
-    return NextResponse.json({ dataJson: doc.dataJson, title: doc.title })
-  }
-
   const clientId = (session.user as { clientId?: string }).clientId
-  if (role === 'client' && clientId && doc.clientId === clientId) {
-    return NextResponse.json({ dataJson: doc.dataJson, title: doc.title })
-  }
+  const allowed =
+    role === 'super' || role === 'supervisor' ||
+    (role === 'client' && !!clientId && doc.clientId === clientId)
+  if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const viewUrl = isR2Key(doc.fileKey) ? await getPresignedUrl(doc.fileKey, 3600) : null
+  return NextResponse.json({ dataJson: doc.dataJson, viewUrl, title: doc.title })
 }

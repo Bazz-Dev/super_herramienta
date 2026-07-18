@@ -18,8 +18,17 @@ export function PortalInformeBtn({ docId, title, primary, date }: Props) {
     try {
       const metaRes = await fetch(`/api/portal/informes?id=${docId}`)
       if (!metaRes.ok) throw new Error('No se pudo cargar el informe')
-      const { dataJson } = await metaRes.json()
-      if (!dataJson) throw new Error('Informe sin contenido')
+      const { dataJson, viewUrl } = await metaRes.json()
+
+      // Informe subido como archivo real (sin dataJson) — descarga directa desde R2.
+      if (!dataJson) {
+        if (!viewUrl) throw new Error('Informe sin contenido')
+        const a = document.createElement('a')
+        a.href = viewUrl; a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+        document.body.appendChild(a); a.click()
+        document.body.removeChild(a)
+        return
+      }
 
       const pdfRes = await fetch('/api/reports/generate', {
         method: 'POST',
