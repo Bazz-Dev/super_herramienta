@@ -181,9 +181,15 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               <Link
                 href={`/flujo/trabajos/new?${params}`}
                 className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-ink hover:underline font-medium"
+                title={originJobs.length > 0 ? `Ya hay ${originJobs.length} trabajo(s) vinculado(s) a este ticket — evita duplicar cobro` : undefined}
               >
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="12" height="10" rx="1.5"/><path d="M5 2v4M11 2v4M2 8h12"/></svg>
                 Crear trabajo en Flujo →
+                {originJobs.length > 0 && (
+                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                    ⚠ ya hay {originJobs.length}
+                  </span>
+                )}
               </Link>
             )
           })()}
