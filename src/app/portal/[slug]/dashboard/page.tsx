@@ -70,7 +70,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   const session  = await auth()
   const client   = await prisma.client.findUnique({
     where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true },
+    select: { id: true, name: true, portalTheme: true, logoUrl: true },
   })
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
@@ -142,7 +142,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
         }
       `}</style>
 
-      <PortalShell slug={slug} clientName={client.name} userName={session!.user.name??'Usuario'}
+      <PortalShell slug={slug} clientName={client.name} logoUrl={client.logoUrl} userName={session!.user.name??'Usuario'}
         primary={acc} bg={theme.bg} cardBg={theme.card} textColor={theme.text}
         activeHref={`/portal/${slug}/dashboard`}
         topbarTitle="Panel" topbarSub={`${act.length} activas · ${tickets.length} total`}

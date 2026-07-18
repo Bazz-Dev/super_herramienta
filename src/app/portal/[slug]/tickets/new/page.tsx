@@ -14,7 +14,7 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
     select: {
-      id: true, name: true, portalTheme: true,
+      id: true, name: true, portalTheme: true, logoUrl: true,
       branches: { where: { active: true }, select: { id: true, name: true, city: true }, orderBy: { name: 'asc' } },
     },
   })
@@ -36,7 +36,7 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
 
   return (
     <PortalShell
-      slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'}
+      slug={slug} clientName={client.name} logoUrl={client.logoUrl} userName={session!.user.name ?? 'Usuario'}
       primary={theme.primary} bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/tickets/new`}
       topbarTitle="Nueva solicitud"

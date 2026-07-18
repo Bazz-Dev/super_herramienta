@@ -11,7 +11,7 @@ export default async function PortalCuentaPage({ params }: { params: Promise<{ s
 
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true },
+    select: { id: true, name: true, portalTheme: true, logoUrl: true },
   })
   if (!client) notFound()
 
@@ -22,7 +22,7 @@ export default async function PortalCuentaPage({ params }: { params: Promise<{ s
 
   return (
     <PortalShell
-      slug={slug} clientName={client.name}
+      slug={slug} clientName={client.name} logoUrl={client.logoUrl}
       userName={session?.user?.name ?? 'Usuario'} primary={theme.primary}
       bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/cuenta`}

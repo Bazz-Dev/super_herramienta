@@ -119,7 +119,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
 
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true },
+    select: { id: true, name: true, portalTheme: true, logoUrl: true },
   })
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
@@ -134,7 +134,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
     if (!merged) notFound()
     const mt = resolvePortalTheme(client.portalTheme)
     return (
-      <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'}
+      <PortalShell slug={slug} clientName={client.name} logoUrl={client.logoUrl} userName={session!.user.name ?? 'Usuario'}
         primary={mt.primary} bg={mt.bg} cardBg={mt.card} textColor={mt.text}
         activeHref={`/portal/${slug}/tickets`} topbarTitle={merged.title} topbarSub={merged.ticketCode}
         topbarRight={<Link href={`/portal/${slug}/tickets`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--t2)', textDecoration: 'none', fontWeight: '500' }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11L5 7l4-4"/></svg>Mis solicitudes</Link>}
@@ -210,7 +210,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   const chronological = [...visibleHistory].reverse() // oldest first → chat order
 
   return (
-    <PortalShell slug={slug} clientName={client.name} userName={session!.user.name ?? 'Usuario'} primary={acc}
+    <PortalShell slug={slug} clientName={client.name} logoUrl={client.logoUrl} userName={session!.user.name ?? 'Usuario'} primary={acc}
       bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/tickets`} topbarTitle={ticket.title} topbarSub={ticket.ticketCode} topbarRight={backLink}
       isAdmin={isStaffViewing(session)}>

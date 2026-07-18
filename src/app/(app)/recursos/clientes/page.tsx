@@ -53,94 +53,92 @@ export default async function ClientesPage({
         />
       </form>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        {clients.length === 0 ? (
+      {clients.length === 0 ? (
+        <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <p className="px-4 py-10 text-center text-sm text-gray-400">
             {q ? 'Sin resultados.' : 'Aún no hay clientes. Crea el primero.'}
           </p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-2.5 font-medium">Nombre</th>
-                <th className="px-4 py-2.5 font-medium">RUT</th>
-                <th className="px-4 py-2.5 font-medium">Contacto</th>
-                <th className="px-4 py-2.5 font-medium text-right">Flujo</th>
-                <th className="px-4 py-2.5 font-medium text-right">Sucursales</th>
-                <th className="px-4 py-2.5 font-medium text-right">Cronograma</th>
-                {isSuper && <th className="px-4 py-2.5 font-medium">Tenant</th>}
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60"
-                >
-                  <td className="px-4 py-2.5">
-                    <Link
-                      href={`/recursos/clientes/${c.id}`}
-                      className="font-semibold text-ink hover:text-brand-700 hover:underline"
-                    >
-                      {c.name}
-                    </Link>
+        </div>
+      ) : (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {clients.map((c) => (
+            <div
+              key={c.id}
+              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <div className="flex items-start gap-3">
+                <ClientAvatar name={c.name} logoUrl={c.logoUrl} />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/recursos/clientes/${c.id}`}
+                    className="font-semibold text-ink hover:text-brand-700 hover:underline"
+                  >
+                    {c.name}
+                  </Link>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1">
                     <LabelBadge label={c.label ?? null} />
-                  </td>
-                  <td className="px-4 py-2.5 text-gray-600">{c.rut ?? '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{c.contact ?? c.email ?? '—'}</td>
-                  <td className="px-4 py-2.5 text-right">
-                    {c._count.jobs > 0 ? (
-                      <Link
-                        href={`/flujo?cliente=${c.id}`}
-                        className="font-medium text-brand-700 hover:underline"
-                      >
-                        {c._count.jobs} trabajos
-                      </Link>
-                    ) : (
-                      <span className="text-gray-400">—</span>
+                    {c.portalSlug && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Portal activo
+                      </span>
                     )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right">
-                    {c._count.branches > 0 ? (
-                      <Link
-                        href={`/flujo/sucursales?cliente=${c.id}`}
-                        className="text-gray-600 hover:text-ink hover:underline"
-                      >
-                        {c._count.branches}
-                      </Link>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-gray-600">
-                    {c._count.assignments > 0 ? c._count.assignments : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  {isSuper && (
-                    <td className="px-4 py-2.5 uppercase text-gray-500">{c.tenant.slug}</td>
-                  )}
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link
-                        href={`/recursos/clientes/${c.id}`}
-                        className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
-                      >
-                        Editar
-                      </Link>
-                      <DeleteButton
-                        action={deleteClient.bind(null, c.id)}
-                        confirmText={`¿Eliminar ${c.name}?`}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-0.5 text-xs text-gray-500">
+                <p>RUT: <span className="text-gray-700">{c.rut ?? '—'}</span></p>
+                <p className="truncate">Contacto: <span className="text-gray-700">{c.contact ?? c.email ?? '—'}</span></p>
+                {isSuper && <p className="uppercase text-gray-400">{c.tenant.slug}</p>}
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5 border-t border-gray-100 pt-3">
+                <StatPill value={c._count.tickets} label="Tickets" />
+                <StatPill href={c._count.jobs ? `/flujo?cliente=${c.id}` : undefined} value={c._count.jobs} label="Trabajos" />
+                <StatPill href={c._count.branches ? `/flujo/sucursales?cliente=${c.id}` : undefined} value={c._count.branches} label="Sucurs." />
+                <StatPill value={c._count.assignments} label="Agenda" />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3">
+                <Link
+                  href={`/recursos/clientes/${c.id}`}
+                  className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  Editar
+                </Link>
+                <DeleteButton
+                  action={deleteClient.bind(null, c.id)}
+                  confirmText={`¿Eliminar ${c.name}?`}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
+}
+
+function ClientAvatar({ name, logoUrl }: { name: string; logoUrl: string | null }) {
+  const initials = name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  return (
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-brand text-sm font-bold text-ink">
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- data URI ya redimensionada, ver client-logo-upload.tsx
+        <img src={logoUrl} alt={`${name} logo`} className="h-full w-full object-contain" />
+      ) : (
+        initials
+      )}
+    </div>
+  )
+}
+
+function StatPill({ href, value, label }: { href?: string; value: number; label: string }) {
+  const content = (
+    <div className={`flex flex-col items-center rounded-md py-1.5 text-center ${href ? 'hover:bg-gray-50' : ''}`}>
+      <span className={`text-sm font-bold ${value > 0 ? 'text-ink' : 'text-gray-300'}`}>{value}</span>
+      <span className="text-[10px] uppercase tracking-wide text-gray-400">{label}</span>
+    </div>
+  )
+  return href ? <Link href={href}>{content}</Link> : content
 }

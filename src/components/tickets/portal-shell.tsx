@@ -8,6 +8,7 @@ import { PortalPushPrompt } from './portal-push-prompt'
 interface Props {
   slug: string
   clientName: string
+  logoUrl?: string | null
   userName: string
   primary: string
   bg?: string
@@ -72,7 +73,7 @@ const NAV = [
 ]
 
 export function PortalShell({
-  slug, clientName, userName, primary,
+  slug, clientName, logoUrl, userName, primary,
   bg = '#f4f3f1', cardBg = '#ffffff', textColor = '#18130e',
   activeHref, children, topbarTitle, topbarSub, topbarRight,
   isAdmin = false,
@@ -128,8 +129,13 @@ export function PortalShell({
       }}>
         {/* Header */}
         <div style={{ padding: '16px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 10, background: primary, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 800, color: '#fff', flexShrink: 0, letterSpacing: '-0.5px' }}>
-            {initials}
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: primary, display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 800, color: '#fff', flexShrink: 0, letterSpacing: '-0.5px', overflow: 'hidden' }}>
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- data URI ya redimensionada, ver client-logo-upload.tsx
+              <img src={logoUrl} alt={`${clientName} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              initials
+            )}
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.92)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clientName}</div>

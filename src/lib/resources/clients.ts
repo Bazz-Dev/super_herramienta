@@ -18,7 +18,7 @@ export async function listClients(actor: TenantActor, search?: string) {
     },
     include: {
       tenant: { select: { slug: true } },
-      _count: { select: { jobs: true, branches: true, assignments: true } },
+      _count: { select: { jobs: true, branches: true, assignments: true, tickets: true } },
       ruts: { orderBy: { createdAt: 'asc' } },
     },
     orderBy: [{ name: 'asc' }],

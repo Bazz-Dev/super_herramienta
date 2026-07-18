@@ -12,7 +12,7 @@ export default async function PortalPropuestasPage({ params }: { params: Promise
 
   const client = await prisma.client.findUnique({
     where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true },
+    select: { id: true, name: true, portalTheme: true, logoUrl: true },
   })
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
@@ -49,6 +49,7 @@ export default async function PortalPropuestasPage({ params }: { params: Promise
     <PortalShell
       slug={slug}
       clientName={client.name}
+      logoUrl={client.logoUrl}
       userName={session!.user.name ?? 'Usuario'}
       primary={theme.primary}
       bg={theme.bg}
