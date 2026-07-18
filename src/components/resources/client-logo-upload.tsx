@@ -78,6 +78,7 @@ export function ClientLogoUpload({ clientId, current }: Props) {
           title="Cambiar logo"
         >
           {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element -- data URI ya redimensionada a ≤300px por canvas, next/image no puede optimizarla más
             <img src={preview} alt="Logo preview" className="h-full w-full object-contain p-1" />
           ) : (
             <span className="text-xs text-gray-400 text-center px-2">Sin logo</span>

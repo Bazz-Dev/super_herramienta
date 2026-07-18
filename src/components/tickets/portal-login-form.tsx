@@ -27,10 +27,14 @@ export function PortalLoginForm({ slug, primaryColor, dark = false }: Props) {
   const [loading, setLoading]   = useState(false)
   const rgb = hexToRgb(primaryColor)
 
-  // Restore remembered email on mount
+  // Restore remembered email on mount. Deliberately an effect, not a lazy
+  // useState initializer: localStorage doesn't exist during SSR, so reading
+  // it synchronously would make the client's first render diverge from the
+  // server-rendered (empty) markup and fail hydration. Must run post-mount.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(LS_KEY(slug))
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- external-system read (localStorage), see comment above
       if (saved) { setEmail(saved); setRemember(true) }
     } catch { /* localStorage not available */ }
   }, [slug])

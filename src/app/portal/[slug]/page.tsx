@@ -232,6 +232,7 @@ export default async function PortalLoginPage({ params }: { params: Promise<{ sl
           <div className="pl-brand">
             <div className="pl-logo-box">
               {client.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- siempre data URI ya redimensionada (ver client-logo-upload.tsx), next/image no puede optimizarla más
                 <img src={client.logoUrl} alt={`${client.name} logo`} />
               ) : (
                 initials

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Spinner } from '@/components/ui/spinner'
 
 interface ClientOption {
@@ -27,9 +28,14 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
   const [open, setOpen] = useState(false)
   const [clientId, setClientId] = useState(defaultClientId ?? '')
 
-  useEffect(() => {
+  // Sigue a defaultClientId si cambia después del mount (ej. el usuario
+  // vincula un ticket que autocompleta el cliente) — ajuste durante el
+  // render en vez de efecto, evita un re-render extra innecesario.
+  const [prevDefaultClientId, setPrevDefaultClientId] = useState(defaultClientId)
+  if (defaultClientId !== prevDefaultClientId) {
+    setPrevDefaultClientId(defaultClientId)
     if (defaultClientId) setClientId(defaultClientId)
-  }, [defaultClientId])
+  }
   const [title, setTitle] = useState(defaultTitle)
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -144,7 +150,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
                   <div style={{ marginBottom: '14px', padding: '12px', borderRadius: '8px', background: '#fef9c3', border: '1px solid #fde047' }}>
                     <p style={{ fontSize: '13px', color: '#713f12', margin: 0 }}>
                       No hay clientes creados todavía.{' '}
-                      <a href="/recursos/clientes" style={{ color: '#1d4ed8', fontWeight: '600' }}>Crear un cliente →</a>
+                      <Link href="/recursos/clientes" style={{ color: '#1d4ed8', fontWeight: '600' }}>Crear un cliente →</Link>
                     </p>
                   </div>
                 )}

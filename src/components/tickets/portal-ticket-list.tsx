@@ -149,8 +149,13 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [isMobile, setIsMobile] = useState(false)
+  // Deliberately an effect, not a lazy useState initializer: window doesn't
+  // exist during SSR, so reading matchMedia synchronously would make the
+  // client's first render (mobile layout) diverge from the server-rendered
+  // (desktop-default) markup and fail hydration. Must run post-mount.
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 640px)')
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external-system read (matchMedia), see comment above
     setIsMobile(mq.matches)
     const fn = (e: MediaQueryListEvent) => setIsMobile(e.matches)
     mq.addEventListener('change', fn)

@@ -7,6 +7,7 @@ import { CONTRACT_TYPE_LABELS, CONTRACT_TYPE_ACTIVE, DOC_TYPE_LABELS, type Contr
 import { LEAVE_TYPE_LABEL, LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL, PAYROLL_STATUS_BADGE, PAYROLL_STATUS_LABEL, MONTH_NAMES, formatClp } from '@/lib/rrhh/labels'
 import { JOB_STATUS_LABELS } from '@/lib/cashflow/labels'
 import { TechnicianHRForm } from '@/components/rrhh/technician-hr-form'
+import { now } from '@/lib/now'
 
 type TechProfile = NonNullable<Awaited<ReturnType<typeof getTechnicianProfile>>>
 
@@ -74,7 +75,7 @@ export default async function TechnicianProfilePage({ params }: Props) {
   // Tenure + vacation balance
   function calcTenure(hireDate: Date | null) {
     if (!hireDate) return null
-    const ms = Date.now() - new Date(hireDate).getTime()
+    const ms = now() - new Date(hireDate).getTime()
     const years = Math.floor(ms / (365.25 * 86400000))
     const months = Math.floor((ms % (365.25 * 86400000)) / (30.44 * 86400000))
     if (years >= 1) return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? `, ${months} mes${months !== 1 ? 'es' : ''}` : ''}`
@@ -82,7 +83,7 @@ export default async function TechnicianProfilePage({ params }: Props) {
     return `${Math.floor(ms / 86400000)} días`
   }
   const tenure = calcTenure(tech.hireDate)
-  const accruedVac = tech.hireDate ? Math.floor((Date.now() - new Date(tech.hireDate).getTime()) / (365.25 * 86400000) * 15) : 0
+  const accruedVac = tech.hireDate ? Math.floor((now() - new Date(tech.hireDate).getTime()) / (365.25 * 86400000) * 15) : 0
   const usedVac = tech.leaveRequests.filter(l => l.type === 'vacaciones' && l.status === 'aprobado').reduce((s, l) => s + l.days, 0)
   const availableVac = Math.max(0, accruedVac - usedVac)
 

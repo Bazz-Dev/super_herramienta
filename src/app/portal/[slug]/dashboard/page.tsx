@@ -10,6 +10,7 @@ import {
   PORTAL_STATUS_BADGE as SB,
   PORTAL_STATUS_SHORT as SL,
 } from '@/lib/tickets/labels'
+import { now } from '@/lib/now'
 import { URGENCY_COLORS as URG_COLOR, C } from '@/lib/portal-colors'
 
 const OPEN   = ['nuevo','en_revision','en_ejecucion','esperando_aprobacion']
@@ -86,7 +87,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   const resMes  = tickets.filter(t => t.status==='resuelto' && t.closedDate && String(t.closedDate).startsWith(mes))
   const vnc     = act.filter(t => t.estimatedDate && daysBetween(String(t.estimatedDate)) < 0)
   const emg     = tickets.filter(t => t.urgency==='emergencia' && OPEN.includes(t.status))
-  const sinAbordar = act.filter(t => t.status==='nuevo' && (Date.now()-new Date(t.createdAt).getTime()) > 86_400_000)
+  const sinAbordar = act.filter(t => t.status==='nuevo' && (now()-new Date(t.createdAt).getTime()) > 86_400_000)
   const hoy     = tickets.filter(t => String(t.createdAt).startsWith(new Date().toISOString().slice(0,10)))
   const sucursales = new Set(act.filter(t => t.branch).map(t => t.branch!.name)).size
 
@@ -98,9 +99,9 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   const hoyStr = new Date().toLocaleDateString('es-CL', { weekday:'long', day:'numeric', month:'long' })
 
   // 6 months chart data
-  const now = new Date()
+  const today = new Date()
   const months = Array.from({length:6}, (_,i) => {
-    const d = new Date(now); d.setMonth(d.getMonth()-(5-i))
+    const d = new Date(today); d.setMonth(d.getMonth()-(5-i))
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
     let active=0, resolved=0
     tickets.forEach(t => { if(!String(t.createdAt).startsWith(key)) return; if(['resuelto','cancelado'].includes(t.status)) resolved++; else active++ })

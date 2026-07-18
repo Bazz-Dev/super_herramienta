@@ -18,25 +18,21 @@ interface TicketOption {
 }
 
 export function ReportEditor({ initial, clients = [], tickets = [], docId, ticketId }: { initial: ReportData; clients?: ClientOption[]; tickets?: TicketOption[]; docId?: string; ticketId?: string }) {
-  const [data, setData] = useState<ReportData>(initial)
-  const set = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }))
-
   // Derive initial ticket selection synchronously so SaveDocumentButton gets the right clientId on first render
   const initialTicket = ticketId ? tickets.find(t => t.id === ticketId) : undefined
+
+  // Auto-fill form fields when coming from a ticket link — folded into the
+  // initial state itself (was a mount-only effect) so there's no flash of
+  // unfilled fields before the effect ran.
+  const [data, setData] = useState<ReportData>(() => (
+    initialTicket
+      ? { ...initial, client: initialTicket.clientName, branch: initialTicket.branchName, workOrder: initialTicket.otNumber ?? '', subject: initialTicket.title }
+      : initial
+  ))
+  const set = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }))
+
   const [selectedTicketId, setSelectedTicketId] = useState(initialTicket?.id ?? '')
   const [selectedClientId, setSelectedClientId] = useState(initialTicket?.clientId ?? '')
-
-  // Auto-fill form fields when coming from a ticket link (runs once)
-  useEffect(() => {
-    if (!initialTicket) return
-    set({
-      client: initialTicket.clientName,
-      branch: initialTicket.branchName,
-      workOrder: initialTicket.otNumber ?? '',
-      subject: initialTicket.title,
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   const [html, setHtml] = useState(() => renderReportHTML(initial))
   useEffect(() => {

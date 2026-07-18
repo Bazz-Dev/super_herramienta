@@ -6,6 +6,7 @@ import {
   URGENCY_LABEL,
   type TicketStatusId, type TicketUrgencyId,
 } from '@/lib/tickets/labels'
+import { now } from '@/lib/now'
 
 // Urgency dot colors — hardcoded, no CSS classes
 const URG_DOT: Record<string, string> = {
@@ -129,7 +130,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
     return m
   }, [tickets])
 
-  const [nowMs] = useState<number>(Date.now())
+  const [nowMs] = useState<number>(now())
   const hasFilters = q || status || clientId || userId || unassignedOnly
   const clearAll = () => { setQ(''); setStatus(''); setCli(''); setUser(''); setUnassignedOnly(false) }
 

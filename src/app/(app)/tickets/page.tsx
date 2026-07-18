@@ -4,6 +4,7 @@ import { tenantScope, requireActor } from '@/lib/tenant'
 import { getTickets } from '@/lib/tickets/tickets'
 import { TicketListView } from '@/components/tickets/ticket-list-view'
 import { URGENCY_PRIORITY, STATUS_PRIORITY, type TicketUrgencyId, type TicketStatusId } from '@/lib/tickets/labels'
+import { now } from '@/lib/now'
 
 export const metadata = { title: 'Tickets — INGEGAR' }
 
@@ -50,7 +51,7 @@ export default async function TicketsPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 
-  const nowMs = Date.now()
+  const nowMs = now()
   const needsAttention = sorted.filter(t => t.status === 'nuevo' && !t.assignedToId).length
   const emergencias    = sorted.filter(t => t.urgency === 'emergencia').length
   const sinAbordar24h  = sorted.filter(t =>
