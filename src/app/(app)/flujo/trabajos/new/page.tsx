@@ -17,10 +17,11 @@ export default async function NewTrabajoPage({
     netAmount?: string
     ticketCode?: string
     ticketId?: string
+    proposalId?: string
   }>
 }) {
   const actor = await requireActor()
-  const { cliente, desc, sucursal, quoteRef, netAmount, ticketCode, ticketId } = await searchParams
+  const { cliente, desc, sucursal, quoteRef, netAmount, ticketCode, ticketId, proposalId } = await searchParams
 
   const allClients = await prisma.client.findMany({
     where: tenantScope(actor),
@@ -33,25 +34,29 @@ export default async function NewTrabajoPage({
       ? cliente
       : allClients[0]?.id ?? ''
 
-  const [branches, technicianRows] = await Promise.all([
+  const [branches, technicianRows, existingJobsFromProposal] = await Promise.all([
     clientId ? listBranches(actor, clientId) : Promise.resolve([]),
     prisma.technician.findMany({
       where: { ...tenantScope(actor), active: true },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
+    proposalId
+      ? prisma.job.count({ where: { originProposalId: proposalId, ...tenantScope(actor) } })
+      : Promise.resolve(0),
   ])
 
   // Pre-fill from ticket/pipeline origin
   const resolvedBranchId = sucursal && branches.some((b) => b.id === sucursal) ? sucursal : undefined
   const parsedAmount = netAmount ? parseInt(netAmount, 10) : undefined
-  const initial = (desc || resolvedBranchId || quoteRef || parsedAmount || ticketId)
+  const initial = (desc || resolvedBranchId || quoteRef || parsedAmount || ticketId || proposalId)
     ? {
         description: desc ? decodeURIComponent(desc) : undefined,
         branchId: resolvedBranchId,
         quoteRef: quoteRef ? decodeURIComponent(quoteRef) : undefined,
         netAmount: parsedAmount && !isNaN(parsedAmount) ? parsedAmount : undefined,
         originTicketId: ticketId ?? null,
+        originProposalId: proposalId ?? null,
       }
     : undefined
 
@@ -66,6 +71,13 @@ export default async function NewTrabajoPage({
         <div className="mb-5 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M6 5v3M6 10v1"/></svg>
           <span>Datos pre-llenados desde ticket <strong>{decodeURIComponent(ticketCode)}</strong></span>
+        </div>
+      )}
+
+      {proposalId && existingJobsFromProposal > 0 && (
+        <div className="mb-5 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M8 1.5 1 14h14L8 1.5Z"/><path d="M8 6.5v3.5M8 12.2v.1"/></svg>
+          <span>Ya hay {existingJobsFromProposal} trabajo(s) creado(s) desde esta propuesta — revisa antes de crear otro.</span>
         </div>
       )}
 

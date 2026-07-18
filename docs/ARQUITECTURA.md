@@ -659,7 +659,7 @@ Crew       ──< Technician  M:N — cuadrilla de técnicos
 | Ticket cross-tenant → 403 | ❌ | Pendiente E2E test |
 | Técnico desvinculado → sección separada | ✅ | E2E recursos-flow.spec.ts |
 | Portal login → dashboard redirect | ✅ | E2E portal-flow.spec.ts |
-| Portal `showToClient=false` | ❌ | Pendiente E2E |
+| Portal `showToClient=false` | ✅ | E2E full-ticket-flow.spec.ts paso 13 (G34) |
 | Flujo `getByText` exact match | ✅ | E2E cashflow/rrhh-flujo (fixed) |
 | PDF generación sin timeout | ✅ | E2E quotes.spec.ts (timeout=30s) |
 | Mobile touch targets ≥40px | ✅ | E2E mobile-audit.spec.ts |

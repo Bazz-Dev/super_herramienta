@@ -7,6 +7,7 @@ import { requireActor } from '@/lib/tenant'
 import { technicianInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
 import { fromDateInput } from '@/lib/cashflow/dates'
+import { CONTRACT_TYPE_TERMINATED } from '@/lib/resources/labels'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -33,6 +34,11 @@ function parse(formData: FormData) {
 function techData(p: ReturnType<typeof technicianInputSchema.parse>) {
   return {
     ...p,
+    // El form ya envía active=false para tipos desvinculados (technician-form.tsx),
+    // pero se re-fuerza aquí server-side — es la única función que ambas server
+    // actions usan para construir el data, así que una invocación directa (sin
+    // pasar por ese form) no puede dejar a un técnico despedido con active:true (G36).
+    active: CONTRACT_TYPE_TERMINATED.includes(p.contractType) ? false : p.active,
     contractEndDate: fromDateInput(p.contractEndDate),
     birthDate: fromDateInput(p.birthDate),
   }

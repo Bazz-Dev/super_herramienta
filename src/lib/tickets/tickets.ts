@@ -102,13 +102,15 @@ export type ClientTicket = Awaited<ReturnType<typeof getClientTickets>>[number]
 
 // Portal: client-scoped, strips internal data. Paridad con /tickets interno:
 // el cliente ve TODOS sus tickets (incluidos resueltos) — el cliente crea,
-// nosotros atendemos, y el estado debe reflejarse siempre en el portal.
+// nosotros atendemos, y el estado debe reflejarse siempre en el portal —
+// salvo los que staff marcó showToClient=false (ver checkbox en TicketControls).
 // branchId: if set, only return tickets for that branch (branch user scoping)
 export async function getClientTickets(clientId: string, branchId?: string | null) {
   return prisma.ticket.findMany({
     where: {
       clientId,
       deletedAt: null,
+      showToClient: true,
       status: { notIn: ['fusionado'] as TicketStatus[] },
       ...(branchId ? { branchId } : {}),
     },
@@ -119,7 +121,7 @@ export async function getClientTickets(clientId: string, branchId?: string | nul
 
 export async function getClientTicket(clientId: string, ticketId: string) {
   const t = await prisma.ticket.findFirst({
-    where: { id: ticketId, clientId },
+    where: { id: ticketId, clientId, showToClient: true },
     include: {
       branch: { select: { id: true, name: true, city: true } },
       assignedTo: { select: { id: true, name: true } },

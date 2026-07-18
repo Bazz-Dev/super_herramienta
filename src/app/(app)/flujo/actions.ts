@@ -57,10 +57,14 @@ export async function updateBranch(id: string, form: FormData) {
   revalidatePath('/flujo/sucursales')
 }
 
-export async function deleteBranch(id: string) {
+export async function deleteBranch(id: string): Promise<{ error?: string }> {
   const u = await requireActor(['super', 'supervisor'])
+  // Job.branchId es onDelete:Restrict — tiraría un 500 crudo de Prisma (G35).
+  const jobs = await prisma.job.count({ where: { branchId: id, ...tenantScope(u) } })
+  if (jobs) return { error: `No se puede eliminar: tiene ${jobs} trabajo(s) asociados.` }
   await prisma.branch.deleteMany({ where: { id, ...tenantScope(u) } })
   revalidatePath('/flujo/sucursales')
+  return {}
 }
 
 export async function createJob(_prev: FormState, form: FormData): Promise<FormState> {
@@ -80,12 +84,18 @@ export async function createJob(_prev: FormState, form: FormData): Promise<FormS
     const tkt = await prisma.ticket.findFirst({ where: { id: originTicketId, tenantId: u.tenantId }, select: { id: true } })
     if (!tkt) return { error: 'Ticket origen no válido.' }
   }
+  const originProposalId = (form.get('originProposalId') as string | null) || null
+  if (originProposalId) {
+    const doc = await prisma.clientDocument.findFirst({ where: { id: originProposalId, tenantId: u.tenantId, type: 'propuesta' }, select: { id: true } })
+    if (!doc) return { error: 'Propuesta origen no válida.' }
+  }
   const job = await prisma.job.create({
     data: {
       tenantId: u.tenantId,
       clientId: parsed.data.clientId,
       ...jobData(parsed.data),
       ...(originTicketId ? { originTicketId } : {}),
+      ...(originProposalId ? { originProposalId } : {}),
     },
   })
   revalidatePath('/flujo')

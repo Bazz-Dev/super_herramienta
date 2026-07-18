@@ -238,4 +238,29 @@ test.describe.serial('flujo integral de tickets', () => {
     await expect(page2.getByText(/pendiente.*aprobaci/i).filter({ visible: true }).first()).toBeVisible({ timeout: 15000 })
     await ctx2.close()
   })
+
+  test('13. showToClient=false oculta el ticket del portal (G34)', async ({ page, browser, baseURL }) => {
+    await loginInternal(page, 'admin@ingegarchile.cl', 'Ingegar@Super1')
+    await page.goto(ticketUrl)
+    await page.waitForLoadState('load')
+    const toggle = page.getByText('Visible para el cliente en el portal').locator('input[type="checkbox"]')
+    await expect(toggle).toBeChecked()
+    await toggle.uncheck()
+    await page.getByRole('button', { name: /Guardar cambios/i }).click()
+    await expect(page.getByText('✓ Guardado')).toBeVisible({ timeout: 20000 })
+
+    const ctx2 = await browser.newContext({ baseURL })
+    const page2 = await ctx2.newPage()
+    await loginPortal(page2, 'justburger', 'portal@justburger.cl', 'JustBurger@2026')
+    await page2.goto('/portal/justburger/tickets')
+    expect(await page2.getByText(TITLE).filter({ visible: true }).count()).toBe(0)
+    await ctx2.close()
+
+    // Revertir: no dejar el ticket oculto para el resto de la suite/inspección manual
+    await page.goto(ticketUrl)
+    await page.waitForLoadState('load')
+    await toggle.check()
+    await page.getByRole('button', { name: /Guardar cambios/i }).click()
+    await expect(page.getByText('✓ Guardado')).toBeVisible({ timeout: 20000 })
+  })
 })

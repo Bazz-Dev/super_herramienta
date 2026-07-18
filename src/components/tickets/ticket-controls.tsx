@@ -67,6 +67,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   const [assignedToId, setAssignedToId] = useState(ticket.assignedToId ?? '')
   const [estimatedDate, setEstimatedDate] = useState(ticket.estimatedDate ?? '')
   const [workSummary, setWorkSummary] = useState(ticket.workSummary ?? '')
+  const [showToClient, setShowToClient] = useState(ticket.showToClient)
   const [saved, setSaved] = useState(false)
 
   function handleSaveFields() {
@@ -76,6 +77,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         assignedToId: assignedToId || null,
         estimatedDate: estimatedDate || undefined,
         workSummary: workSummary || undefined,
+        showToClient,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
@@ -164,7 +166,16 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
           />
         </div>
 
-        <div className="mt-3 flex items-center justify-end flex-wrap gap-3">
+        <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
+          <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showToClient}
+              onChange={(e) => setShowToClient(e.target.checked)}
+              className="rounded"
+            />
+            Visible para el cliente en el portal
+          </label>
           <div className="flex items-center gap-2">
             <button
               type="button"

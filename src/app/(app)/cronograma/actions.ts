@@ -61,10 +61,33 @@ async function resolveTicketId(rawId: FormDataEntryValue | null, tenantId: strin
   return ticket?.id ?? null
 }
 
+// G36: una vacación/permiso aprobado no bloqueaba agendar al técnico ese día.
+async function leaveConflictError(technicianIds: string[], start: Date, end: Date): Promise<string | null> {
+  if (technicianIds.length === 0) return null
+  const conflicts = await prisma.leaveRequest.findMany({
+    where: {
+      technicianId: { in: technicianIds },
+      status: 'aprobado',
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+    select: { technician: { select: { name: true } } },
+  })
+  if (conflicts.length === 0) return null
+  const names = [...new Set(conflicts.map((c) => c.technician.name))]
+  return `${names.join(', ')} tiene un permiso/vacación aprobado en esas fechas.`
+}
+
 export async function createAssignment(_prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  const leaveError = await leaveConflictError(
+    parsed.data.assignees.map((a) => a.technicianId),
+    new Date(parsed.data.start),
+    new Date(parsed.data.end),
+  )
+  if (leaveError) return { error: leaveError }
   const ticketId = await resolveTicketId(formData.get('ticketId'), actor.tenantId)
   const assignment = await prisma.assignment.create({
     data: {
@@ -102,6 +125,12 @@ export async function updateAssignment(id: string, _prev: FormState, formData: F
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  const leaveError = await leaveConflictError(
+    parsed.data.assignees.map((a) => a.technicianId),
+    new Date(parsed.data.start),
+    new Date(parsed.data.end),
+  )
+  if (leaveError) return { error: leaveError }
   const ticketId = await resolveTicketId(formData.get('ticketId'), actor.tenantId)
   // Replace assignees wholesale (simplest reconciliation for a small team list).
   await prisma.$transaction([

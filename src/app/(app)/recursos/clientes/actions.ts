@@ -91,12 +91,32 @@ export async function saveClientLogo(id: string, dataUrl: string | null): Promis
   return {}
 }
 
-export async function deleteClient(id: string): Promise<void> {
+export async function deleteClient(id: string): Promise<{ error?: string }> {
   const actor = await requireActor(['super', 'supervisor'])
   const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })
-  if (!existing || !canAccessTenant(actor, existing.tenantId)) return
+  if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
+
+  // Branch/Job/Ticket son onDelete:Restrict (tirarían un 500 crudo de Prisma);
+  // ClientDocument es onDelete:Cascade (borraría cotizaciones/informes en
+  // silencio). Se verifican los 4 antes de intentar borrar (G35).
+  const [branches, jobs, tickets, documents] = await Promise.all([
+    prisma.branch.count({ where: { clientId: id } }),
+    prisma.job.count({ where: { clientId: id } }),
+    prisma.ticket.count({ where: { clientId: id } }),
+    prisma.clientDocument.count({ where: { clientId: id } }),
+  ])
+  if (branches || jobs || tickets || documents) {
+    const parts: string[] = []
+    if (branches) parts.push(`${branches} sucursal(es)`)
+    if (jobs) parts.push(`${jobs} trabajo(s)`)
+    if (tickets) parts.push(`${tickets} ticket(s)`)
+    if (documents) parts.push(`${documents} documento(s) guardado(s)`)
+    return { error: `No se puede eliminar: tiene ${parts.join(', ')} asociados.` }
+  }
+
   await prisma.client.delete({ where: { id } })
   revalidatePath('/recursos/clientes')
+  return {}
 }
 
 // Inline client creation from the assignment form (admin can add a missing client

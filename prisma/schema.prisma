@@ -463,6 +463,8 @@ model Job {
 
   originTicketId    String?
   originTicket      Ticket?          @relation("JobOrigins", fields: [originTicketId], references: [id], onDelete: SetNull)
+  originProposalId  String?
+  originProposal    ClientDocument?  @relation("JobFromProposal", fields: [originProposalId], references: [id], onDelete: SetNull)
 
   costs             JobCost[]
   ticket            Ticket?
@@ -472,6 +474,7 @@ model Job {
   @@index([tenantId, clientId])
   @@index([branchId])
   @@index([originTicketId])
+  @@index([originProposalId])
   @@map("jobs")
 }
 
@@ -700,6 +703,7 @@ model ClientDocument {
   client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
   ticket      Ticket?         @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  originJobs  Job[]           @relation("JobFromProposal")
 
   @@index([tenantId])
   @@index([clientId])

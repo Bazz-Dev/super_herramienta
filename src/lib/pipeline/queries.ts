@@ -15,10 +15,13 @@ export type PipelineDoc = {
   updatedAt: Date
   client: { id: string; name: string }
   createdBy: { name: string } | null
+  // Jobs en Flujo de Caja creados desde esta propuesta (G37) — permite
+  // detectar duplicados antes de crear otro trabajo desde la misma propuesta.
+  jobCount: number
 }
 
 export async function getPipelineDocs(tenantId: string): Promise<PipelineDoc[]> {
-  return prisma.clientDocument.findMany({
+  const docs = await prisma.clientDocument.findMany({
     where: {
       tenantId,
       type: 'propuesta',
@@ -38,9 +41,11 @@ export async function getPipelineDocs(tenantId: string): Promise<PipelineDoc[]> 
       updatedAt: true,
       client: { select: { id: true, name: true } },
       createdBy: { select: { name: true } },
+      _count: { select: { originJobs: true } },
     },
     orderBy: { updatedAt: 'desc' },
-  }) as Promise<PipelineDoc[]>
+  })
+  return docs.map(({ _count, ...doc }) => ({ ...doc, jobCount: _count.originJobs })) as PipelineDoc[]
 }
 
 export type PipelineKPIs = {

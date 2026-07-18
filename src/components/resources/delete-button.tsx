@@ -9,7 +9,7 @@ export function DeleteButton({
   action,
   confirmText,
 }: {
-  action: () => Promise<void>
+  action: () => Promise<{ error?: string } | void>
   confirmText: string
 }) {
   const [pending, startTransition] = useTransition()
@@ -19,7 +19,11 @@ export function DeleteButton({
       type="button"
       disabled={pending}
       onClick={() => {
-        if (window.confirm(confirmText)) startTransition(() => action())
+        if (!window.confirm(confirmText)) return
+        startTransition(async () => {
+          const result = await action()
+          if (result?.error) alert(result.error)
+        })
       }}
       aria-label="Eliminar"
       title="Eliminar"

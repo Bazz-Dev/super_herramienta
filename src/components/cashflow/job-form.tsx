@@ -39,6 +39,7 @@ type JobInitial = {
   collectionStatus?: string
   paymentDate?: Date | null
   originTicketId?: string | null
+  originProposalId?: string | null
 }
 
 export function JobForm({
@@ -65,6 +66,9 @@ export function JobForm({
       <input type="hidden" name="clientId" value={clientId} />
       {initial?.originTicketId && (
         <input type="hidden" name="originTicketId" value={initial.originTicketId} />
+      )}
+      {initial?.originProposalId && (
+        <input type="hidden" name="originProposalId" value={initial.originProposalId} />
       )}
 
       {/* --- Identificación --- */}

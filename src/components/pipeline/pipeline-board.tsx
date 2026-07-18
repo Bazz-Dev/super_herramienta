@@ -197,12 +197,12 @@ function PipelineCard({ doc }: { doc: PipelineDoc }) {
               Editar →
             </a>
             {status === 'aceptada' && (() => {
-              const params = new URLSearchParams({ cliente: doc.client.id, desc: doc.title })
+              const params = new URLSearchParams({ cliente: doc.client.id, desc: doc.title, proposalId: doc.id })
               if (doc.proposalAmount) params.set('netAmount', String(doc.proposalAmount))
               return (
                 <a href={`/flujo/trabajos/new?${params}`}
                   style={{ fontSize: '12px', fontWeight: '600', color: '#15803d', textDecoration: 'none', padding: '5px 10px', background: '#f0fdf4', borderRadius: '7px', border: '1px solid #bbf7d0' }}>
-                  Crear trabajo en Flujo →
+                  {doc.jobCount > 0 ? `Crear otro trabajo (ya hay ${doc.jobCount}) →` : 'Crear trabajo en Flujo →'}
                 </a>
               )
             })()}
