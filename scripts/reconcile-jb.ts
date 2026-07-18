@@ -204,10 +204,15 @@ const histFullRes = await db.execute(
    JOIN tickets t ON t.id = h.ticketId
    WHERE t.clientId = '${jbClientId}'`
 )
+// Nota completa (sin truncar): un corte corto produce falsos positivos cuando dos
+// eventos DISTINTOS de un mismo ticket fusionado (p.ej. mismo título, "estado"
+// distinto) sólo difieren después del punto de corte. Bug real encontrado
+// 2026-07-18: truncar a 80 chars marcaba como "duplicado" un evento "pendiente"
+// y su correspondiente "resuelto" del mismo sub-ticket fusionado.
 const histKeyCount = new Map<string, number>()
 for (const r of histFullRes.rows) {
   const ts = new Date(r['createdAt'] as string).getTime()
-  const key = `${r['ticketCode']}|${Math.floor(ts / 60000)}|${((r['note'] as string | null) ?? '').slice(0, 80)}`
+  const key = `${r['ticketCode']}|${Math.floor(ts / 60000)}|${(r['note'] as string | null) ?? ''}`
   histKeyCount.set(key, (histKeyCount.get(key) ?? 0) + 1)
 }
 const histDuplicados = [...histKeyCount.entries()].filter(([, n]) => n > 1)
@@ -489,7 +494,7 @@ adjuntosSinDoc.slice(0, 10).forEach(et => console.log(`   - ${et.code}: "${(et.a
 console.log()
 
 console.log(`17. EVENTOS DE HISTORIAL DUPLICADOS EN TURSO (${histDuplicados.length}):`)
-histDuplicados.slice(0, 10).forEach(([k, n]) => console.log(`   - ${k.split('|')[0]} ×${n}: "${k.split('|')[2]}"`))
+histDuplicados.slice(0, 10).forEach(([k, n]) => console.log(`   - ${k.split('|')[0]} ×${n}: "${k.split('|')[2].slice(0, 80)}"`))
 console.log()
 
 // Resumen ejecutivo
