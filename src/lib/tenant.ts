@@ -23,6 +23,9 @@ export type TenantActor = {
 export type AuthActor = TenantActor & {
   name: string
   tenantSlug: string
+  // Set by applyViewAs() when a "ver como" impersonation is active — the name
+  // of the impersonated user, distinct from `name` (always the real user's).
+  viewingAsName?: string
 }
 
 // Minimal type required by tenantScope / canAccessTenant — callers that only
@@ -34,8 +37,6 @@ export async function requireActor(allowedRoles?: Role[]): Promise<AuthActor> {
   const session = await auth()
   if (!session?.user?.tenantId) redirect('/login')
   const u = session.user
-  // Role check uses the REAL session role — viewas never locks super out of internal routes
-  if (allowedRoles && !allowedRoles.includes(u.role as Role)) redirect('/dashboard')
   const actor: AuthActor = {
     id: u.id,
     role: u.role as Role,
@@ -45,7 +46,14 @@ export async function requireActor(allowedRoles?: Role[]): Promise<AuthActor> {
     technicianId: u.technicianId ?? null,
   }
   const { applyViewAs } = await import('./viewas')
-  return applyViewAs(actor)
+  const effective = await applyViewAs(actor)
+  // Real role passes any gate (super/supervisor never locked out of internal routes).
+  // The impersonated role also satisfies the gate so "ver como" can preview
+  // role-restricted pages (e.g. super viendo-como técnico → /mi-panel/tickets).
+  if (allowedRoles && !allowedRoles.includes(u.role as Role) && !allowedRoles.includes(effective.role)) {
+    redirect('/dashboard')
+  }
+  return effective
 }
 
 export function tenantScope(actor: ScopeActor): { tenantId?: string } {

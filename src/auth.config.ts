@@ -41,10 +41,14 @@ export const authConfig = {
         return true
       }
 
-      // Tecnico panel: must be logged in as tecnico
+      // Tecnico panel: must be logged in as tecnico. `super` also passes the
+      // edge check — the edge has no DB access to resolve an active "ver como"
+      // impersonation cookie, so it defers the real/impersonated-role decision
+      // to requireActor() (Node runtime, ver G30). Without this, "ver como" on
+      // a técnico could never reach /mi-panel to preview their view.
       if (isTecnicoPanel) {
         if (!isLoggedIn) return Response.redirect(new URL('/login', nextUrl))
-        if (role !== 'tecnico') return Response.redirect(new URL('/dashboard', nextUrl))
+        if (role !== 'tecnico' && role !== 'super') return Response.redirect(new URL('/dashboard', nextUrl))
         return true
       }
 

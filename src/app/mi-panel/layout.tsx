@@ -1,13 +1,14 @@
 import Link from 'next/link'
-import { auth, signOut } from '@/auth'
-import { redirect } from 'next/navigation'
+import { signOut } from '@/auth'
+import { requireActor } from '@/lib/tenant'
 import { Logo } from '@/components/ui/logo'
 import { NotificationBell } from '@/components/ui/notification-bell'
 
 export default async function MiPanelLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-  if (session.user.role !== 'tecnico') redirect('/dashboard')
+  // requireActor() redirects to /login when unauthenticated. Uses the same
+  // real-or-impersonated role gate as the rest of the técnico panel (G30) —
+  // a raw session.user.role check here would bypass "ver como" entirely.
+  const actor = await requireActor(['tecnico'])
 
   const logout = (
     <form
@@ -38,7 +39,7 @@ export default async function MiPanelLayout({ children }: { children: React.Reac
           </Link>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden sm:block text-sm text-gray-500">{session.user.name}</span>
+          <span className="hidden sm:block text-sm text-gray-500">{actor.viewingAsName ?? actor.name}</span>
           <NotificationBell />
           {logout}
         </div>
