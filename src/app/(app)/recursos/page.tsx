@@ -1,10 +1,12 @@
 import Link from 'next/link'
 
+// Cuadrillas deliberadamente fuera de esta lista — módulo sin uso en la
+// operación real (decisión del dueño). Rutas y modelo Crew se dejan intactos
+// (reversible), solo se quita el punto de entrada desde la navegación.
 const SECTIONS = [
   { name: 'Técnicos', desc: 'Personas, especialidades y contacto', href: '/recursos/tecnicos', ready: true },
   { name: 'Vehículos / camionetas', desc: 'Patente, estado y técnico asignado (1:1)', href: '/recursos/vehiculos', ready: true },
   { name: 'Maquinaria / activos', desc: 'Herramientas con estado, asignadas a una camioneta', href: '/recursos/activos', ready: true },
-  { name: 'Cuadrillas', desc: 'Grupos de técnicos para asignar como unidad', href: '/recursos/cuadrillas', ready: true },
   { name: 'Clientes', desc: 'Empresas y contactos para asignar a los trabajos', href: '/recursos/clientes', ready: true },
 ]
 
@@ -13,7 +15,7 @@ export default function RecursosPage() {
     <div className="mx-auto max-w-5xl">
       <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600">← Dashboard</Link>
       <h1 className="text-2xl font-bold">Recursos</h1>
-      <p className="mt-1 text-sm text-gray-500">Gestión de técnicos, vehículos, activos, cuadrillas y clientes.</p>
+      <p className="mt-1 text-sm text-gray-500">Gestión de técnicos, vehículos, activos y clientes.</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         {SECTIONS.map((s) => {
