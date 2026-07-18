@@ -47,8 +47,10 @@ export async function getTickets(actor: TenantActor, filters?: {
     },
     select: ticketSelect,
     // Ordenado por fecha de creación: lo no atendido suele ser lo más nuevo.
+    // Sin take: un límite fijo aquí trunca tickets en silencio (ver G31) —
+    // filtrado/orden ya son 100% client-side, así que la página necesita el
+    // set completo. Revisar paginación real si el volumen crece a miles.
     orderBy: { createdAt: 'desc' },
-    take: 500,
   })
 }
 

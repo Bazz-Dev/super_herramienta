@@ -17,8 +17,9 @@ export default async function MisTicketsPage() {
       client: { select: { name: true } },
       branch: { select: { name: true } },
     },
+    // Sin take: mismo riesgo de truncación silenciosa que G31 — un técnico
+    // con tenure larga puede superar cualquier cap fijo y perder cerrados antiguos.
     orderBy: { createdAt: 'desc' },
-    take: 200,
   })
 
   const activos = tickets.filter(t => !CLOSED.includes(t.status))

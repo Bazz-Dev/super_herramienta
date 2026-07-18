@@ -32,8 +32,9 @@ export default async function TicketsPage() {
         assignedTo: { select: { name: true } },
         _count: { select: { documents: true } },
       },
+      // Sin take: con take:50 y 52+ tickets resueltos en prod, los más
+      // antiguos ya desaparecían en silencio de la pestaña Cerrados (G31).
       orderBy: { closedDate: 'desc' },
-      take: 50,
     }),
   ])
 
