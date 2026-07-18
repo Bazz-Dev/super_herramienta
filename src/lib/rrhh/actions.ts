@@ -123,6 +123,10 @@ export async function requestLeaveAsTecnico(data: {
   note?: string
 }) {
   const actor = await requireActor()
+  // Solicitud de permiso: nunca bajo "ver como" — el técnico real debe pedirla
+  // con su propia sesión, no un admin impersonándolo (ver G30/G32). Staff que
+  // necesite crear un permiso a nombre de un técnico usa /rrhh/vacaciones directo.
+  if (actor.viewingAsName) throw new Error('No se puede solicitar permiso mientras se usa "ver como"')
   if (!actor.technicianId) throw new Error('Tu usuario no tiene técnico asociado')
 
   const tech = await prisma.technician.findFirst({
@@ -180,6 +184,9 @@ export async function updateTechnicianHRFields(techId: string, data: {
 
 export async function signDocument(signatureId: string, rutConfirmed: string) {
   const actor = await requireActor()
+  // Firma electrónica: nunca válida bajo "ver como" — debe ser el técnico real
+  // firmando con su propia sesión, no un admin impersonándolo (ver G30/G32).
+  if (actor.viewingAsName) throw new Error('No se puede firmar mientras se usa "ver como"')
   if (!actor.technicianId) throw new Error('Sin técnico asociado')
 
   const sig = await prisma.signatureRequest.findFirst({
@@ -203,6 +210,8 @@ export async function signDocument(signatureId: string, rutConfirmed: string) {
 
 export async function rejectDocument(signatureId: string, note: string) {
   const actor = await requireActor()
+  // Ver comentario en signDocument() — misma regla, nunca bajo "ver como".
+  if (actor.viewingAsName) throw new Error('No se puede rechazar mientras se usa "ver como"')
   if (!actor.technicianId) throw new Error('Sin técnico asociado')
 
   const sig = await prisma.signatureRequest.findFirst({

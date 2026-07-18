@@ -1,18 +1,13 @@
-import { auth } from '@/auth'
-import { redirect } from 'next/navigation'
+import { requireActor } from '@/lib/tenant'
 import { getPipelineDocs, computeKPIs } from '@/lib/pipeline/queries'
 import { PipelineBoard } from '@/components/pipeline/pipeline-board'
 
 export const metadata = { title: 'Pipeline comercial — INGEGAR' }
 
 export default async function PipelinePage() {
-  const session = await auth()
-  if (!session?.user || !['super', 'supervisor'].includes(session.user.role ?? '')) {
-    redirect('/dashboard')
-  }
+  const actor = await requireActor(['super', 'supervisor'])
 
-  const tenantId = session.user.tenantId ?? ''
-  const docs = await getPipelineDocs(tenantId)
+  const docs = await getPipelineDocs(actor.tenantId)
   const kpis = computeKPIs(docs)
 
   return (

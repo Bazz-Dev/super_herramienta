@@ -84,10 +84,7 @@ export async function deleteDocument(docId: string, techId: string): Promise<voi
   revalidatePath(`/recursos/tecnicos/${techId}`)
 }
 
-export async function deleteTechnician(id: string): Promise<void> {
-  const actor = await requireActor(['super', 'supervisor'])
-  const existing = await prisma.technician.findUnique({ where: { id }, select: { tenantId: true } })
-  if (!existing || !canAccessTenant(actor, existing.tenantId)) return
-  await prisma.technician.delete({ where: { id } })
-  revalidatePath('/recursos/tecnicos')
-}
+// Deliberately no hard-delete action for técnicos — they carry payroll,
+// signed FES documents and leave history that Cascade-deletes with the
+// record (labor-law retention risk). Desvinculación uses contractType
+// (no_renovado/despedido), never a DB delete. See G32.
