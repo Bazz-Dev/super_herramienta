@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
+import { revalidatePath } from 'next/cache'
 import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
 import type { TicketUrgency } from '@/generated/prisma/enums'
@@ -118,6 +119,9 @@ export async function createPortalTicket(fd: FormData) {
     }).catch(() => {})
   }
 
+  revalidatePath(`/portal/${client.portalSlug ?? ''}/tickets`)
+  revalidatePath('/tickets')
+
   return { success: true, id: ticket.id }
 }
 
@@ -171,6 +175,12 @@ export async function approvePortalTicket(ticketId: string, decision: 'approve' 
     }).catch(() => {})
   }
 
+  const portalSlug = ticket.client?.portalSlug ?? ''
+  revalidatePath(`/portal/${portalSlug}/tickets`)
+  revalidatePath(`/portal/${portalSlug}/tickets/${ticketId}`)
+  revalidatePath('/tickets')
+  revalidatePath(`/tickets/${ticketId}`)
+
   return { success: true }
 }
 
@@ -189,7 +199,7 @@ export async function updatePortalTicket(ticketId: string, data: {
       status: { in: ['nuevo'] },
       deletedAt: null,
     },
-    select: { id: true, title: true },
+    select: { id: true, title: true, client: { select: { portalSlug: true } } },
   })
   if (!ticket) return { success: false, error: 'Ticket no encontrado o no editable' }
 
@@ -211,6 +221,12 @@ export async function updatePortalTicket(ticketId: string, data: {
     },
   })
 
+  const portalSlug = ticket.client?.portalSlug ?? ''
+  revalidatePath(`/portal/${portalSlug}/tickets`)
+  revalidatePath(`/portal/${portalSlug}/tickets/${ticketId}`)
+  revalidatePath('/tickets')
+  revalidatePath(`/tickets/${ticketId}`)
+
   return { success: true }
 }
 
@@ -228,7 +244,7 @@ export async function addPortalTicketItem(ticketId: string, item: { title: strin
       status: { in: ['nuevo', 'en_revision'] },
       deletedAt: null,
     },
-    select: { id: true },
+    select: { id: true, client: { select: { portalSlug: true } } },
   })
   if (!ticket) return { success: false, error: 'No se pueden agregar sub-tareas en el estado actual' }
 
@@ -246,6 +262,9 @@ export async function addPortalTicketItem(ticketId: string, item: { title: strin
     },
   })
 
+  revalidatePath(`/portal/${ticket.client?.portalSlug ?? ''}/tickets/${ticketId}`)
+  revalidatePath(`/tickets/${ticketId}`)
+
   return { success: true, item: newItem }
 }
 
@@ -261,7 +280,7 @@ export async function addPortalComment(
 
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, clientId: session.user.clientId ?? '' },
-    select: { id: true, tenantId: true, title: true },
+    select: { id: true, tenantId: true, title: true, client: { select: { portalSlug: true } } },
   })
   if (!ticket) return { success: false }
 
@@ -298,6 +317,9 @@ export async function addPortalComment(
     body,
     href: `/tickets/${ticketId}`,
   }).catch(() => {})
+
+  revalidatePath(`/portal/${ticket.client?.portalSlug ?? ''}/tickets/${ticketId}`)
+  revalidatePath(`/tickets/${ticketId}`)
 
   return { success: true }
 }
