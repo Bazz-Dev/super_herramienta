@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Logo } from './logo'
 import { NotificationBell } from './notification-bell'
 
@@ -14,13 +14,26 @@ const NAV_LINKS = [
 export function MiPanelSidebar({
   userName,
   logout,
+  isViewingAs = false,
 }: {
   userName: string
   logout: ReactNode
+  // true cuando un super está impersonando a este técnico vía "ver como" —
+  // muestra un banner para salir y volver a /dashboard como admin.
+  isViewingAs?: boolean
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [exiting, startExit] = useTransition()
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
+
+  function exitViewAs() {
+    startExit(async () => {
+      await fetch('/api/auth/view-as', { method: 'DELETE' })
+      router.push('/dashboard')
+    })
+  }
 
   const content = (
     <div className="flex h-full flex-col">
@@ -30,6 +43,22 @@ export function MiPanelSidebar({
         </Link>
         <p className="mt-0.5 text-[11px] font-medium uppercase tracking-wider text-gray-400">Mi Panel</p>
       </div>
+
+      {isViewingAs && (
+        <div className="mx-3 mb-2 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
+          <span aria-hidden>👁</span>
+          <span className="flex-1 truncate font-medium">Viendo como técnico</span>
+          <button
+            onClick={exitViewAs}
+            disabled={exiting}
+            className="rounded px-1 font-bold hover:bg-amber-100 transition-colors disabled:opacity-50"
+            title="Salir de vista como"
+            aria-label="Salir de vista como"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {NAV_LINKS.map(({ href, label, icon: Icon }) => {

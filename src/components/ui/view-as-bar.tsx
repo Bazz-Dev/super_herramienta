@@ -20,14 +20,22 @@ export function ViewAsBar({ activeViewName, users }: Props) {
   const [isPending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
 
-  async function switchTo(userId: string | null) {
+  async function switchTo(userId: string | null, role?: string) {
     setOpen(false)
     await fetch('/api/auth/view-as', {
       method: userId ? 'POST' : 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: userId ? JSON.stringify({ userId }) : undefined,
     })
-    startTransition(() => router.refresh())
+    // Un técnico ve una experiencia completamente distinta (su propio
+    // sidebar en /mi-panel, no el layout admin) — navegar ahí directo hace
+    // que "ver como" se sienta como cambiar de perfil de un clic, en vez de
+    // solo cambiar datos detrás del mismo layout de admin.
+    if (role === 'tecnico') {
+      router.push('/mi-panel')
+    } else {
+      startTransition(() => router.refresh())
+    }
   }
 
   if (activeViewName) {
@@ -65,7 +73,7 @@ export function ViewAsBar({ activeViewName, users }: Props) {
             users.map((u) => (
               <button
                 key={u.id}
-                onClick={() => switchTo(u.id)}
+                onClick={() => switchTo(u.id, u.role)}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
               >
                 <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-600">
