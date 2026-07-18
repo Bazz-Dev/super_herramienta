@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "build": "node --input-type=module -e \"import { rmSync } from 'fs'; rmSync('tsconfig.tsbuildinfo', { force: true })\" && prisma generate && next build",
+    "build": "node --input-type=module -e \"import { rmSync } from 'fs'; rmSync('tsconfig.tsbuildinfo', { force: true })\" && node scripts/sync-sw-version.mjs && prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
