@@ -37,7 +37,7 @@ Cada cliente tiene su portal propio con tema visual (solo `primary` desde DB; bg
 **Portal rules**: portal siempre light mode (inline styles, nunca CSS vars). Clientes pueden editar tickets y agregar sub-tareas si `status=nuevo|en_revision`.
 
 ### 3. Mi Panel (`/mi-panel`) — técnicos
-Superficie de autoservicio para `role=tecnico`. Sin sidebar. Firma electrónica simple (FES) + asignaciones + gastos.
+Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`) con el mismo patrón responsive del sidebar interno (drawer móvil + fijo en desktop) — reemplaza la barra superior mínima anterior, deja espacio para agregar secciones de autoservicio sin re-diseñar. Firma electrónica simple (FES) + asignaciones + gastos.
 
 ---
 
@@ -62,7 +62,7 @@ Superficie de autoservicio para `role=tecnico`. Sin sidebar. Firma electrónica 
 **Carga histórica**: `scripts/import-flujo.ts` (JB: 205 jobs, Decathlon: 1, Unity: 1).
 
 ### Cotizador (`/cotizador`) + Informes Técnicos (`/informe`)
-**Para qué**: Generar propuestas/informes en PDF y guardarlos en carpeta del cliente.
+**Para qué**: Generar propuestas/informes en PDF y guardarlos en carpeta del cliente — el cliente ve los documentos consolidados dentro del portal, en el menú Informes (`/portal/[slug]/informes`) para informes técnicos y Propuestas para comerciales. Soporta tanto documentos JSON editables (generados desde el editor) como archivos reales subidos a R2 (informes históricos vinculados desde evidencia de ticket) — ambos casos descargables desde el portal.
 **Flujo**: Editor → preview vivo → guardar como JSON editable en `ClientDocument` → PDF generado on-demand.
 **Re-editar**: `/cotizador?docId=xxx` carga el JSON guardado en el editor.
 **No requiere R2**: el JSON se guarda en `ClientDocument.dataJson` (DB). `fileKey="inline"`.
@@ -74,7 +74,7 @@ Superficie de autoservicio para `role=tecnico`. Sin sidebar. Firma electrónica 
 **Acciones por documento**: Editar (reabre en editor), Descargar PDF (on-demand), Eliminar.
 
 ### Recursos (`/recursos`) — Inventario
-**Para qué**: Técnicos, vehículos, activos, cuadrillas, clientes.
+**Para qué**: Técnicos, vehículos, activos, clientes. (Cuadrillas: módulo sin uso en la operación real — ruta/modelo `Crew` intactos pero quitado de la navegación.)
 **Modelos**: `Technician`, `Vehicle`, `Asset`, `Crew`, `Client`, `TechnicianDocument`
 **Relaciones**: Técnico ↔ Vehículo 1:1, Vehículo → Activos 1:N, Cuadrilla ↔ Técnicos M:N.
 **Perfil técnico**: navegación por tabs (Resumen / Datos / Vehículo / Documentos). Resumen: stats de cronograma + stats de tickets + tickets recientes + próximas asignaciones. Links accionables a `/tickets?usuario=id` y `/cronograma?tecnico=id`.
@@ -399,7 +399,7 @@ Crew       ──< Technician  M:N — cuadrilla de técnicos
 [nuevo] ──→ [en_revision] ──→ [en_ejecucion] ──→ [esperando_aprobacion] ──→ [resuelto]
    ↓               ↓               ↓                       ↓
 [cancelado]   [cancelado]    [cancelado]              [cancelado]
-   
+
 [nuevo] ──→ [fusionado]  ← cuando se duplica con otro ticket
 ```
 
