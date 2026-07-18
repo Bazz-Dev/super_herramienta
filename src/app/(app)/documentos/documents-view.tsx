@@ -176,41 +176,6 @@ function DownloadPdfButton({ docId, docType, title }: { docId: string; docType: 
   )
 }
 
-// ─── View/download button for R2-backed files (no dataJson to edit/preview) ──
-
-function ViewFileButton({ docId }: { docId: string }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle')
-
-  async function open(e: React.MouseEvent) {
-    e.stopPropagation()
-    if (state === 'loading') return
-    setState('loading')
-    try {
-      const res = await fetch(`/api/client-documents?id=${docId}`)
-      if (!res.ok) throw new Error()
-      const { viewUrl } = await res.json()
-      if (!viewUrl) throw new Error()
-      window.open(viewUrl, '_blank', 'noopener,noreferrer')
-      setState('idle')
-    } catch {
-      setState('error')
-      setTimeout(() => setState('idle'), 3000)
-    }
-  }
-
-  return (
-    <button
-      onClick={open}
-      disabled={state === 'loading'}
-      className={`flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-60 ${
-        state === 'error' ? 'bg-red-50 text-red-600' : 'bg-white text-gray-800 hover:bg-gray-100'
-      }`}
-    >
-      {state === 'loading' ? <Spinner size={12} /> : state === 'error' ? '✕ Error al abrir' : 'Ver / Descargar'}
-    </button>
-  )
-}
-
 // ─── Document card ────────────────────────────────────────────────────────────
 
 function DocCard({
@@ -219,7 +184,7 @@ function DocCard({
   onDeleted,
 }: {
   doc: Doc
-  onPreview: (id: string, title: string, type: string) => void
+  onPreview: (id: string, title: string, type: string, isFile: boolean) => void
   onDeleted: (id: string) => void
 }) {
   const [hovering, setHovering] = useState(false)
@@ -255,7 +220,7 @@ function DocCard({
       className="group relative flex flex-col rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      onClick={() => { if (!isFile) onPreview(doc.id, doc.title, doc.type) }}
+      onClick={() => onPreview(doc.id, doc.title, doc.type, isFile)}
     >
       {/* Card header — colored by type */}
       <div className={`flex items-center justify-center py-7 ${c.bg}`}>
@@ -300,18 +265,15 @@ function DocCard({
               Editar
             </a>
           )}
-          {!isFile && (
-            <button
-              onClick={e => { e.stopPropagation(); onPreview(doc.id, doc.title, doc.type) }}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-              </svg>
-              Vista previa
-            </button>
-          )}
-          {isFile && <ViewFileButton docId={doc.id} />}
+          <button
+            onClick={e => { e.stopPropagation(); onPreview(doc.id, doc.title, doc.type, isFile) }}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            Vista previa
+          </button>
           {/* Add to pipeline (propuestas only) */}
           {doc.type === 'propuesta' && !pStatus && (
             <button
@@ -435,6 +397,33 @@ function UploadDropzone({ clientId, onUploaded }: { clientId: string; onUploaded
   )
 }
 
+// ─── Type-grouped sub-folder within a client folder ───────────────────────────
+
+function DocSection({
+  title, docs, onPreview, onDeleted,
+}: {
+  title: string
+  docs: Doc[]
+  onPreview: (id: string, title: string, type: string, isFile: boolean) => void
+  onDeleted: (id: string) => void
+}) {
+  if (docs.length === 0) return null
+  return (
+    <section>
+      <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
+        <FolderIcon size={14} />
+        {title}
+        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">{docs.length}</span>
+      </h2>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {docs.map(doc => (
+          <DocCard key={doc.id} doc={doc} onPreview={onPreview} onDeleted={onDeleted} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export function DocumentsView({ clientFolders: initial }: { clientFolders: ClientFolder[] }) {
@@ -442,11 +431,11 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
   const [activeClientId, setActiveClientId] = useState<string | null>(
     initial.length === 1 ? initial[0].id : (initial[0]?.id ?? null)
   )
-  const [filterType, setFilterType] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [preview, setPreview] = useState<{ html: string; title: string } | null>(null)
+  const [preview, setPreview] = useState<{ html?: string; url?: string; title: string } | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewError, setPreviewError] = useState('')
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreview(null) }
@@ -454,19 +443,29 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
     return () => document.removeEventListener('keydown', h)
   }, [preview])
 
-  const handlePreview = useCallback(async (docId: string, docTitle: string, docType: string) => {
+  const handlePreview = useCallback(async (docId: string, docTitle: string, docType: string, isFile: boolean) => {
     setPreviewLoading(true)
+    setPreviewError('')
     try {
       const res = await fetch(`/api/client-documents?id=${docId}`)
-      if (!res.ok) return
+      if (!res.ok) throw new Error(`Error ${res.status} al cargar documento`)
       const response = await res.json()
+
+      if (isFile) {
+        const url: string | null = response.viewUrl ?? null
+        if (!url) throw new Error('No se pudo generar el enlace de vista previa')
+        setPreview({ url, title: docTitle })
+        return
+      }
+
       const rawJson: string | null = response.dataJson ?? response.doc?.dataJson ?? null
-      if (!rawJson) return
+      if (!rawJson) throw new Error('Este documento no tiene datos guardados')
       const json = JSON.parse(rawJson)
       const html = docType === 'informe' ? renderReportHTML(json) : renderQuoteHTML(json)
       setPreview({ html, title: docTitle })
-    } catch {
-      // preview is optional, fail silently
+    } catch (e) {
+      setPreviewError(e instanceof Error ? e.message : 'Error al abrir la vista previa')
+      setTimeout(() => setPreviewError(''), 4000)
     } finally {
       setPreviewLoading(false)
     }
@@ -492,10 +491,12 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
 
   const activeFolder = folders.find(f => f.id === activeClientId)
   const visibleDocs = (activeFolder?.docs ?? []).filter(d => {
-    if (filterType !== 'all' && d.type !== filterType) return false
     if (search && !d.title.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
+  const informes = visibleDocs.filter(d => d.type === 'informe')
+  const propuestas = visibleDocs.filter(d => d.type === 'propuesta')
+  const otros = visibleDocs.filter(d => d.type !== 'informe' && d.type !== 'propuesta')
 
   if (folders.length === 0) {
     return (
@@ -526,7 +527,7 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
           {folders.map(folder => (
             <button
               key={folder.id}
-              onClick={() => { setActiveClientId(folder.id); setSidebarOpen(false); setFilterType('all'); setSearch('') }}
+              onClick={() => { setActiveClientId(folder.id); setSidebarOpen(false); setSearch('') }}
               className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${
                 activeClientId === folder.id
                   ? 'bg-brand/10 text-ink font-semibold'
@@ -585,20 +586,6 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             className="w-40 rounded-lg border border-gray-200 px-3 py-1.5 text-xs outline-none focus:border-brand transition-colors"
           />
 
-          {/* Type filter */}
-          <div className="flex gap-1">
-            {(['all', 'propuesta', 'informe'] as const).map(t => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  filterType === t ? 'bg-brand text-ink' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {t === 'all' ? 'Todos' : TYPE_CFG[t].label + 's'}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Document grid */}
@@ -610,24 +597,27 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             </div>
           ) : visibleDocs.length === 0 ? (
             <div className="flex h-full items-center justify-center text-sm text-gray-400">
-              {search || filterType !== 'all' ? 'Sin resultados para este filtro' : 'Sin documentos para este cliente'}
+              {search ? 'Sin resultados para esta búsqueda' : 'Sin documentos para este cliente'}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {visibleDocs.map(doc => (
-                <DocCard
-                  key={doc.id}
-                  doc={doc}
-                  onPreview={handlePreview}
-                  onDeleted={removeDoc}
-                />
-              ))}
+            <div className="flex flex-col gap-8">
+              <DocSection title="Informes técnicos" docs={informes} onPreview={handlePreview} onDeleted={removeDoc} />
+              <DocSection title="Propuestas comerciales" docs={propuestas} onPreview={handlePreview} onDeleted={removeDoc} />
+              <DocSection title="Otros documentos" docs={otros} onPreview={handlePreview} onDeleted={removeDoc} />
             </div>
           )}
 
           {previewLoading && (
             <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
               <Spinner size={32} />
+            </div>
+          )}
+
+          {previewError && (
+            <div className="fixed inset-x-0 bottom-6 z-40 flex justify-center">
+              <div className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-lg">
+                {previewError}
+              </div>
             </div>
           )}
         </div>
@@ -655,12 +645,11 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             </button>
           </div>
           <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
-            <iframe
-              srcDoc={preview.html}
-              className="h-full w-full border-0 bg-white"
-              title={preview.title}
-              sandbox="allow-same-origin"
-            />
+            {preview.url ? (
+              <iframe src={preview.url} className="h-full w-full border-0 bg-white" title={preview.title} />
+            ) : (
+              <iframe srcDoc={preview.html} className="h-full w-full border-0 bg-white" title={preview.title} sandbox="allow-same-origin" />
+            )}
           </div>
         </div>
       )}
