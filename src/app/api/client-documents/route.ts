@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
       fileKey: 'inline',  // no R2 file — data lives in dataJson
       dataJson: typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson),
       metadata: metadata ? JSON.stringify(metadata) : undefined,
+      // FK real (G2) además del legado en metadata — el legado se mantiene por compat
+      ticketId: metadata?.ticketId ?? undefined,
       createdById: session.user.id,
     },
   })

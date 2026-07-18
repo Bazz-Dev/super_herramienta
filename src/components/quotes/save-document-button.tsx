@@ -16,7 +16,8 @@ interface Props {
   documentType: 'propuesta' | 'informe'
   // When editing an existing doc, pass its id to PATCH instead of POST
   existingDocId?: string
-  // Link the saved document to a ticket (stored in metadata.ticketId)
+  // Link the saved document to a ticket — sent as metadata.ticketId, the API
+  // promotes it to the real ClientDocument.ticketId FK column (ver G2)
   ticketId?: string
   // Pre-select a client (e.g. when creating from a ticket context)
   defaultClientId?: string

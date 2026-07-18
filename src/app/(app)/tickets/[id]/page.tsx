@@ -30,7 +30,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       orderBy: { name: 'asc' },
     }),
     prisma.clientDocument.findMany({
-      where: { tenantId: actor.tenantId, type: 'informe', metadata: { contains: `"ticketId":"${id}"` } },
+      where: { tenantId: actor.tenantId, type: 'informe', ticketId: id },
       select: { id: true, title: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     }),

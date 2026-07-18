@@ -176,9 +176,9 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
     })),
   )
 
-  // Informes técnicos vinculados a este ticket (en metadata)
+  // Informes técnicos vinculados a este ticket (FK real, ver G2)
   const linkedInformes = await prisma.clientDocument.findMany({
-    where: { clientId: client.id, type: 'informe', metadata: { contains: `"ticketId":"${id}"` } },
+    where: { clientId: client.id, type: 'informe', ticketId: id },
     select: { id: true, title: true, createdAt: true },
     orderBy: { createdAt: 'desc' },
   })

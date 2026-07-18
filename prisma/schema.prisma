@@ -553,6 +553,7 @@ model Ticket {
   expenses      Expense[]
   assignments   Assignment[]
   originJobs    Job[]               @relation("JobOrigins")
+  clientDocs    ClientDocument[]
 
   @@index([tenantId])
   @@index([clientId])
@@ -680,7 +681,8 @@ model ClientDocument {
   title           String
   fileKey         String          // R2 key, o "inline" cuando los datos están en dataJson
   dataJson        String?         // JSON completo del editor (QuoteData | ReportData) — fuente de verdad para re-editar
-  metadata        String?         // JSON: { quoteId?, reportId?, amount?, version? }
+  metadata        String?         // JSON: { quoteId?, reportId?, amount?, version?, workOrder?, branch? } — ticketId YA NO vive aquí, ver campo `ticketId`
+  ticketId        String?         // FK real (G2): reemplaza el antiguo metadata.ticketId por string-match
   createdById     String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -695,9 +697,11 @@ model ClientDocument {
 
   client      Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
   createdBy   User?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  ticket      Ticket?         @relation(fields: [ticketId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
   @@index([clientId])
+  @@index([ticketId])
   @@index([proposalStatus])
   @@map("client_documents")
 }
