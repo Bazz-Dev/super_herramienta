@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { auth } from '@/auth'
-import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
+import { requireActor } from '@/lib/tenant'
 import { getTicket } from '@/lib/tickets/tickets'
 import {
   STATUS_LABEL, STATUS_COLOR, STATUS_DOT,
@@ -12,9 +11,8 @@ import {
 import { TicketControls } from '@/components/tickets/ticket-controls'
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-  const actor = { tenantId: session.user.tenantId, role: session.user.role, id: session.user.id! }
+  // requireActor aplica "ver como" (viewas) — no usar session.user directo aquí
+  const actor = await requireActor()
 
   const { id } = await params
   const ticket = await getTicket(actor, id)
