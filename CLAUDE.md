@@ -80,7 +80,7 @@ Antes de correr CUALQUIER comando que toque la base de datos:
 Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida irreparable de confianza.
 
 ### Credenciales sembradas (dev)
-- **admin@ingegarchile.cl** / `ingegar123` — rol `super` (ve todos los tenants).
+- **admin@ingegarchile.cl** / `Ingegar@Super1` — rol `super` (ve todos los tenants).
 - Tenants: `ingegar`, `justburger`, `loficoffee`.
 - Override del password: env `SEED_ADMIN_PASSWORD`.
 
