@@ -39,11 +39,10 @@ export default async function TicketsPage() {
     }),
   ])
 
-  // Sort: open tickets first, then by urgency priority, then newest
+  // Sort: by urgency priority, then status priority, then newest.
+  // getTickets() ya excluye resuelto/cancelado/fusionado — todo lo que
+  // llega aquí es activo, no hace falta empujar resueltos al final.
   const sorted = [...tickets].sort((a, b) => {
-    const aResolved = a.status === 'resuelto'
-    const bResolved = b.status === 'resuelto'
-    if (aResolved !== bResolved) return aResolved ? 1 : -1
     const urgDiff = (URGENCY_PRIORITY[a.urgency as TicketUrgencyId] ?? 9) - (URGENCY_PRIORITY[b.urgency as TicketUrgencyId] ?? 9)
     if (urgDiff !== 0) return urgDiff
     const statusDiff = (STATUS_PRIORITY[a.status as TicketStatusId] ?? 9) - (STATUS_PRIORITY[b.status as TicketStatusId] ?? 9)

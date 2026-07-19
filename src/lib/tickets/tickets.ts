@@ -43,7 +43,7 @@ export async function getTickets(actor: TenantActor, filters?: {
       ...(filters?.assignedToId ? { assignedToId: filters.assignedToId }: {}),
       status: filters?.status
         ? (filters.status as TicketStatus)
-        : { notIn: ['fusionado', 'cancelado'] as TicketStatus[] },
+        : { notIn: ['fusionado', 'cancelado', 'resuelto'] as TicketStatus[] },
     },
     select: ticketSelect,
     // Ordenado por fecha de creación: lo no atendido suele ser lo más nuevo.

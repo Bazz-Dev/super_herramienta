@@ -9,6 +9,9 @@ import { NotificationBell } from './notification-bell'
 const NAV_LINKS = [
   { href: '/mi-panel', label: 'Inicio', icon: HomeIcon },
   { href: '/mi-panel/tickets', label: 'Mis tickets', icon: TicketIcon },
+  { href: '/mi-panel/agenda', label: 'Mi agenda', icon: CalendarIcon },
+  { href: '/mi-panel/gastos', label: 'Gastos', icon: ExpenseIcon },
+  { href: '/mi-panel/rrhh', label: 'RR.HH.', icon: RrhhIcon },
 ]
 
 export function MiPanelSidebar({
@@ -26,7 +29,9 @@ export function MiPanelSidebar({
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [exiting, startExit] = useTransition()
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
+  // '/mi-panel' es el root y prefijo de todas las sub-rutas — match exacto
+  // solo para él, si no "Inicio" queda resaltado en cualquier otra página.
+  const isActive = (href: string) => href === '/mi-panel' ? pathname === href : pathname === href || pathname.startsWith(`${href}/`)
 
   function exitViewAs() {
     startExit(async () => {
@@ -148,6 +153,31 @@ function MenuIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
       <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  )
+}
+function CalendarIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M3 10h18M8 2v4M16 2v4" />
+    </svg>
+  )
+}
+function ExpenseIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v10M9 9.5c0-1.5 1.5-2 3-2s3 .7 3 2-1.5 2-3 2-3 .5-3 2 1.5 2 3 2 3-.5 3-2" />
+    </svg>
+  )
+}
+function RrhhIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 21V8a2 2 0 0 1 2-2h5v15" />
+      <path d="M11 21V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v17" />
+      <path d="M7 10h1M7 14h1M14 8h1M14 12h1M14 16h1" />
     </svg>
   )
 }
