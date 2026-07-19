@@ -81,7 +81,7 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 
 ### Credenciales sembradas (dev)
 - **admin@ingegarchile.cl** / `Ingegar@Super1` — rol `super` (ve todos los tenants).
-- Tenants: `ingegar`, `justburger`, `loficoffee`.
+- Un solo tenant real: `ingegar`. JustBurger/Decathlon/Happyland son **Client** con portal (`portalSlug`), no tenants — todos viven bajo el tenant `ingegar`. (`loficoffee` no existe en este proyecto — es otro proyecto del dueño, no confundir.)
 - Override del password: env `SEED_ADMIN_PASSWORD`.
 
 ---
