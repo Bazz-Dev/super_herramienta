@@ -1,15 +1,14 @@
 import { notFound } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
+import { getPortalClientBySlug } from '@/lib/portal-client'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import { PortalPushPrompt } from '@/components/tickets/portal-push-prompt'
 
 export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await Promise.resolve(params)
 
-  const client = await prisma.client.findUnique({
-    where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true },
-  })
+  // Mismo helper cacheado (60s) que usan las páginas — layout y page piden el
+  // mismo slug en el mismo request, así que normalmente comparten el hit.
+  const client = await getPortalClientBySlug(slug)
 
   if (!client) notFound()
 

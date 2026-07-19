@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
+import { getPortalClientBySlug } from '@/lib/portal-client'
 import { canViewPortal } from '@/lib/portal-auth'
 import { PortalLoginForm } from '@/components/tickets/portal-login-form'
 import { resolvePortalTheme } from '@/lib/portal-theme'
@@ -20,10 +20,7 @@ function hexToRgb(hex: string): string {
 export default async function PortalLoginPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
 
-  const client = await prisma.client.findUnique({
-    where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true, logoUrl: true },
-  })
+  const client = await getPortalClientBySlug(slug)
   if (!client) notFound()
 
   const session = await auth()

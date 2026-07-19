@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
+import { getPortalClientBySlug } from '@/lib/portal-client'
 import { canViewPortal } from '@/lib/portal-auth'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import { PortalShell } from '@/components/tickets/portal-shell'
@@ -9,10 +9,7 @@ import { PortalChangePasswordForm } from '@/components/tickets/portal-change-pas
 export default async function PortalCuentaPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
 
-  const client = await prisma.client.findUnique({
-    where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true, logoUrl: true },
-  })
+  const client = await getPortalClientBySlug(slug)
   if (!client) notFound()
 
   const session = await auth()

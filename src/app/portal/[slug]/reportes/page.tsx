@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
+import { getPortalClientBySlug } from '@/lib/portal-client'
 import { getClientTickets } from '@/lib/tickets/tickets'
 import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
 import { PortalShell } from '@/components/tickets/portal-shell'
@@ -53,10 +53,7 @@ export default async function PortalReportesPage({
   const { slug } = await params
   const { periodo } = await searchParams
   const session = await auth()
-  const client = await prisma.client.findUnique({
-    where: { portalSlug: slug },
-    select: { id: true, name: true, portalTheme: true, logoUrl: true },
-  })
+  const client = await getPortalClientBySlug(slug)
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 

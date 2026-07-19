@@ -26,7 +26,8 @@ const ticketSelect = {
   client: { select: { id: true, name: true, portalSlug: true } },
   branch: { select: { id: true, name: true, city: true } },
   assignedTo: { select: { id: true, name: true } },
-  createdBy: { select: { id: true, name: true } },
+  // createdBy deliberadamente NO va aquí — ni /tickets ni TicketListView lo
+  // usan, y cada relación es un round-trip separado contra Turso (ver G41).
   _count: { select: { items: true, documents: true, history: true } },
 } as const
 
@@ -91,10 +92,13 @@ const clientTicketSelect = {
   clientId: true,
   branchId: true,
   assignedToId: true,
-  client: { select: { id: true, name: true, portalSlug: true } },
+  // Sin client ni createdBy: getClientTickets() ya está scopeado a UN cliente
+  // (clientId es param), así que client.* sería el mismo dato repetido en
+  // cada fila; createdBy nunca se renderiza en portal-ticket-list/reportes/
+  // dashboard. Cada relación es un round-trip separado contra Turso (G41) —
+  // confirmado con grep de los 3 consumidores antes de sacarlos.
   branch: { select: { id: true, name: true, city: true } },
   assignedTo: { select: { id: true, name: true } },
-  createdBy: { select: { id: true, name: true } },
   _count: { select: { items: true, documents: true, history: true } },
 } as const
 
