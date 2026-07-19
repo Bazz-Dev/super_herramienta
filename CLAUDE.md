@@ -249,7 +249,10 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 **Próximos (sugeridos en orden de valor):**
 - Import histórico Flujo de Caja a Turso en producción (`scripts/import-flujo.ts`).
 - Estadísticas por técnico: trabajos ejecutados, horas, distribución semanal.
-- Alertas automáticas de seguimiento en Pipeline (propuesta enviada > 7 días sin respuesta → push/email).
+
+Ya implementados (no listar de nuevo como pendiente):
+- Alertas automáticas de seguimiento en Pipeline (`/api/cron/pipeline-alerts`, propuesta enviada/vista > 7 días sin respuesta o `followUpAt` vencido → push a staff).
+- Alertas de tickets al técnico (`/api/cron/ticket-alerts`, diario): ticket `nuevo`/`en_revision` sin avance en 3+ días, o `en_ejecucion` sin evidencia fotográfica en 3+ días → push directo al técnico asignado (`/mi-panel/tickets/[id]`). Sin dedup (mismo patrón que pipeline-alerts): re-notifica mientras la condición siga vigente.
 
 ---
 
@@ -325,12 +328,15 @@ src/
     layout.tsx            # Inter font, PushProvider, apple-touch-icon → /ingegar-icon/152|180
     page.tsx              # redirect a /login o /dashboard
     (auth)/login/
+    mi-panel/              # layout propio (MiPanelSidebar) — NO vive bajo (app)/. 5 secciones:
+      #  Inicio (resumen + accesos rápidos), tickets/ (Mis tickets), agenda/
+      #  (asignaciones/horas), gastos/ (reportar + historial), rrhh/ (contrato,
+      #  permisos, liquidaciones, documentos, FES). firma/[id]/ para firmar FES.
     (app)/                # layout protegido (Sidebar + NotificationBell)
       dashboard/          # hero con versión + novedades
       cotizador/          # ?docId=xxx carga documento guardado para re-editar
       informe/            # ?docId=xxx carga informe guardado para re-editar
       documentos/         # carpetas de clientes: propuestas + informes editables
-      mi-panel/           # panel de técnicos: FES pendientes + asignaciones
       rrhh/               # dashboard, [id] ficha empleado, vacaciones, liquidaciones
       tickets/            # Kanban interno
       cronograma/
