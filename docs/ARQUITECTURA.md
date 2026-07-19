@@ -1,7 +1,7 @@
 # INGEGAR Platform — Arquitectura y Contexto
 
 > Documento de referencia para navegación rápida. Actualizar al agregar módulos o cambiar modelos.
-> Última actualización: julio 2026 — v1.8.0 (test audit pass)
+> Última actualización: 2026-07-19 — v1.10.0. **Pendientes vivos: ver `docs/architecture/GAP_REGISTER.md`** (este documento describe arquitectura estable, no tracking de tareas — evita que ambos diverjan otra vez).
 
 ---
 
@@ -41,7 +41,7 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 
 ---
 
-## Módulos actuales (v1.8.0)
+## Módulos actuales (v1.10.0)
 
 ### Cronograma (`/cronograma`)
 **Para qué**: Calendario de trabajos en terreno.
@@ -66,12 +66,19 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Flujo**: Editor → preview vivo → guardar como JSON editable en `ClientDocument` → PDF generado on-demand.
 **Re-editar**: `/cotizador?docId=xxx` carga el JSON guardado en el editor.
 **No requiere R2**: el JSON se guarda en `ClientDocument.dataJson` (DB). `fileKey="inline"`.
-**Templates activos**: solo `clasico` (template `minimal` eliminado en v1.8.0, docs legados normalizados).
+**Templates activos**: `clasico`, `basica` (variante CSS liviana del clásico), `pro` (layout propio: hero negro, grilla meta, condiciones en tabla). Docs legados con template `minimal` se mapean a `basica`.
 **Bug timezone resuelto**: `formatDate('YYYY-MM-DD')` ahora parsea como fecha local (no UTC) evitando el desfase de 1 día en zona UTC-4.
 
 ### Carpetas de clientes (`/documentos`)
 **Para qué**: Ver todas las propuestas e informes guardados, organizados por cliente.
 **Acciones por documento**: Editar (reabre en editor), Descargar PDF (on-demand), Eliminar.
+**Integración con Pipeline**: propuestas muestran badge de estado + botón "Agregar al pipeline" / "Ver en pipeline →".
+
+### Pipeline comercial (`/pipeline`)
+**Para qué**: Seguimiento de propuestas enviadas — kanban por estado, KPIs, monto en juego.
+**Acceso**: solo `super`/`supervisor`.
+**Modelo**: campos en `ClientDocument` (type=`propuesta`): `proposalStatus` (enum `ProposalStatus`: `borrador|enviada|vista|aceptada|rechazada|perdida`), `proposalAmount`, `sentAt`, `viewedAt`, `responseAt`, `followUpAt`, `proposalNote`.
+**KPIs**: total en pipeline, monto en juego (enviada+vista), tasa de cierre, propuestas por vencer (>7 días sin respuesta).
 
 ### Recursos (`/recursos`) — Inventario
 **Para qué**: Técnicos, vehículos, activos, clientes. (Cuadrillas: módulo sin uso en la operación real — ruta/modelo `Crew` intactos pero quitado de la navegación.)
@@ -260,20 +267,15 @@ Recorre todas las rutas en viewport 390×844 verificando:
 
 ---
 
-## Pendientes prioritarios (v1.9.0)
+## Pendientes prioritarios
 
-### 🔴 UX críticos portal cliente
-- **Portal ticket list**: mobile UX todavía inferior a ingegar-one internal. Falta densidad visual, jerarquía tipográfica fuerte, cards con más contexto (sucursal, técnico, urgencia en una línea).
-- **Portal detalle ticket**: layout no aprovecha espacio en desktop. Sección de progreso (steps) es estática, sin timestamps en cada paso. Falta: botón directo para llamar al técnico o enviar WhatsApp.
-- **Botones en general**: los `useTransition` + `isPending` existen en forms de portal, pero navegación por `<a href>` en `portal-ticket-list` no tiene feedback de loading al entrar al detalle (es una navegación de página completa sin spinner).
-- **App interna — sidebar mobile**: no colapsa correctamente en viewports < 640px. Tabs y tablas internas no son mobile-first.
-- **Portal ticket detail**: usa `var(--p-*)` en inline styles (legacy, funciona por aliases en layout pero viola convención). Migrar a vars canónicas `var(--tx)`, `var(--bg)`, etc.
-- **Portal tickets en cronograma**: mantenciones preventivas (`urgency=preventivo`) no aparecen en cronograma del portal — solo aparecen `Assignment` records.
+> Lista viva movida a `docs/architecture/GAP_REGISTER.md` (evidencia por ítem, estado 🔴/🟡/🟢/⚪). Esta sección solo deja constancia de lo ya resuelto desde v1.8; para "qué falta hoy" usar el gap register, no este documento.
 
-### 🟠 Desconexiones entre entidades (pendientes de UI)
-- **Ticket ↔ Assignment**: `Assignment.ticketId` existe en DB pero el calendario no muestra el ticket vinculado en el evento. Desde detalle de ticket, no hay forma de ver si hay un trabajo agendado asociado.
-- **Ticket ↔ Job (Flujo de Caja)**: un ticket ejecutado no genera automáticamente un `Job`. Son mundos separados. Oportunidad: al resolver un ticket, ofrecer crear el Job con monto/costos.
-- **Técnico ↔ Tickets — link profundo**: stats OK, pero no hay vista "todos los tickets de este técnico" con filtro en `/tickets?assignedTo=id`.
+### ✅ Resuelto desde v1.8 (quedaba listado aquí como pendiente)
+- **Pipeline comercial** (`/pipeline`) — implementado v1.10, ver módulo arriba.
+- **Mi Panel (técnicos)** — dejó de estar subdesarrollado: menú propio (Inicio/Tickets/Agenda/Gastos/RR.HH.), KPIs reales en vez de shortcuts genéricos, tickets vinculados correctamente vía `effectiveId`.
+- **Loading states / animaciones de carga** — `Spinner`, `TopProgress`, skeletons (`loading.tsx`) y focus rings ya implementados en todo el flujo (verificado contra `docs/superpowers/plans/2026-07-04-mobile-first-ux.md`).
+- **Velocidad portal cliente** — `getPortalClientBySlug()` cacheado (`unstable_cache`, 60s), queries paralelizadas con `Promise.all` en detalle de ticket, relaciones no usadas removidas de los `select`.
 
 ### 🔵 Bugs conocidos (encontrados en audit jul-2026)
 - **Passwords en tests E2E**: 5 spec files usaban `ingegar123` pero la DB en dev tiene `Ingegar@Super1` (generada con `SEED_ADMIN_PASSWORD` en `.env`). Corregido en v1.8.0.
@@ -282,17 +284,8 @@ Recorre todas las rutas en viewport 390×844 verificando:
 - **Portal hamburger useEffect**: El botón hamburger del portal se renderiza condicionalmente vía `isMobile` (useState inicializado en `false`, flip en `useEffect`). El test debe usar `waitForSelector('[aria-label="Abrir menú"]')` para esperar la hidratación. Corregido en v1.8.0.
 - **Fechas UTC-4**: `new Date('YYYY-MM-DD')` = UTC midnight. En Chile (UTC-4) se muestra el día anterior. Corregido con `fromDateInput()` en vehiculos, gastos, documentos de técnicos. La regla aplica a CUALQUIER `<input type="date">` guardado vía Prisma.
 
-### 🟡 Valor diferencial pendiente
-- **Portal: mini dashboard "resumen del mes"**: tickets abiertos/resueltos, tiempo promedio de respuesta, % SLA cumplido. Primer dato que valida el servicio al cliente.
-- **Dashboard interno**: KPIs sin tendencia temporal. Sin tiempo promedio de resolución. Sin alertas de SLA vencido.
-- **Mi Panel (técnicos)**: subdesarrollado. Falta vista semanal de agenda, tickets asignados, historial de trabajos. Toda la data existe.
-- **Estadísticas por técnico**: histograma semanal de trabajos, carga vs capacidad, comparativa entre técnicos.
-
-### ⬜ Features nuevos
-- **Pipeline**: cotizaciones enviadas, estados (enviada/vista/aceptada/rechazada), alertas de seguimiento.
-- **Import histórico Flujo de Caja a Turso prod** (`scripts/import-flujo.ts` contra `DATABASE_URL` de producción).
-- **Migración JB desde GAS**: tickets históricos al portal nuevo.
-- **Notificación al técnico**: cuando se le asigna un ticket desde la app interna, recibir push en Mi Panel.
+### Roadmap / valor diferencial pendiente
+Ver `docs/architecture/GAP_REGISTER.md` y la sección "Próximos" de `CLAUDE.md` — ambos se mantienen vivos; este documento no duplica esa lista para no volver a desincronizarse.
 
 ---
 

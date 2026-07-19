@@ -38,8 +38,15 @@ self.addEventListener('fetch', (event) => {
   // Skip API and auth routes — always network
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/login')) return
 
+  // Navegaciones con redirect:'manual' — si fetch() sigue un redirect (ej. sesión
+  // vencida → /login) de forma transparente y se entrega vía respondWith(), Chromium
+  // a veces desincroniza la barra de direcciones del contenido real (queda en la URL
+  // vieja aunque el body sea el de destino). 'manual' entrega un opaqueredirect que
+  // el navegador resuelve nativamente, evitando el desincronismo (causa raíz G33).
+  const isNavigation = event.request.mode === 'navigate'
+
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, isNavigation ? { redirect: 'manual' } : {})
       .then((res) => {
         if (res.ok) {
           const clone = res.clone()

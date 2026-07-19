@@ -74,7 +74,10 @@ export default async function MiPanelPage() {
   })
   if (!technician) redirect('/login')
 
-  const [ticketStats, scheduledCount, completedCount, pendingExpCount, pendingLeavesCount, pendingSignaturesCount] = await Promise.all([
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const [ticketStats, scheduledCount, completedThisMonthRows, pendingExpAmount, pendingLeavesCount, pendingSignaturesCount] = await Promise.all([
     prisma.ticket.findMany({
       where: { assignedToId: actor.effectiveId, tenantId: actor.tenantId, deletedAt: null, status: { notIn: CLOSED } },
       select: {
@@ -87,11 +90,19 @@ export default async function MiPanelPage() {
       orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
     }),
     prisma.assignmentAssignee.count({ where: { technicianId: actor.technicianId, assignment: { status: { in: ['scheduled', 'in_progress'] } } } }),
-    prisma.assignmentAssignee.count({ where: { technicianId: actor.technicianId, assignment: { status: 'done' } } }),
-    prisma.expense.count({ where: { technicianId: actor.technicianId, status: 'pendiente' } }),
+    prisma.assignmentAssignee.findMany({
+      where: { technicianId: actor.technicianId, assignment: { status: 'done', start: { gte: startOfMonth } } },
+      select: { assignment: { select: { start: true, end: true } } },
+    }),
+    prisma.expense.aggregate({ where: { technicianId: actor.technicianId, status: 'aprobado' }, _sum: { amount: true } }),
     prisma.leaveRequest.count({ where: { technicianId: actor.technicianId, status: 'pendiente' } }),
     prisma.signatureRequest.count({ where: { technicianId: actor.technicianId, status: 'pendiente' } }),
   ])
+
+  const hoursThisMonth = completedThisMonthRows.reduce((s, r) =>
+    s + (new Date(r.assignment.end).getTime() - new Date(r.assignment.start).getTime()) / 3600000, 0)
+  const hoursLabel = hoursThisMonth < 1 ? '< 1h' : `${Math.round(hoursThisMonth)}h`
+  const pendingReview = pendingLeavesCount + pendingSignaturesCount
 
   const URGENCY_RANK: Record<string, number> = { emergencia: 0, urgencia: 1, no_urgente: 2, preventivo: 3 }
   // eslint-disable-next-line react-hooks/purity
@@ -107,13 +118,6 @@ export default async function MiPanelPage() {
   const newlyAssigned = ticketStats.filter(t => new Date(t.updatedAt).getTime() > now48h)
 
   const initials = technician.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-
-  const shortcuts = [
-    { href: '/mi-panel/tickets', label: 'Mis tickets', icon: '🎫', value: ticketStats.length, sub: 'activos' },
-    { href: '/mi-panel/agenda', label: 'Mi agenda', icon: '📅', value: scheduledCount, sub: 'programados' },
-    { href: '/mi-panel/gastos', label: 'Gastos', icon: '💸', value: pendingExpCount, sub: 'pendientes' },
-    { href: '/mi-panel/rrhh', label: 'RR.HH.', icon: '🏢', value: pendingLeavesCount + pendingSignaturesCount, sub: 'por revisar' },
-  ]
 
   return (
     <div className="space-y-5 max-w-5xl">
@@ -148,22 +152,35 @@ export default async function MiPanelPage() {
         </div>
       </div>
 
-      {/* ── SHORTCUTS ────────────────────────────────────────────────────── */}
+      {/* ── KPIs del mes ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {shortcuts.map(s => (
-          <Link key={s.href} href={s.href}
-            className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <span className="text-2xl">{s.icon}</span>
-              {s.value > 0 && (
-                <span className="rounded-full bg-brand px-2 py-0.5 text-xs font-bold text-ink">{s.value}</span>
-              )}
-            </div>
-            <p className="mt-2 text-sm font-semibold text-ink group-hover:text-brand-700">{s.label}</p>
-            <p className="text-xs text-gray-400">{s.value} {s.sub}</p>
-          </Link>
-        ))}
+        <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 text-center">
+          <p className="text-2xl font-bold text-purple-700">{ticketStats.length}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-purple-700 opacity-80">Tickets activos</p>
+        </div>
+        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-center">
+          <p className="text-2xl font-bold text-indigo-700">{hoursLabel}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-indigo-700 opacity-80">Horas este mes</p>
+        </div>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
+          <p className="text-2xl font-bold text-blue-700">{formatClp(pendingExpAmount._sum.amount ?? 0)}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-blue-700 opacity-80">Por cobrar</p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+          <p className="text-2xl font-bold text-amber-700">{scheduledCount}</p>
+          <p className="mt-0.5 text-[11px] font-medium text-amber-700 opacity-80">En agenda</p>
+        </div>
       </div>
+
+      {pendingReview > 0 && (
+        <Link href="/mi-panel/rrhh" className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 transition hover:bg-amber-100">
+          <span>⚠️</span>
+          <span className="flex-1">
+            Tienes {pendingReview} trámite{pendingReview !== 1 ? 's' : ''} en RR.HH. esperando revisión (permisos y/o firmas)
+          </span>
+          <span className="font-semibold">Ver →</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
 
@@ -249,9 +266,9 @@ export default async function MiPanelPage() {
               })}
             </ul>
           )}
-          {completedCount > 0 && (
+          {completedThisMonthRows.length > 0 && (
             <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-400">
-              {completedCount} trabajo{completedCount !== 1 ? 's' : ''} completado{completedCount !== 1 ? 's' : ''} en total — ver en <Link href="/mi-panel/agenda" className="text-brand-700 hover:underline">Mi agenda</Link>
+              {completedThisMonthRows.length} trabajo{completedThisMonthRows.length !== 1 ? 's' : ''} completado{completedThisMonthRows.length !== 1 ? 's' : ''} este mes — ver historial en <Link href="/mi-panel/agenda" className="text-brand-700 hover:underline">Mi agenda</Link>
             </p>
           )}
         </div>

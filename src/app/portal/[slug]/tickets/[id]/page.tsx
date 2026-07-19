@@ -287,7 +287,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           </div>
         )}
 
-        {/* ── ACCIONES DE APROBACIÓN (Carolina) ────────────────────────── */}
+        {/* ── ACCIONES DE APROBACIÓN (cliente administrador) ──────────────── */}
         {canApprove && <PortalApprovalActions ticketId={ticket.id} slug={slug} primary={acc} />}
 
         {/* ── RESUELTO / CANCELADO ─────────────────────────────────────── */}

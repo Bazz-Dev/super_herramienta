@@ -44,7 +44,7 @@ export async function createPortalTicket(fd: FormData) {
   const existing = await prisma.ticket.findUnique({ where: { ticketCode }, select: { id: true } })
   const finalCode = existing ? `${ticketCode}-${Date.now().toString(36).slice(-4)}` : ticketCode
 
-  // Branch users (non-admin clients) → pendiente_aprobacion for Carolina to review
+  // Branch users (non-admin clients) → pendiente_aprobacion for the client admin to review
   const isBranchUser = isClient && !isClientAdmin
   const ticketStatus = isBranchUser ? 'pendiente_aprobacion' : 'nuevo'
 
@@ -98,7 +98,7 @@ export async function createPortalTicket(fd: FormData) {
   const urgencyLabel: Record<string, string> = { emergencia: '🚨 EMERGENCIA', urgencia: '⚠️ Urgente', no_urgente: 'Normal', preventivo: 'Preventivo' }
 
   if (isBranchUser) {
-    // Notify the client admin (Carolina) to approve or reject
+    // Notify the client admin to approve or reject
     const clientAdmin = await prisma.user.findFirst({
       where: { clientId, isClientAdmin: true, active: true },
       select: { id: true },

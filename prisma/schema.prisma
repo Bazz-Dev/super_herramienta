@@ -485,7 +485,7 @@ model TechnicianDocument {
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
   type         DocType    @default(otro)
   label        String?    // nombre personalizado del documento
-  fileUrl      String     // ruta relativa: /uploads/docs/[techId]/[filename]
+  fileUrl      String     // R2 object key: technicians/[techId]/[timestamp]-[uuid].[ext]
   expiryDate   DateTime?  // vencimiento (ej. contrato plazo fijo, examen altura)
   notes        String?
   uploadedAt   DateTime   @default(now())
