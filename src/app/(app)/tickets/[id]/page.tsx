@@ -15,10 +15,12 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const actor = await requireActor()
 
   const { id } = await params
-  const ticket = await getTicket(actor, id)
-  if (!ticket) notFound()
 
-  const [technicians, staffUsers, allInformes, ticketExpenses, originJobs] = await Promise.all([
+  // getTicket() no depende de estas otras 5 (solo necesitan `id`/`actor`, ya
+  // resueltos) — antes se esperaba getTicket() solo y recién después se
+  // lanzaban las demás, sumando un round-trip completo contra Turso en vano.
+  const [ticket, technicians, staffUsers, allInformes, ticketExpenses, originJobs] = await Promise.all([
+    getTicket(actor, id),
     prisma.technician.findMany({
       where: { tenantId: actor.tenantId, active: true },
       select: { id: true, name: true },
@@ -45,6 +47,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       orderBy: { createdAt: 'desc' },
     }),
   ])
+  if (!ticket) notFound()
 
   const linkedInformes = allInformes.map(d => ({
     id: d.id,

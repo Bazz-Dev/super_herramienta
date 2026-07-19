@@ -26,6 +26,13 @@ export type AuthActor = TenantActor & {
   // Set by applyViewAs() when a "ver como" impersonation is active — the name
   // of the impersonated user, distinct from `name` (always the real user's).
   viewingAsName?: string
+  // `id` stays the REAL logged-in user always (identity-bound actions like FES
+  // signing / leave requests must check `viewingAsName` and reject, never trust
+  // this being the impersonated person). `effectiveId` is who we're acting AS —
+  // the impersonated user's id under "ver como", otherwise same as `id`. Use
+  // this for ownership checks (e.g. Ticket.assignedToId) so "ver como técnico"
+  // actually sees/operates on that técnico's own tickets instead of the admin's.
+  effectiveId: string
 }
 
 // Minimal type required by tenantScope / canAccessTenant — callers that only
@@ -39,6 +46,7 @@ export async function requireActor(allowedRoles?: Role[]): Promise<AuthActor> {
   const u = session.user
   const actor: AuthActor = {
     id: u.id,
+    effectiveId: u.id,
     role: u.role as Role,
     tenantId: u.tenantId,
     tenantSlug: u.tenantSlug,

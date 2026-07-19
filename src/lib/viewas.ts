@@ -22,6 +22,10 @@ export async function applyViewAs(
     tenantId: user.tenantId,
     // technicianId del objetivo: mi-panel y filtros por técnico reflejan al suplantado
     technicianId: user.technicianId ?? null,
+    // effectiveId SÍ se sustituye (a diferencia de `id`) — necesario para que
+    // los filtros de "dueño del ticket" (Ticket.assignedToId) encuentren los
+    // tickets del suplantado, no los del admin real.
+    effectiveId: userId,
     viewingAsName: user.name ?? userId,
   }
 }

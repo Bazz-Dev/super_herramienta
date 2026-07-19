@@ -168,20 +168,21 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
     redirect(`/portal/${slug}/tickets`)
   }
 
-  // Pre-sign document URLs (1h expiry)
-  const signedDocs = await Promise.all(
-    ticket.documents.map(async (doc) => ({
-      ...doc,
-      viewUrl: isR2Key(doc.fileUrl) ? await getPresignedUrl(doc.fileUrl, 3600) : doc.fileUrl,
-    })),
-  )
-
-  // Informes técnicos vinculados a este ticket (FK real, ver G2)
-  const linkedInformes = await prisma.clientDocument.findMany({
-    where: { clientId: client.id, type: 'informe', ticketId: id },
-    select: { id: true, title: true, createdAt: true },
-    orderBy: { createdAt: 'desc' },
-  })
+  // Pre-sign document URLs (1h expiry) + informes técnicos vinculados (FK real,
+  // ver G2) — ninguna depende de la otra, antes se esperaban en serie.
+  const [signedDocs, linkedInformes] = await Promise.all([
+    Promise.all(
+      ticket.documents.map(async (doc) => ({
+        ...doc,
+        viewUrl: isR2Key(doc.fileUrl) ? await getPresignedUrl(doc.fileUrl, 3600) : doc.fileUrl,
+      })),
+    ),
+    prisma.clientDocument.findMany({
+      where: { clientId: client.id, type: 'informe', ticketId: id },
+      select: { id: true, title: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ])
 
   const theme = resolvePortalTheme(client.portalTheme)
   const acc = theme.primary

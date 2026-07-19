@@ -17,7 +17,7 @@ export default async function TecnicoTicketDetail({ params }: { params: Promise<
 
   // Server-side: el técnico SOLO ve tickets asignados a él, de su tenant
   const ticket = await prisma.ticket.findFirst({
-    where: { id, tenantId: actor.tenantId, assignedToId: actor.id, deletedAt: null },
+    where: { id, tenantId: actor.tenantId, assignedToId: actor.effectiveId, deletedAt: null },
     select: {
       id: true, ticketCode: true, title: true, description: true, status: true,
       urgency: true, category: true, otNumber: true, estimatedDate: true, createdAt: true,

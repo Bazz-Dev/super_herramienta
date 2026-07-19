@@ -76,7 +76,7 @@ export default async function MiPanelPage() {
 
   const [ticketStats, scheduledCount, completedCount, pendingExpCount, pendingLeavesCount, pendingSignaturesCount] = await Promise.all([
     prisma.ticket.findMany({
-      where: { assignedToId: actor.id, tenantId: actor.tenantId, deletedAt: null, status: { notIn: CLOSED } },
+      where: { assignedToId: actor.effectiveId, tenantId: actor.tenantId, deletedAt: null, status: { notIn: CLOSED } },
       select: {
         id: true, ticketCode: true, title: true, status: true, urgency: true,
         estimatedDate: true, updatedAt: true,

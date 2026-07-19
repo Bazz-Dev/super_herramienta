@@ -18,13 +18,10 @@ export default async function MiPanelGastosPage() {
     )
   }
 
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
   const [allExpenses, recentExpenses] = await Promise.all([
     prisma.expense.findMany({
       where: { technicianId: actor.technicianId },
-      select: { amount: true, status: true, date: true },
+      select: { amount: true, status: true },
     }),
     prisma.expense.findMany({
       where: { technicianId: actor.technicianId },
@@ -38,10 +35,9 @@ export default async function MiPanelGastosPage() {
   ])
 
   const pendingCount = allExpenses.filter(e => e.status === 'pendiente').length
-  const approvedThisMonth = allExpenses
-    .filter(e => e.status === 'aprobado' && new Date(e.date) >= startOfMonth)
-    .reduce((s, e) => s + e.amount, 0)
-  const totalApproved = allExpenses.filter(e => e.status === 'aprobado').reduce((s, e) => s + e.amount, 0)
+  // "Por cobrar" — lo más accionable para el técnico: aprobado pero aún no depositado.
+  const porCobrar = allExpenses.filter(e => e.status === 'aprobado').reduce((s, e) => s + e.amount, 0)
+  const totalPagado = allExpenses.filter(e => e.status === 'pagado').reduce((s, e) => s + e.amount, 0)
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -56,18 +52,18 @@ export default async function MiPanelGastosPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-center">
-          <p className="text-lg font-bold text-green-700">{formatClp(approvedThisMonth)}</p>
-          <p className="mt-0.5 text-[10px] font-medium text-green-700 opacity-80">Aprobado este mes</p>
-        </div>
+      <div className="grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-center">
-          <p className="text-lg font-bold text-blue-700">{formatClp(totalApproved)}</p>
-          <p className="mt-0.5 text-[10px] font-medium text-blue-700 opacity-80">Aprobado histórico</p>
+          <p className="text-lg font-bold text-blue-700">{formatClp(porCobrar)}</p>
+          <p className="mt-0.5 text-[10px] font-medium text-blue-700 opacity-80">Por cobrar</p>
         </div>
         <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-center">
           <p className="text-lg font-bold text-yellow-700">{pendingCount}</p>
-          <p className="mt-0.5 text-[10px] font-medium text-yellow-700 opacity-80">Pendientes</p>
+          <p className="mt-0.5 text-[10px] font-medium text-yellow-700 opacity-80">Por aprobar</p>
+        </div>
+        <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-center">
+          <p className="text-lg font-bold text-green-700">{formatClp(totalPagado)}</p>
+          <p className="mt-0.5 text-[10px] font-medium text-green-700 opacity-80">Cobrado histórico</p>
         </div>
       </div>
 

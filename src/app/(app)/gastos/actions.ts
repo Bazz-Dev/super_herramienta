@@ -11,7 +11,7 @@ import { fromDateInput } from '@/lib/cashflow/dates'
 import type { ExpenseStatus } from '@/generated/prisma/enums'
 
 const CreateExpenseSchema = z.object({
-  technicianId: z.string().min(1).optional(),
+  technicianId: z.string().min(1).optional().nullable(),
   ticketId: z.string().optional().nullable(),
   category: z.enum(['combustible', 'estacionamiento', 'materiales', 'viatico', 'herramienta', 'otro']),
   amount: z.coerce.number().int().positive(),
@@ -80,7 +80,7 @@ export async function createExpense(fd: FormData) {
 
 export async function updateExpenseStatus(
   id: string,
-  status: 'aprobado' | 'rechazado',
+  status: 'aprobado' | 'rechazado' | 'pagado',
   reason?: string,
 ) {
   const actor = await requireActor()
@@ -90,13 +90,17 @@ export async function updateExpenseStatus(
   const expense = await prisma.expense.findUnique({ where: { id } })
   if (!expense) return { error: 'Gasto no encontrado' }
   assertOwns(actor, expense.tenantId)
+  if (status === 'pagado' && expense.status !== 'aprobado') {
+    return { error: 'Solo se puede marcar como pagado un gasto ya aprobado.' }
+  }
 
   const updated = await prisma.expense.update({
     where: { id },
     data: {
       status: status as ExpenseStatus,
-      approvedById: actor.id,
-      rejectedReason: status === 'rechazado' ? (reason ?? null) : null,
+      ...(status === 'aprobado' || status === 'rechazado' ? { approvedById: actor.id } : {}),
+      rejectedReason: status === 'rechazado' ? (reason ?? null) : expense.rejectedReason,
+      paidAt: status === 'pagado' ? new Date() : expense.paidAt,
     },
     include: { technician: { include: { user: { select: { id: true, tenantId: true } } } } },
   })
@@ -106,18 +110,17 @@ export async function updateExpenseStatus(
   if (techUser) {
     const CATEGORY_ES: Record<string, string> = { combustible: 'Combustible', estacionamiento: 'Estacionamiento', materiales: 'Materiales', viatico: 'Viático', herramienta: 'Herramienta', otro: 'Gasto' }
     const cat = CATEGORY_ES[updated.category] ?? 'Gasto'
-    notify(techUser.id, techUser.tenantId, {
-      type: status === 'aprobado' ? 'expense_approved' : 'expense_rejected',
-      title: status === 'aprobado' ? `${cat} aprobado ✅` : `${cat} rechazado`,
-      body: status === 'aprobado'
-        ? `Tu gasto de $${updated.amount.toLocaleString('es-CL')} fue aprobado`
-        : `Tu gasto de $${updated.amount.toLocaleString('es-CL')} fue rechazado${reason ? ': ' + reason : ''}`,
-      href: '/mi-panel',
-    }).catch(() => {})
+    const NOTIFY_COPY: Record<'aprobado' | 'rechazado' | 'pagado', { type: string; title: string; body: string }> = {
+      aprobado: { type: 'expense_approved', title: `${cat} aprobado ✅`, body: `Tu gasto de $${updated.amount.toLocaleString('es-CL')} fue aprobado` },
+      rechazado: { type: 'expense_rejected', title: `${cat} rechazado`, body: `Tu gasto de $${updated.amount.toLocaleString('es-CL')} fue rechazado${reason ? ': ' + reason : ''}` },
+      pagado: { type: 'expense_paid', title: `${cat} pagado 💰`, body: `Se te depositó $${updated.amount.toLocaleString('es-CL')}` },
+    }
+    notify(techUser.id, techUser.tenantId, { ...NOTIFY_COPY[status], href: '/mi-panel/gastos' }).catch(() => {})
   }
 
   revalidatePath('/gastos')
   revalidatePath('/mi-panel')
+  revalidatePath('/mi-panel/gastos')
 
   return { success: true }
 }

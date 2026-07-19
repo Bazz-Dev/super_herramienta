@@ -9,9 +9,9 @@ function formatClp(n: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
 }
 
-type StatusFilter = 'all' | 'pendiente' | 'aprobado' | 'rechazado'
+type StatusFilter = 'all' | 'pendiente' | 'aprobado' | 'pagado' | 'rechazado'
 
-const VALID_STATUSES = ['pendiente', 'aprobado', 'rechazado'] as const
+const VALID_STATUSES = ['pendiente', 'aprobado', 'pagado', 'rechazado'] as const
 
 export default async function GastosPage({
   searchParams,
@@ -43,16 +43,18 @@ export default async function GastosPage({
   // KPIs from all expenses (no status filter)
   const allExpenses = await prisma.expense.findMany({
     where: { ...tenantScope(actor) },
-    select: { amount: true, status: true, date: true },
+    select: { amount: true, status: true, paidAt: true },
   })
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
   const pendienteTotal = allExpenses.filter((e) => e.status === 'pendiente').reduce((s, e) => s + e.amount, 0)
-  const aprobadoTotal = allExpenses.filter((e) => e.status === 'aprobado').reduce((s, e) => s + e.amount, 0)
-  const monthTotal = allExpenses
-    .filter((e) => new Date(e.date) >= startOfMonth)
+  // "Por pagar" — aprobado pero todavía no depositado al técnico. Más accionable
+  // que un total histórico: es la lista de pagos pendientes de ejecutar.
+  const porPagarTotal = allExpenses.filter((e) => e.status === 'aprobado').reduce((s, e) => s + e.amount, 0)
+  const pagadoMesTotal = allExpenses
+    .filter((e) => e.status === 'pagado' && e.paidAt && new Date(e.paidAt) >= startOfMonth)
     .reduce((s, e) => s + e.amount, 0)
 
   // Technicians for the staff expense form
@@ -70,7 +72,8 @@ export default async function GastosPage({
   const TAB_FILTERS: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: 'Todos' },
     { value: 'pendiente', label: 'Pendientes' },
-    { value: 'aprobado', label: 'Aprobados' },
+    { value: 'aprobado', label: 'Por pagar' },
+    { value: 'pagado', label: 'Pagados' },
     { value: 'rechazado', label: 'Rechazados' },
   ]
 
@@ -91,13 +94,13 @@ export default async function GastosPage({
           <p className="text-xs font-medium uppercase tracking-wider text-yellow-700">Pendiente aprobación</p>
           <p className="mt-1 text-2xl font-bold text-yellow-900">{formatClp(pendienteTotal)}</p>
         </div>
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-green-700">Total aprobado</p>
-          <p className="mt-1 text-2xl font-bold text-green-900">{formatClp(aprobadoTotal)}</p>
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-blue-700">Por pagar</p>
+          <p className="mt-1 text-2xl font-bold text-blue-900">{formatClp(porPagarTotal)}</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Este mes (todos)</p>
-          <p className="mt-1 text-2xl font-bold text-ink">{formatClp(monthTotal)}</p>
+        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-green-700">Pagado este mes</p>
+          <p className="mt-1 text-2xl font-bold text-green-900">{formatClp(pagadoMesTotal)}</p>
         </div>
       </div>
 

@@ -14,13 +14,15 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const STATUS_BADGE: Record<string, string> = {
   pendiente: 'bg-yellow-100 text-yellow-800',
-  aprobado: 'bg-green-100 text-green-800',
+  aprobado: 'bg-blue-100 text-blue-800',
+  pagado: 'bg-green-100 text-green-800',
   rechazado: 'bg-red-100 text-red-800',
 }
 
 const STATUS_LABELS: Record<string, string> = {
   pendiente: 'Pendiente',
-  aprobado: 'Aprobado',
+  aprobado: 'Aprobado · por pagar',
+  pagado: 'Pagado',
   rechazado: 'Rechazado',
 }
 
@@ -33,6 +35,7 @@ interface ExpenseRow {
   description: string | null
   receiptUrl: string | null
   rejectedReason: string | null
+  paidAt: Date | null
   technician: { name: string }
   ticket: { ticketCode: string; title: string } | null
   approvedBy: { name: string } | null
@@ -62,6 +65,14 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
     setActionId(id)
     startTransition(async () => {
       await updateExpenseStatus(id, 'aprobado')
+      setActionId(null)
+    })
+  }
+
+  function markPaid(id: string) {
+    setActionId(id)
+    startTransition(async () => {
+      await updateExpenseStatus(id, 'pagado')
       setActionId(null)
     })
   }
@@ -164,8 +175,14 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[exp.status] ?? 'bg-gray-100 text-gray-600'}`}>
                       {STATUS_LABELS[exp.status] ?? exp.status}
                     </span>
+                    {exp.status === 'pagado' && exp.paidAt && (
+                      <p className="mt-0.5 text-xs text-gray-400">{formatDate(exp.paidAt)}</p>
+                    )}
                     {exp.rejectedReason && (
                       <p className="mt-0.5 text-xs text-red-500">{exp.rejectedReason}</p>
+                    )}
+                    {exp.description && (
+                      <p className="mt-0.5 max-w-[16rem] truncate text-xs text-gray-400" title={exp.description}>{exp.description}</p>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -202,6 +219,15 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
                               Rechazar
                             </button>
                           </>
+                        )}
+                        {canApprove && exp.status === 'aprobado' && (
+                          <button
+                            onClick={() => markPaid(exp.id)}
+                            disabled={loading}
+                            className="rounded-md bg-brand px-2 py-1 text-xs font-medium text-ink hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                          >
+                            Marcar pagado
+                          </button>
                         )}
                         {canDelete && (
                           <button

@@ -13,7 +13,7 @@ import type { TicketStatus } from '@/generated/prisma/enums'
 async function ownedTicket(ticketId: string) {
   const actor = await requireActor(['tecnico'])
   const ticket = await prisma.ticket.findFirst({
-    where: { id: ticketId, tenantId: actor.tenantId, assignedToId: actor.id, deletedAt: null },
+    where: { id: ticketId, tenantId: actor.tenantId, assignedToId: actor.effectiveId, deletedAt: null },
     select: { id: true, status: true, ticketCode: true, title: true },
   })
   return { actor, ticket }

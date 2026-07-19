@@ -11,7 +11,7 @@ export default async function MisTicketsPage() {
   const actor = await requireActor(['tecnico'])
 
   const tickets = await prisma.ticket.findMany({
-    where: { tenantId: actor.tenantId, assignedToId: actor.id, deletedAt: null },
+    where: { tenantId: actor.tenantId, assignedToId: actor.effectiveId, deletedAt: null },
     select: {
       id: true, ticketCode: true, title: true, status: true, urgency: true, createdAt: true,
       client: { select: { name: true } },
