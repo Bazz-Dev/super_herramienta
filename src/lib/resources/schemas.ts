@@ -6,6 +6,17 @@ const optionalText = z
   .optional()
   .transform((v) => (v === '' ? undefined : v))
 
+// Para campos que a veces ni siquiera están en el DOM (ej. inputs dentro de
+// un `{condicion && (...)}`) — FormData.get() devuelve null, no undefined,
+// y .optional() solo acepta undefined (mismo bug real que ya se dio con
+// technicianId en gastos — ver G40).
+const optionalTextNullable = z
+  .string()
+  .trim()
+  .optional()
+  .nullable()
+  .transform((v) => (v === '' || v == null ? undefined : v))
+
 export const technicianInputSchema = z.object({
   name: z.string().trim().min(1, 'El nombre es obligatorio.'),
   rut: optionalText,
@@ -79,6 +90,20 @@ export const clientInputSchema = z.object({
   ruts: z
     .array(z.object({ rut: z.string().trim().min(1), label: z.string().trim().optional() }))
     .default([]),
+  hasPortal: z.boolean().default(false),
+  portalSlug: optionalTextNullable,
+  portalColor: optionalTextNullable,
+}).superRefine((data, ctx) => {
+  if (data.hasPortal) {
+    if (!data.portalSlug) {
+      ctx.addIssue({ code: 'custom', path: ['portalSlug'], message: 'El slug del portal es obligatorio.' })
+    } else if (!/^[a-z0-9-]+$/.test(data.portalSlug)) {
+      ctx.addIssue({ code: 'custom', path: ['portalSlug'], message: 'Solo minúsculas, números y guiones.' })
+    }
+  }
+  if (data.portalColor && !/^#[0-9a-fA-F]{6}$/.test(data.portalColor)) {
+    ctx.addIssue({ code: 'custom', path: ['portalColor'], message: 'Color inválido.' })
+  }
 })
 export type ClientInput = z.infer<typeof clientInputSchema>
 

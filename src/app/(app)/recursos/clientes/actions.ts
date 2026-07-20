@@ -2,10 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { z } from 'zod'
+import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { clientInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
+import { generatePassword } from '@/lib/password'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -19,6 +22,9 @@ function parse(formData: FormData) {
     contact: formData.get('contact'),
     email: formData.get('email'),
     ruts,
+    hasPortal: formData.get('hasPortal') === 'on',
+    portalSlug: formData.get('portalSlug'),
+    portalColor: formData.get('portalColor'),
   })
 }
 
@@ -26,8 +32,19 @@ export async function createClient(_prev: FormState, formData: FormData): Promis
   const actor = await requireActor(['super', 'supervisor'])
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  const { ruts, ...clientData } = parsed.data
-  const client = await prisma.client.create({ data: { ...clientData, tenantId: actor.tenantId } })
+  const { ruts, hasPortal, portalSlug, portalColor, ...clientData } = parsed.data
+  if (hasPortal && portalSlug) {
+    const slugTaken = await prisma.client.findUnique({ where: { portalSlug }, select: { id: true } })
+    if (slugTaken) return { error: 'Ese slug de portal ya está en uso.', fieldErrors: { portalSlug: ['Slug duplicado'] } }
+  }
+  const client = await prisma.client.create({
+    data: {
+      ...clientData,
+      tenantId: actor.tenantId,
+      portalSlug: hasPortal ? portalSlug : undefined,
+      portalTheme: hasPortal ? JSON.stringify({ primary: portalColor || '#d42030' }) : undefined,
+    },
+  })
   if (ruts.length) {
     await prisma.clientRut.createMany({
       data: ruts.map((r) => ({ clientId: client.id, rut: r.rut, label: r.label ?? null })),
@@ -39,12 +56,26 @@ export async function createClient(_prev: FormState, formData: FormData): Promis
 
 export async function updateClient(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
   const actor = await requireActor(['super', 'supervisor'])
-  const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true } })
+  const existing = await prisma.client.findUnique({ where: { id }, select: { tenantId: true, portalSlug: true } })
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const parsed = parse(formData)
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  const { ruts, ...clientData } = parsed.data
-  await prisma.client.update({ where: { id }, data: clientData })
+  const { ruts, hasPortal, portalSlug, portalColor, ...clientData } = parsed.data
+  // Slug ya activo: se mantiene fijo (el form lo envía readOnly, pero se
+  // ignora cualquier intento de cambiarlo server-side también).
+  const finalSlug = existing.portalSlug ?? (hasPortal ? portalSlug : undefined)
+  if (!existing.portalSlug && hasPortal && portalSlug) {
+    const slugTaken = await prisma.client.findFirst({ where: { portalSlug, id: { not: id } }, select: { id: true } })
+    if (slugTaken) return { error: 'Ese slug de portal ya está en uso.', fieldErrors: { portalSlug: ['Slug duplicado'] } }
+  }
+  await prisma.client.update({
+    where: { id },
+    data: {
+      ...clientData,
+      portalSlug: finalSlug,
+      portalTheme: hasPortal ? JSON.stringify({ primary: portalColor || '#d42030' }) : undefined,
+    },
+  })
   // Replace all RUTs (delete old, insert new)
   await prisma.clientRut.deleteMany({ where: { clientId: id } })
   if (ruts.length) {
@@ -134,4 +165,111 @@ export async function createClientInline(
   revalidatePath('/recursos/clientes')
   revalidatePath('/cronograma')
   return { id: client.id, name: client.name }
+}
+
+// ── Usuarios autorizados del portal ─────────────────────────────────────────
+// Igual que las cuentas de técnico: emitir/resetear credenciales queda
+// restringido a super (decisión del dueño), aunque el resto del CRUD de
+// clientes (incl. activar el portal en sí) sigue siendo super+supervisor.
+
+const createPortalUserSchema = z.object({
+  email: z.string().email('Email inválido'),
+  name: z.string().trim().min(1, 'El nombre es obligatorio.'),
+  username: z.string().regex(/^[a-zA-Z0-9_.-]+$/, 'Solo letras, números, _ . -').optional().or(z.literal('')),
+  branchId: z.string().optional().or(z.literal('')),
+  isClientAdmin: z.boolean().default(false),
+})
+
+export type PortalUserFormState = {
+  error?: string
+  fieldErrors?: Record<string, string[]>
+  success?: { email: string; username: string | null; password: string }
+}
+
+export async function createPortalUser(
+  clientId: string,
+  _prev: PortalUserFormState,
+  formData: FormData,
+): Promise<PortalUserFormState> {
+  const actor = await requireActor(['super'])
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { tenantId: true, portalSlug: true },
+  })
+  if (!client || !canAccessTenant(actor, client.tenantId)) return { error: 'No encontrado o sin permiso.' }
+  if (!client.portalSlug) return { error: 'Este cliente no tiene portal activo.' }
+
+  const parsed = createPortalUserSchema.safeParse({
+    email: formData.get('email'),
+    name: formData.get('name'),
+    username: formData.get('username') || undefined,
+    branchId: formData.get('branchId') || undefined,
+    isClientAdmin: formData.get('isClientAdmin') === 'on',
+  })
+  if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+
+  const username = parsed.data.username || null
+  const branchId = parsed.data.branchId || null
+  if (branchId) {
+    const branch = await prisma.branch.findFirst({ where: { id: branchId, clientId }, select: { id: true } })
+    if (!branch) return { error: 'Sucursal no válida.' }
+  }
+
+  const [emailTaken, usernameTaken] = await Promise.all([
+    prisma.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } }),
+    username ? prisma.user.findUnique({ where: { username }, select: { id: true } }) : Promise.resolve(null),
+  ])
+  if (emailTaken) return { error: 'Ese email ya está en uso.', fieldErrors: { email: ['Email duplicado'] } }
+  if (usernameTaken) return { error: 'Ese nombre de usuario ya está en uso.', fieldErrors: { username: ['Usuario duplicado'] } }
+
+  const password = generatePassword()
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.user.create({
+    data: {
+      email: parsed.data.email,
+      username,
+      name: parsed.data.name,
+      passwordHash,
+      role: 'client',
+      tenantId: client.tenantId,
+      clientId,
+      branchId,
+      isClientAdmin: parsed.data.isClientAdmin,
+    },
+  })
+  revalidatePath(`/recursos/clientes/${clientId}`)
+  return { success: { email: parsed.data.email, username, password } }
+}
+
+export async function resetPortalUserPassword(userId: string): Promise<{ password: string } | { error: string }> {
+  const actor = await requireActor(['super'])
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { tenantId: true, role: true, clientId: true },
+  })
+  if (!user || user.role !== 'client' || !canAccessTenant(actor, user.tenantId)) {
+    return { error: 'No encontrado o sin permiso.' }
+  }
+  const password = generatePassword()
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, sessionVersion: { increment: 1 } },
+  })
+  if (user.clientId) revalidatePath(`/recursos/clientes/${user.clientId}`)
+  return { password }
+}
+
+export async function togglePortalUserActive(userId: string, active: boolean): Promise<void> {
+  const actor = await requireActor(['super'])
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { tenantId: true, role: true, clientId: true },
+  })
+  if (!user || user.role !== 'client' || !canAccessTenant(actor, user.tenantId)) return
+  await prisma.user.update({
+    where: { id: userId },
+    data: { active, sessionVersion: { increment: 1 } },
+  })
+  if (user.clientId) revalidatePath(`/recursos/clientes/${user.clientId}`)
 }

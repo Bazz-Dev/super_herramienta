@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation'
 import { ClientForm } from '@/components/resources/client-form'
 import { BranchManager } from '@/components/resources/branch-manager'
 import { ClientLogoUpload } from '@/components/resources/client-logo-upload'
+import { PortalUserManager } from '@/components/resources/portal-user-manager'
 import { requireActor } from '@/lib/tenant'
 import { getClientWithStats } from '@/lib/resources/clients'
+import { prisma } from '@/lib/prisma'
 import { updateClient } from '../actions'
 import { clp } from '@/lib/cashflow/format'
 import { toDateInput } from '@/lib/cashflow/dates'
@@ -18,6 +20,14 @@ export default async function EditClientePage({
   const { id } = await params
   const client = await getClientWithStats(actor, id)
   if (!client) notFound()
+
+  const portalUsers = client.portalSlug
+    ? await prisma.user.findMany({
+        where: { clientId: id, role: 'client' },
+        select: { id: true, email: true, username: true, active: true, isClientAdmin: true, branchId: true },
+        orderBy: { email: 'asc' },
+      })
+    : []
 
   const { flujo } = client
   const totalVolumen = flujo.facturado + flujo.sinOc
@@ -141,10 +151,27 @@ export default async function EditClientePage({
         </div>
       )}
 
-      {/* Logo upload */}
+      {/* Portal de cliente */}
       {client.portalSlug && (
-        <div className="mb-6">
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Portal</h2>
+            <a
+              href={`/portal/${client.portalSlug}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-brand-700 font-medium hover:underline"
+            >
+              /portal/{client.portalSlug} ↗
+            </a>
+          </div>
           <ClientLogoUpload clientId={client.id} current={client.logoUrl ?? null} />
+          <PortalUserManager
+            clientId={client.id}
+            users={portalUsers}
+            branches={client.branches}
+            isSuper={actor.role === 'super'}
+          />
         </div>
       )}
 
