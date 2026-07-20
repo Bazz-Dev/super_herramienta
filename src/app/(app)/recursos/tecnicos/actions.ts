@@ -2,12 +2,15 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { z } from 'zod'
+import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { technicianInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
 import { fromDateInput } from '@/lib/cashflow/dates'
 import { CONTRACT_TYPE_TERMINATED } from '@/lib/resources/labels'
+import { generatePassword } from '@/lib/password'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -109,3 +112,98 @@ export async function deleteDocument(docId: string, techId: string): Promise<voi
 // signed FES documents and leave history that Cascade-deletes with the
 // record (labor-law retention risk). Desvinculación uses contractType
 // (no_renovado/despedido), never a DB delete. See G32.
+
+// ── Cuenta de acceso (login) del técnico ────────────────────────────────────
+// Emitir/resetear credenciales queda restringido a super (decisión del
+// dueño) — más sensible que el resto del CRUD de técnicos, que sigue siendo
+// super+supervisor.
+
+const createAccountSchema = z.object({
+  email: z.string().email('Email inválido'),
+  username: z.string().regex(/^[a-zA-Z0-9_.-]+$/, 'Solo letras, números, _ . -').optional().or(z.literal('')),
+})
+
+export type AccountFormState = {
+  error?: string
+  fieldErrors?: Record<string, string[]>
+  success?: { email: string; username: string | null; password: string }
+}
+
+export async function createTechnicianAccount(
+  technicianId: string,
+  _prev: AccountFormState,
+  formData: FormData,
+): Promise<AccountFormState> {
+  const actor = await requireActor(['super'])
+  const tech = await prisma.technician.findUnique({
+    where: { id: technicianId },
+    select: { name: true, tenantId: true },
+  })
+  if (!tech || !canAccessTenant(actor, tech.tenantId)) return { error: 'No encontrado o sin permiso.' }
+
+  const existing = await prisma.user.findUnique({ where: { technicianId }, select: { id: true } })
+  if (existing) return { error: 'Este técnico ya tiene una cuenta.' }
+
+  const parsed = createAccountSchema.safeParse({
+    email: formData.get('email'),
+    username: formData.get('username') || undefined,
+  })
+  if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+
+  const username = parsed.data.username || null
+  const [emailTaken, usernameTaken] = await Promise.all([
+    prisma.user.findUnique({ where: { email: parsed.data.email }, select: { id: true } }),
+    username ? prisma.user.findUnique({ where: { username }, select: { id: true } }) : Promise.resolve(null),
+  ])
+  if (emailTaken) return { error: 'Ese email ya está en uso.', fieldErrors: { email: ['Email duplicado'] } }
+  if (usernameTaken) return { error: 'Ese nombre de usuario ya está en uso.', fieldErrors: { username: ['Usuario duplicado'] } }
+
+  const password = generatePassword()
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.user.create({
+    data: {
+      email: parsed.data.email,
+      username,
+      name: tech.name,
+      passwordHash,
+      role: 'tecnico',
+      tenantId: tech.tenantId,
+      technicianId,
+    },
+  })
+  revalidatePath(`/recursos/tecnicos/${technicianId}`)
+  return { success: { email: parsed.data.email, username, password } }
+}
+
+export async function resetTechnicianPassword(userId: string): Promise<{ password: string } | { error: string }> {
+  const actor = await requireActor(['super'])
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { tenantId: true, role: true, technicianId: true },
+  })
+  if (!user || user.role !== 'tecnico' || !canAccessTenant(actor, user.tenantId)) {
+    return { error: 'No encontrado o sin permiso.' }
+  }
+  const password = generatePassword()
+  const passwordHash = await bcrypt.hash(password, 10)
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, sessionVersion: { increment: 1 } },
+  })
+  if (user.technicianId) revalidatePath(`/recursos/tecnicos/${user.technicianId}`)
+  return { password }
+}
+
+export async function toggleTechnicianAccountActive(userId: string, active: boolean): Promise<void> {
+  const actor = await requireActor(['super'])
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { tenantId: true, role: true, technicianId: true },
+  })
+  if (!user || user.role !== 'tecnico' || !canAccessTenant(actor, user.tenantId)) return
+  await prisma.user.update({
+    where: { id: userId },
+    data: { active, sessionVersion: { increment: 1 } },
+  })
+  if (user.technicianId) revalidatePath(`/recursos/tecnicos/${user.technicianId}`)
+}

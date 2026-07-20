@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { TechnicianForm } from '@/components/resources/technician-form'
 import { DocSection } from '@/components/resources/doc-section'
 import { TechnicianProfileShell } from '@/components/resources/technician-profile-shell'
+import { TechnicianAccountPanel } from '@/components/resources/technician-account-panel'
 import { requireActor } from '@/lib/tenant'
 import { getTechnician } from '@/lib/resources/technicians'
 import { prisma } from '@/lib/prisma'
@@ -47,7 +48,10 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
   const actor = await requireActor()
   const { id } = await params
   // Ticket.assignedToId references User.id (not Technician.id) — look up linked user first
-  const linkedUser = await prisma.user.findUnique({ where: { technicianId: id }, select: { id: true } })
+  const linkedUser = await prisma.user.findUnique({
+    where: { technicianId: id },
+    select: { id: true, email: true, username: true, active: true },
+  })
 
   const [tech, assignmentStats, ticketStats] = await Promise.all([
     getTechnician(actor, id),
@@ -348,6 +352,14 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
     />
   )
 
+  const acceso = (
+    <TechnicianAccountPanel
+      technicianId={tech.id}
+      isSuper={actor.role === 'super'}
+      account={linkedUser}
+    />
+  )
+
   return (
     <TechnicianProfileShell
       header={header}
@@ -355,6 +367,7 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
       datos={datos}
       vehiculo={vehiculo}
       documentos={documentos}
+      acceso={acceso}
       hasVehicle={!!tech.vehicle}
     />
   )

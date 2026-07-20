@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 
-type Tab = 'resumen' | 'datos' | 'vehiculo' | 'documentos'
+type Tab = 'resumen' | 'datos' | 'vehiculo' | 'documentos' | 'acceso'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'resumen',    label: 'Resumen'     },
   { id: 'datos',      label: 'Datos'       },
   { id: 'vehiculo',   label: 'Vehículo'    },
   { id: 'documentos', label: 'Documentos'  },
+  { id: 'acceso',     label: 'Acceso'      },
 ]
 
 interface Props {
@@ -17,10 +18,11 @@ interface Props {
   datos: React.ReactNode
   vehiculo: React.ReactNode
   documentos: React.ReactNode
+  acceso: React.ReactNode
   hasVehicle: boolean
 }
 
-export function TechnicianProfileShell({ header, resumen, datos, vehiculo, documentos, hasVehicle }: Props) {
+export function TechnicianProfileShell({ header, resumen, datos, vehiculo, documentos, acceso, hasVehicle }: Props) {
   const [tab, setTab] = useState<Tab>('resumen')
 
   return (
@@ -53,6 +55,7 @@ export function TechnicianProfileShell({ header, resumen, datos, vehiculo, docum
       <div className={tab === 'datos'      ? 'block' : 'hidden'}>{datos}</div>
       <div className={tab === 'vehiculo'   ? 'block' : 'hidden'}>{vehiculo}</div>
       <div className={tab === 'documentos' ? 'block' : 'hidden'}>{documentos}</div>
+      <div className={tab === 'acceso'     ? 'block' : 'hidden'}>{acceso}</div>
     </div>
   )
 }
