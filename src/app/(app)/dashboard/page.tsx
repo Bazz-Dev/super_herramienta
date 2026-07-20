@@ -1,11 +1,18 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
+import { listJobs } from '@/lib/cashflow/queries'
+import { computeMetrics, type JobLike } from '@/lib/cashflow/metrics'
+import { periodRange, pctDelta } from '@/lib/cashflow/period'
+import { clp } from '@/lib/cashflow/format'
+import { KpiCard } from '@/components/cashflow/kpi-card'
+import { PeriodFilter } from '@/components/cashflow/period-filter'
 
 export const metadata = { title: 'Inicio — INGEGAR' }
 
-const APP_VERSION = 'v1.8.0'
+const APP_VERSION = 'v1.11.0'
 
 // ── Información institucional INGEGAR ─────────────────────────────────────────
 const EMPRESA = {
@@ -82,14 +89,20 @@ function expiryAlerts(vehicles: { plate: string; id: string; revTecnicaExpiry: D
   return alerts.sort((a, b) => a.days - b.days)
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ periodo?: string }>
+}) {
   const session = await auth()
   const user = session!.user
   const actor = { id: user.id, tenantId: user.tenantId, role: user.role }
   const firstName = (user.name ?? 'Usuario').split(' ')[0]
   const scope = tenantScope(actor)
+  const { periodo } = await searchParams
+  const { from, to, prevFrom, prevTo, deltaLabel } = periodRange(periodo)
 
-  const [technicians, vehicles, openTickets, cashflow, expenseStats] = await Promise.all([
+  const [technicians, vehicles, openTickets, cashflow, expenseStats, periodJobs, prevPeriodJobs, resolvedCount, prevResolvedCount] = await Promise.all([
     prisma.technician.findMany({
       where: { ...scope, active: true },
       select: { id: true, name: true },
@@ -100,7 +113,7 @@ export default async function DashboardPage() {
     }),
     prisma.ticket.findMany({
       where: { ...scope, status: { notIn: ['resuelto', 'cancelado', 'fusionado'] } },
-      select: { id: true, status: true, urgency: true, assignedToId: true, client: { select: { name: true } } },
+      select: { id: true, status: true, urgency: true, assignedToId: true, client: { select: { name: true } }, assignedTo: { select: { name: true } } },
     }),
     prisma.job.aggregate({
       where: { ...scope, collectionStatus: { in: ['pendiente_pago', 'sin_oc'] } },
@@ -117,7 +130,30 @@ export default async function DashboardPage() {
         _sum: { amount: true },
       }),
     ]),
+    // Resumen del período: facturación + tickets resueltos, comparados contra
+    // el período anterior equivalente — no aplica a "total" (from undefined).
+    from ? listJobs(actor, { from, to }) : Promise.resolve([]),
+    from ? listJobs(actor, { from: prevFrom, to: prevTo }) : Promise.resolve([]),
+    from ? prisma.ticket.count({ where: { ...scope, status: 'resuelto', updatedAt: { gte: from, lte: to } } }) : Promise.resolve(0),
+    from ? prisma.ticket.count({ where: { ...scope, status: 'resuelto', updatedAt: { gte: prevFrom, lte: prevTo } } }) : Promise.resolve(0),
   ])
+
+  const periodMetrics = from ? computeMetrics(periodJobs as unknown as JobLike[], to ?? new Date()) : null
+  const prevPeriodMetrics = from ? computeMetrics(prevPeriodJobs as unknown as JobLike[], prevTo ?? new Date()) : null
+  const facturadoDeltaPct = periodMetrics && prevPeriodMetrics ? pctDelta(periodMetrics.facturado, prevPeriodMetrics.facturado) : null
+  const resolvedDeltaPct = from ? pctDelta(resolvedCount, prevResolvedCount) : null
+
+  // Tickets activos por técnico — misma convención tabla+barra que
+  // computeMonthlyTrend/MonthlyTrend en cashflow (sin librería de gráficos).
+  const workloadMap = new Map<string, number>()
+  for (const t of openTickets) {
+    if (!t.assignedTo) continue
+    workloadMap.set(t.assignedTo.name, (workloadMap.get(t.assignedTo.name) ?? 0) + 1)
+  }
+  const techWorkload = [...workloadMap.entries()]
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+  const maxTechCount = techWorkload[0]?.count ?? 1
 
   const vehicleAlerts = expiryAlerts(vehicles)
   const unassigned = openTickets.filter(t => !t.assignedToId)
@@ -202,6 +238,50 @@ export default async function DashboardPage() {
           </p>
           <p className="mt-1 text-xs text-gray-500">Mes en curso</p>
         </Link>
+      </div>
+
+      {/* Resumen del período — no es una foto fija: compara contra el
+          período anterior equivalente para dar una historia con los datos,
+          no solo un número suelto. */}
+      <div>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">Resumen del período</h2>
+          <Suspense fallback={null}><PeriodFilter basePath="/dashboard" /></Suspense>
+        </div>
+        {periodMetrics ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <KpiCard
+              label="Facturado"
+              value={clp(periodMetrics.facturado)}
+              delta={facturadoDeltaPct != null ? { pct: facturadoDeltaPct, label: deltaLabel } : undefined}
+            />
+            <KpiCard
+              label="Tickets resueltos"
+              value={String(resolvedCount)}
+              delta={resolvedDeltaPct != null ? { pct: resolvedDeltaPct, label: deltaLabel } : undefined}
+            />
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Tickets activos por técnico</p>
+              {techWorkload.length === 0 ? (
+                <p className="text-xs text-gray-400">Sin tickets activos asignados.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {techWorkload.slice(0, 5).map((t) => (
+                    <li key={t.name} className="flex items-center gap-2 text-xs">
+                      <span className="w-20 shrink-0 truncate text-gray-600">{t.name}</span>
+                      <div className="h-2 flex-1 rounded-full bg-gray-100">
+                        <div className="h-2 rounded-full bg-brand" style={{ width: `${(t.count / maxTechCount) * 100}%` }} />
+                      </div>
+                      <span className="w-4 shrink-0 text-right font-semibold text-ink">{t.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Elige un período específico (no &quot;Todo&quot;) para ver facturación y tickets resueltos comparados contra el período anterior.</p>
+        )}
       </div>
 
       {/* Alerts + Quick access */}
