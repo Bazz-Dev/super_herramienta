@@ -18,12 +18,16 @@ export function MiPanelSidebar({
   userName,
   logout,
   isViewingAs = false,
+  agendaCount = 0,
 }: {
   userName: string
   logout: ReactNode
   // true cuando un super está impersonando a este técnico vía "ver como" —
   // muestra un banner para salir y volver a /dashboard como admin.
   isViewingAs?: boolean
+  // Trabajos agendados (programados/en curso) — badge en "Mi agenda", en vez
+  // de un KPI mudo en Inicio que no distinguía qué requiere atención.
+  agendaCount?: number
 }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -68,6 +72,7 @@ export function MiPanelSidebar({
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {NAV_LINKS.map(({ href, label, icon: Icon }) => {
           const active = isActive(href)
+          const badge = href === '/mi-panel/agenda' ? agendaCount : 0
           return (
             <Link
               key={href}
@@ -79,7 +84,14 @@ export function MiPanelSidebar({
               }`}
             >
               <Icon />
-              {label}
+              <span className="flex-1">{label}</span>
+              {badge > 0 && (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                  active ? 'bg-ink/15 text-ink' : 'bg-brand text-ink'
+                }`}>
+                  {badge}
+                </span>
+              )}
             </Link>
           )
         })}

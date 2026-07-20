@@ -4,12 +4,9 @@ import { requireActor } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { STATUS_LABEL, STATUS_COLOR, URGENCY_LABEL, type TicketStatusId, type TicketUrgencyId } from '@/lib/tickets/labels'
 import { TecnicoTicketActions } from '@/components/tickets/tecnico-ticket-actions'
+import { HistoryPanel } from '@/components/tickets/history-panel'
 
 export const metadata = { title: 'Ticket — INGEGAR' }
-
-function fDate(d: Date | string) {
-  return new Date(d).toLocaleString('es-CL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
 
 export default async function TecnicoTicketDetail({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor(['tecnico'])
@@ -24,9 +21,12 @@ export default async function TecnicoTicketDetail({ params }: { params: Promise<
       client: { select: { name: true } },
       branch: { select: { name: true } },
       history: {
+        // Igual que el portal (getClientTicket): las notas internas son solo
+        // para staff, el técnico no ve la app interna y tampoco debería verlas.
+        where: { isInternal: false },
         orderBy: { createdAt: 'desc' },
         take: 50,
-        select: { id: true, note: true, fromStatus: true, toStatus: true, isInternal: true, createdAt: true, user: { select: { name: true } } },
+        select: { id: true, note: true, fromStatus: true, toStatus: true, isInternal: true, createdAt: true, user: { select: { id: true, name: true } } },
       },
       documents: {
         orderBy: { uploadedAt: 'desc' },
@@ -67,29 +67,7 @@ export default async function TecnicoTicketDetail({ params }: { params: Promise<
       />
 
       {/* Historial */}
-      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">Historial</h2>
-        {ticket.history.length === 0 ? (
-          <p className="text-sm text-gray-400">Sin registros.</p>
-        ) : (
-          <ul className="space-y-3">
-            {ticket.history.map(h => (
-              <li key={h.id} className="border-l-2 border-gray-200 pl-3 text-sm">
-                <div className="text-xs text-gray-400">
-                  {fDate(h.createdAt)} · {h.user?.name ?? '—'}
-                  {h.isInternal && <span className="ml-1 rounded bg-gray-100 px-1 text-[10px]">interna</span>}
-                </div>
-                {h.fromStatus && h.toStatus && (
-                  <div className="text-xs text-gray-500">
-                    {STATUS_LABEL[h.fromStatus as TicketStatusId] ?? h.fromStatus} → {STATUS_LABEL[h.toStatus as TicketStatusId] ?? h.toStatus}
-                  </div>
-                )}
-                {h.note && <div className="text-gray-700">{h.note}</div>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <HistoryPanel events={ticket.history} title="Historial" variant="public" />
     </div>
   )
 }

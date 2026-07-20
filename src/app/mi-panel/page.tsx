@@ -29,6 +29,16 @@ function yearsMonths(from: Date | null | undefined): string {
   if (years === 0) return `${months} mes${months !== 1 ? 'es' : ''}`
   return `${years} año${years !== 1 ? 's' : ''}${months > 0 ? ` ${months}m` : ''}`
 }
+function maintTileInfo(vehicle: { nextServiceDate: Date | null } | null): { value: string; cls: string; bg: string } {
+  if (!vehicle) return { value: 'Sin camioneta', cls: 'text-gray-400', bg: 'border-gray-200 bg-gray-50' }
+  const d = vehicle.nextServiceDate
+  if (!d) return { value: '—', cls: 'text-gray-400', bg: 'border-gray-200 bg-gray-50' }
+  const days = Math.floor((new Date(d).getTime() - Date.now()) / 86400000)
+  if (days < 0)   return { value: 'Vencida', cls: 'text-red-700', bg: 'border-red-200 bg-red-50' }
+  if (days <= 30) return { value: `${days}d`, cls: 'text-red-700', bg: 'border-red-200 bg-red-50' }
+  if (days <= 90) return { value: `${days}d`, cls: 'text-amber-700', bg: 'border-amber-200 bg-amber-50' }
+  return { value: fDate(d), cls: 'text-green-700', bg: 'border-green-200 bg-green-50' }
+}
 
 const TICKET_STATUS_LABEL: Record<string, string> = {
   nuevo: 'Nuevo', en_revision: 'En revisión', en_ejecucion: 'En ejecución',
@@ -77,7 +87,7 @@ export default async function MiPanelPage() {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const [ticketStats, scheduledCount, completedThisMonthRows, pendingExpAmount, pendingLeavesCount, pendingSignaturesCount] = await Promise.all([
+  const [ticketStats, completedThisMonthRows, pendingLeavesCount, pendingSignaturesCount] = await Promise.all([
     prisma.ticket.findMany({
       where: { assignedToId: actor.effectiveId, tenantId: actor.tenantId, deletedAt: null, status: { notIn: CLOSED } },
       select: {
@@ -89,20 +99,16 @@ export default async function MiPanelPage() {
       },
       orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
     }),
-    prisma.assignmentAssignee.count({ where: { technicianId: actor.technicianId, assignment: { status: { in: ['scheduled', 'in_progress'] } } } }),
     prisma.assignmentAssignee.findMany({
       where: { technicianId: actor.technicianId, assignment: { status: 'done', start: { gte: startOfMonth } } },
       select: { assignment: { select: { start: true, end: true } } },
     }),
-    prisma.expense.aggregate({ where: { technicianId: actor.technicianId, status: 'aprobado' }, _sum: { amount: true } }),
     prisma.leaveRequest.count({ where: { technicianId: actor.technicianId, status: 'pendiente' } }),
     prisma.signatureRequest.count({ where: { technicianId: actor.technicianId, status: 'pendiente' } }),
   ])
 
-  const hoursThisMonth = completedThisMonthRows.reduce((s, r) =>
-    s + (new Date(r.assignment.end).getTime() - new Date(r.assignment.start).getTime()) / 3600000, 0)
-  const hoursLabel = hoursThisMonth < 1 ? '< 1h' : `${Math.round(hoursThisMonth)}h`
   const pendingReview = pendingLeavesCount + pendingSignaturesCount
+  const urgentCount = ticketStats.filter(t => t.urgency === 'emergencia' || t.urgency === 'urgencia').length
 
   const URGENCY_RANK: Record<string, number> = { emergencia: 0, urgencia: 1, no_urgente: 2, preventivo: 3 }
   // eslint-disable-next-line react-hooks/purity
@@ -152,24 +158,31 @@ export default async function MiPanelPage() {
         </div>
       </div>
 
-      {/* ── KPIs del mes ─────────────────────────────────────────────────── */}
+      {/* ── KPIs: tickets/estados + mantención de camioneta ─────────────────
+          Solo lo que el técnico necesita de un vistazo — nada de horas/plata
+          (eso vive en Gastos, y en $0 no aportaba nada acá). */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 text-center">
           <p className="text-2xl font-bold text-purple-700">{ticketStats.length}</p>
           <p className="mt-0.5 text-[11px] font-medium text-purple-700 opacity-80">Tickets activos</p>
         </div>
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-center">
-          <p className="text-2xl font-bold text-indigo-700">{hoursLabel}</p>
-          <p className="mt-0.5 text-[11px] font-medium text-indigo-700 opacity-80">Horas este mes</p>
+        <div className={`rounded-xl border p-4 text-center ${urgentCount > 0 ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
+          <p className={`text-2xl font-bold ${urgentCount > 0 ? 'text-red-700' : 'text-green-700'}`}>{urgentCount}</p>
+          <p className={`mt-0.5 text-[11px] font-medium opacity-80 ${urgentCount > 0 ? 'text-red-700' : 'text-green-700'}`}>Urgentes</p>
         </div>
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
-          <p className="text-2xl font-bold text-blue-700">{formatClp(pendingExpAmount._sum.amount ?? 0)}</p>
-          <p className="mt-0.5 text-[11px] font-medium text-blue-700 opacity-80">Por cobrar</p>
+        <div className={`rounded-xl border p-4 text-center ${newlyAssigned.length > 0 ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-gray-50'}`}>
+          <p className={`text-2xl font-bold ${newlyAssigned.length > 0 ? 'text-amber-700' : 'text-gray-400'}`}>{newlyAssigned.length}</p>
+          <p className={`mt-0.5 text-[11px] font-medium opacity-80 ${newlyAssigned.length > 0 ? 'text-amber-700' : 'text-gray-400'}`}>Nuevos (48h)</p>
         </div>
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
-          <p className="text-2xl font-bold text-amber-700">{scheduledCount}</p>
-          <p className="mt-0.5 text-[11px] font-medium text-amber-700 opacity-80">En agenda</p>
-        </div>
+        {(() => {
+          const m = maintTileInfo(technician.vehicle)
+          return (
+            <div className={`rounded-xl border p-4 text-center ${m.bg}`}>
+              <p className={`text-2xl font-bold ${m.cls}`}>{m.value}</p>
+              <p className={`mt-0.5 text-[11px] font-medium opacity-80 ${m.cls}`}>Próx. mantención</p>
+            </div>
+          )
+        })()}
       </div>
 
       {pendingReview > 0 && (
