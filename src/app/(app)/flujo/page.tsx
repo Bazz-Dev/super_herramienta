@@ -23,16 +23,72 @@ import { MonthlyTrend } from '@/components/cashflow/monthly-trend'
 import { JOB_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '@/lib/cashflow/labels'
 import { Suspense } from 'react'
 
-function periodToFrom(periodo: string | undefined): Date | undefined {
+type PeriodRange = {
+  from: Date | undefined
+  to: Date | undefined
+  prevFrom: Date | undefined
+  prevTo: Date | undefined
+  deltaLabel: string
+}
+
+// periodo acepta 3 formas: preset relativo (mes/3m/6m/12m/total), año
+// calendario explícito ("2026") o mes calendario explícito ("2026-07").
+// Siempre devuelve también el rango "anterior" equivalente para poder
+// mostrar el delta — no tiene sentido para 'total' (no hay "anterior" de
+// "todo").
+function periodRange(periodo: string | undefined): PeriodRange {
   const now = new Date()
-  switch (periodo ?? '12m') {
-    case 'mes':
-      return new Date(now.getFullYear(), now.getMonth(), 1)
-    case '3m': { const d = new Date(now); d.setMonth(d.getMonth() - 3); return d }
-    case '6m': { const d = new Date(now); d.setMonth(d.getMonth() - 6); return d }
-    case '12m': { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d }
-    default: return undefined  // 'total'
+  const p = periodo ?? '12m'
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(p)
+  if (monthMatch) {
+    const y = Number(monthMatch[1]), m = Number(monthMatch[2]) - 1
+    return {
+      from: new Date(y, m, 1),
+      to: endOfDay(new Date(y, m + 1, 0)),
+      prevFrom: new Date(y, m - 1, 1),
+      prevTo: endOfDay(new Date(y, m, 0)),
+      deltaLabel: 'vs mes anterior',
+    }
   }
+
+  const yearMatch = /^(\d{4})$/.exec(p)
+  if (yearMatch) {
+    const y = Number(yearMatch[1])
+    return {
+      from: new Date(y, 0, 1),
+      to: endOfDay(new Date(y, 11, 31)),
+      prevFrom: new Date(y - 1, 0, 1),
+      prevTo: endOfDay(new Date(y - 1, 11, 31)),
+      deltaLabel: 'vs año anterior',
+    }
+  }
+
+  switch (p) {
+    case 'mes': {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1)
+      return {
+        from, to: now,
+        prevFrom: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+        prevTo: endOfDay(new Date(now.getFullYear(), now.getMonth(), 0)),
+        deltaLabel: 'vs mes anterior',
+      }
+    }
+    case '3m': case '6m': case '12m': {
+      const months = p === '3m' ? 3 : p === '6m' ? 6 : 12
+      const from = new Date(now); from.setMonth(from.getMonth() - months)
+      const prevFrom = new Date(now); prevFrom.setMonth(prevFrom.getMonth() - months * 2)
+      return { from, to: now, prevFrom, prevTo: new Date(from), deltaLabel: 'vs período anterior' }
+    }
+    default: // 'total'
+      return { from: undefined, to: undefined, prevFrom: undefined, prevTo: undefined, deltaLabel: '' }
+  }
+}
+
+function pctDelta(curr: number, prev: number): number | null {
+  if (prev === 0) return null // sin base anterior (incl. 0→0), % no es una comparación útil
+  return ((curr - prev) / prev) * 100
 }
 
 export default async function FlujoPage({
@@ -43,13 +99,13 @@ export default async function FlujoPage({
   const session = await auth()
   const actor = session!.user
   const { cliente, periodo } = await searchParams
-  const from = periodToFrom(periodo)
+  const { from, to, prevFrom, prevTo, deltaLabel } = periodRange(periodo)
 
-  const [clients, jobs, allJobs, monthlyJobs, expensesByCategory, expensesPending] = await Promise.all([
+  const [clients, jobs, allJobs, monthlyJobs, expensesByCategory, expensesPending, prevJobs] = await Promise.all([
     listClientsForCashflow(actor),
-    listJobs(actor, { clientId: cliente, from }),
-    cliente ? Promise.resolve([]) : getClientSummaries(actor, from),
-    cliente ? Promise.resolve([]) : getMonthlySummary(actor, 12, from),
+    listJobs(actor, { clientId: cliente, from, to }),
+    cliente ? Promise.resolve([]) : getClientSummaries(actor, from, to),
+    cliente ? Promise.resolve([]) : getMonthlySummary(actor, 12, from, to),
     // Gastos aprobados agrupados por categoría
     prisma.expense.groupBy({
       by: ['category'],
@@ -63,6 +119,9 @@ export default async function FlujoPage({
       _count: { id: true },
       _sum: { amount: true },
     }),
+    // Período anterior equivalente, para el delta de los KPI — no aplica a
+    // "total" (no hay "anterior" de "todo").
+    from ? listJobs(actor, { clientId: cliente, from: prevFrom, to: prevTo }) : Promise.resolve([]),
   ])
 
   const m = computeMetrics(jobs as unknown as JobLike[], new Date())
@@ -72,6 +131,12 @@ export default async function FlujoPage({
   type TrendInput  = Parameters<typeof computeMonthlyTrend>[0]
   const clientBreakdown = cliente ? [] : computeClientBreakdown(allJobs as unknown as ClientInput)
   const monthlyTrend    = cliente ? [] : computeMonthlyTrend(monthlyJobs as unknown as TrendInput)
+
+  const prevM = from ? computeMetrics(prevJobs as unknown as JobLike[], prevTo ?? new Date()) : null
+  const delta = (curr: number, prev: number | undefined) =>
+    prevM && prev !== undefined
+      ? (() => { const pct = pctDelta(curr, prev); return pct != null ? { pct, label: deltaLabel } : undefined })()
+      : undefined
 
   const cobradoPct =
     m.facturado > 0 ? Math.round((m.cobrado / m.facturado) * 100) : null
@@ -115,9 +180,9 @@ export default async function FlujoPage({
 
       {/* A. Cobranza */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Facturado" value={clp(m.facturado)} />
+        <KpiCard label="Facturado" value={clp(m.facturado)} delta={delta(m.facturado, prevM?.facturado)} />
         <KpiCard label="Por cobrar" value={clp(m.porCobrar)} tone="warn" />
-        <KpiCard label="Cobrado" value={clp(m.cobrado)} tone="good" />
+        <KpiCard label="Cobrado" value={clp(m.cobrado)} tone="good" delta={delta(m.cobrado, prevM?.cobrado)} />
         <KpiCard
           label="Vencido"
           value={clp(m.vencido)}
@@ -163,7 +228,11 @@ export default async function FlujoPage({
       {/* C. Margen */}
       {m.marginTotal != null && (
         <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard label="Margen total" value={clp(m.marginTotal)} />
+          <KpiCard
+            label="Margen total"
+            value={clp(m.marginTotal)}
+            delta={prevM?.marginTotal != null ? delta(m.marginTotal, prevM.marginTotal) : undefined}
+          />
         </div>
       )}
 

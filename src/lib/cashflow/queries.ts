@@ -72,9 +72,14 @@ export async function listBranches(actor: Actor, clientId: string) {
   })
 }
 
-export async function getClientSummaries(actor: Actor, from?: Date) {
+export async function getClientSummaries(actor: Actor, from?: Date, to?: Date) {
   return prisma.job.findMany({
-    where: { ...tenantScope(actor), ...(from ? { executionDate: { gte: from } } : {}) },
+    where: {
+      ...tenantScope(actor),
+      ...(from || to
+        ? { executionDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+        : {}),
+    },
     select: {
       clientId: true,
       client: { select: { name: true } },
@@ -93,7 +98,7 @@ export async function getClientSummaries(actor: Actor, from?: Date) {
   })
 }
 
-export async function getMonthlySummary(actor: Actor, months = 12, fromOverride?: Date) {
+export async function getMonthlySummary(actor: Actor, months = 12, fromOverride?: Date, to?: Date) {
   const from = fromOverride ?? (() => {
     const d = new Date()
     d.setMonth(d.getMonth() - months + 1)
@@ -105,7 +110,9 @@ export async function getMonthlySummary(actor: Actor, months = 12, fromOverride?
   return prisma.job.findMany({
     where: {
       ...tenantScope(actor),
-      ...(from ? { executionDate: { gte: from } } : {}),
+      ...(from || to
+        ? { executionDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+        : {}),
     },
     select: {
       executionDate: true,
