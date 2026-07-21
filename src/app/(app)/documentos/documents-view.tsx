@@ -528,7 +528,7 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             <button
               key={folder.id}
               onClick={() => { setActiveClientId(folder.id); setSidebarOpen(false); setSearch('') }}
-              className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${
+              className={`interactive flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${
                 activeClientId === folder.id
                   ? 'bg-brand/10 text-ink font-semibold'
                   : 'text-gray-600 hover:bg-gray-100'
@@ -559,7 +559,7 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
           {/* Mobile hamburger */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="md:hidden flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900"
+            className="interactive md:hidden flex min-h-11 items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900"
           >
             <FolderIcon size={15} filled={!!activeFolder} />
             {activeFolder?.name ?? 'Clientes'}

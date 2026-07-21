@@ -43,12 +43,12 @@ export function PeriodFilter({ basePath = '/flujo' }: { basePath?: string }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex gap-1">
+      <div className="flex flex-wrap gap-1">
         {PERIODS.map((p) => (
           <button
             key={p.value}
             onClick={() => select(p.value)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`interactive min-h-11 rounded-md px-2.5 text-xs font-medium transition-colors ${
               active === p.value
                 ? 'bg-brand text-ink'
                 : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
@@ -63,7 +63,7 @@ export function PeriodFilter({ basePath = '/flujo' }: { basePath?: string }) {
           aria-label="Año específico"
           value={specificYear}
           onChange={(e) => selectYear(e.target.value)}
-          className="cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 outline-none focus-visible:border-brand"
+          className="interactive min-h-11 cursor-pointer rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-600 outline-none focus-visible:border-brand"
         >
           <option value="">Año…</option>
           {years.map((y) => (
@@ -75,7 +75,7 @@ export function PeriodFilter({ basePath = '/flujo' }: { basePath?: string }) {
           value={specificMonth}
           onChange={(e) => selectMonth(e.target.value)}
           disabled={!specificYear}
-          className="cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 outline-none focus-visible:border-brand disabled:opacity-40"
+          className="interactive min-h-11 cursor-pointer rounded-md border border-gray-200 bg-white px-2 text-xs text-gray-600 outline-none focus-visible:border-brand disabled:opacity-40"
         >
           <option value="">Mes…</option>
           {MONTHS.map((m, i) => (

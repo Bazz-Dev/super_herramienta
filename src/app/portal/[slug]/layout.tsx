@@ -1,7 +1,50 @@
+import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
 import { getPortalClientBySlug } from '@/lib/portal-client'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import { PortalPushPrompt } from '@/components/tickets/portal-push-prompt'
+
+// Next.js's metadata API overrides the parent (root) layout's fields with
+// whatever the child returns here — critical for `manifest`/`icons.apple`,
+// which a raw <link>/<meta> tag rendered in JSX does NOT do (React 19 just
+// hoists it into <head> alongside the root's, and the browser picks
+// whichever tag comes first in document order — the root's, always). That
+// was silently making every "instalar portal" install identical to
+// INGEGAR One itself (id/icon/start_url all from /manifest.json) instead of
+// the client's own branded portal — found while investigating whether
+// installing INGEGAR One and a client portal PWA at once causes a collision.
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const client = await getPortalClientBySlug(slug)
+  if (!client) return {}
+  return {
+    title: `${client.name} — Portal`,
+    manifest: `/portal/${slug}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'black-translucent',
+      title: client.name,
+    },
+    icons: {
+      apple: [
+        { url: `/portal/${slug}/icon/120`, sizes: '120x120', type: 'image/png' },
+        { url: `/portal/${slug}/icon/152`, sizes: '152x152', type: 'image/png' },
+        { url: `/portal/${slug}/icon/180`, sizes: '180x180', type: 'image/png' },
+      ],
+    },
+  }
+}
+
+export async function generateViewport({ params }: { params: Promise<{ slug: string }> }): Promise<Viewport> {
+  const { slug } = await params
+  const client = await getPortalClientBySlug(slug)
+  const theme = resolvePortalTheme(client?.portalTheme ?? null)
+  return {
+    themeColor: theme.primary,
+    width: 'device-width',
+    initialScale: 1,
+  }
+}
 
 export default async function PortalLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await Promise.resolve(params)
@@ -311,16 +354,13 @@ export default async function PortalLayout({ children, params }: { children: Rea
       {/* Dark Reader extension opt-out */}
       <meta name="darkreader-lock" />
 
-      {/* ── PWA meta tags ── */}
-      <link rel="manifest" href={`/portal/${slug}/manifest.webmanifest`} />
-      <meta name="theme-color" content={theme.primary} />
-      <meta name="mobile-web-app-capable" content="yes" />
-      <meta name="apple-mobile-web-app-capable" content="yes" />
-      <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-      <meta name="apple-mobile-web-app-title" content={client.name} />
-      <link rel="apple-touch-icon" sizes="180x180" href={`/portal/${slug}/icon/180`} />
-      <link rel="apple-touch-icon" sizes="152x152" href={`/portal/${slug}/icon/152`} />
-      <link rel="apple-touch-icon" sizes="120x120" href={`/portal/${slug}/icon/120`} />
+      {/* PWA manifest/icons/theme-color/appleWebApp now come from
+          generateMetadata()/generateViewport() above — a raw tag here would
+          just sit alongside the root layout's own (duplicate, root wins by
+          document order), not override it. mobile-web-app-capable has no
+          Metadata API field; harmless to drop since manifest's display:
+          "standalone" already covers it for anything that isn't legacy
+          iOS/Apple (which appleWebApp.capable already covers). */}
 
       {/* ── Critical inline script: sets bg BEFORE first paint, no FOUC ── */}
       <script dangerouslySetInnerHTML={{ __html: `(function(){try{var r=document.documentElement;r.style.colorScheme='light';r.style.background='${theme.bg}';document.body&&(document.body.style.background='${theme.bg}');}catch(e){}})();` }} />
