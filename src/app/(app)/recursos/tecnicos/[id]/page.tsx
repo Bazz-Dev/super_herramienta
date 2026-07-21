@@ -44,6 +44,42 @@ function calcAge(birthDate: Date | null | undefined): number | null {
   return age
 }
 
+function startOfWeek(d: Date): Date {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const day = date.getDay() // 0=dom..6=sáb
+  date.setDate(date.getDate() + ((day === 0 ? -6 : 1) - day)) // lunes de esa semana
+  return date
+}
+
+// Estadísticas por técnico (roadmap): trabajos ejecutados, horas, distribución
+// semanal — últimas 8 semanas pre-rellenadas en 0 para que la barra muestre
+// continuidad real, no solo las semanas con datos.
+function computeWeeklyProductivity(
+  rows: { assignment: { start: Date; end: Date } }[],
+  weeks = 8,
+): { weekStart: string; label: string; count: number; hours: number }[] {
+  const now = new Date()
+  const buckets = new Map<string, { count: number; hours: number }>()
+  for (let i = weeks - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i * 7)
+    buckets.set(startOfWeek(d).toISOString().slice(0, 10), { count: 0, hours: 0 })
+  }
+  for (const r of rows) {
+    const key = startOfWeek(new Date(r.assignment.start)).toISOString().slice(0, 10)
+    const b = buckets.get(key)
+    if (!b) continue // fuera del rango de las últimas N semanas
+    b.count++
+    b.hours += (new Date(r.assignment.end).getTime() - new Date(r.assignment.start).getTime()) / 3600000
+  }
+  return [...buckets.entries()].map(([weekStart, v]) => ({
+    weekStart,
+    label: new Date(weekStart).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }),
+    count: v.count,
+    hours: Math.round(v.hours * 10) / 10,
+  }))
+}
+
 export default async function EditTecnicoPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireActor()
   const { id } = await params
@@ -123,6 +159,17 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
       take: 3,
     }),
   ])
+
+  // Productividad: trabajos ejecutados + horas + distribución semanal
+  const completedWithHours = await prisma.assignmentAssignee.findMany({
+    where: { technicianId: tech.id, assignment: { tenantId: actor.tenantId, status: 'done' } },
+    select: { assignment: { select: { start: true, end: true } } },
+  })
+  const totalHours = completedWithHours.reduce((s, r) =>
+    s + (new Date(r.assignment.end).getTime() - new Date(r.assignment.start).getTime()) / 3600000, 0)
+  const totalHoursLabel = totalHours < 1 ? '< 1h' : `${Math.round(totalHours)}h`
+  const weeklyProductivity = computeWeeklyProductivity(completedWithHours)
+  const maxWeekly = Math.max(1, ...weeklyProductivity.map(w => w.count))
 
   const contractType = (tech.contractType ?? 'indefinido') as ContractTypeId
   const contractDays = daysUntil(tech.contractEndDate)
@@ -294,6 +341,39 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
           </div>
         </div>
       )}
+
+      {/* Productividad — trabajos ejecutados, horas, distribución semanal */}
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-ink">Productividad</h2>
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <div className="rounded-lg bg-gray-50 p-3 text-center">
+            <p className="text-xl font-bold text-ink">{assignmentStats.done}</p>
+            <p className="text-xs text-gray-500">Trabajos completados</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3 text-center">
+            <p className="text-xl font-bold text-ink">{totalHoursLabel}</p>
+            <p className="text-xs text-gray-500">Horas totales</p>
+          </div>
+        </div>
+        {weeklyProductivity.some((w) => w.count > 0) ? (
+          <>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Últimas 8 semanas</p>
+            <ul className="space-y-1.5">
+              {weeklyProductivity.map((w) => (
+                <li key={w.weekStart} className="flex items-center gap-2 text-xs">
+                  <span className="w-14 shrink-0 text-gray-500">{w.label}</span>
+                  <div className="h-2 flex-1 rounded-full bg-gray-100">
+                    <div className="h-2 rounded-full bg-brand" style={{ width: `${(w.count / maxWeekly) * 100}%` }} />
+                  </div>
+                  <span className="w-20 shrink-0 text-right text-gray-600">{w.count} trab. · {w.hours}h</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-xs text-gray-400">Sin trabajos completados en las últimas 8 semanas.</p>
+        )}
+      </div>
     </>
   )
 
