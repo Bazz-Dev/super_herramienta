@@ -62,6 +62,16 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const publicHistory = ticket.history.filter((h) => !h.isInternal)
   const internalHistory = ticket.history.filter((h) => h.isInternal)
 
+  const crearTrabajoParams = new URLSearchParams({
+    cliente: ticket.clientId,
+    desc: ticket.title,
+    quoteRef: ticket.ticketCode,
+    ticketCode: ticket.ticketCode,
+    ticketId: ticket.id,
+  })
+  if (ticket.branchId) crearTrabajoParams.set('sucursal', ticket.branchId)
+  const crearTrabajoHref = `/flujo/trabajos/new?${crearTrabajoParams}`
+
   return (
     <div className="max-w-5xl space-y-6">
       {/* Back */}
@@ -172,32 +182,43 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v10M3 8h10"/></svg>
             Registrar gasto →
           </Link>
-          {(actor.role === 'super' || actor.role === 'supervisor') && (() => {
-            const params = new URLSearchParams({
-              cliente: ticket.clientId,
-              desc: ticket.title,
-              quoteRef: ticket.ticketCode,
-              ticketCode: ticket.ticketCode,
-              ticketId: ticket.id,
-            })
-            if (ticket.branchId) params.set('sucursal', ticket.branchId)
-            return (
-              <Link
-                href={`/flujo/trabajos/new?${params}`}
-                className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-ink hover:underline font-medium"
-                title={originJobs.length > 0 ? `Ya hay ${originJobs.length} trabajo(s) vinculado(s) a este ticket — evita duplicar cobro` : undefined}
-              >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="12" height="10" rx="1.5"/><path d="M5 2v4M11 2v4M2 8h12"/></svg>
-                Crear trabajo en Flujo →
-                {originJobs.length > 0 && (
-                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-                    ⚠ ya hay {originJobs.length}
-                  </span>
-                )}
-              </Link>
-            )
-          })()}
+          {(actor.role === 'super' || actor.role === 'supervisor') && !(status === 'resuelto' && originJobs.length === 0) && (
+            <Link
+              href={crearTrabajoHref}
+              className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-ink hover:underline font-medium"
+              title={originJobs.length > 0 ? `Ya hay ${originJobs.length} trabajo(s) vinculado(s) a este ticket — evita duplicar cobro` : undefined}
+            >
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="12" height="10" rx="1.5"/><path d="M5 2v4M11 2v4M2 8h12"/></svg>
+              Crear trabajo en Flujo →
+              {originJobs.length > 0 && (
+                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                  ⚠ ya hay {originJobs.length}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
+
+        {/* Paso natural al cerrar: el ticket recién resuelto todavía no tiene
+            cobro asociado — se lo ofrecemos de inmediato en vez de dejarlo
+            como un link chico entre otras acciones secundarias. */}
+        {(actor.role === 'super' || actor.role === 'supervisor') && status === 'resuelto' && originJobs.length === 0 && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg" aria-hidden>✅</span>
+              <div>
+                <p className="text-sm font-semibold text-green-800">Ticket resuelto — registra el cobro</p>
+                <p className="text-xs text-green-700">Crea el trabajo en Flujo de Caja para empezar a facturarlo.</p>
+              </div>
+            </div>
+            <Link
+              href={crearTrabajoHref}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-700"
+            >
+              Crear trabajo en Flujo →
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* 2-col layout */}
