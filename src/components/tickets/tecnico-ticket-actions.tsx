@@ -12,6 +12,7 @@ interface Props {
   ticketId: string
   status: string
   documents: Doc[]
+  otFileUrl: string | null
 }
 
 const NEXT_LABEL: Record<string, string> = {
@@ -19,13 +20,15 @@ const NEXT_LABEL: Record<string, string> = {
   esperando_aprobacion: 'Enviar a aprobación →',
 }
 
-export function TecnicoTicketActions({ ticketId, status, documents }: Props) {
+export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }: Props) {
   const router = useRouter()
   // Transiciones separadas (G24): una acción en curso no bloquea a las demás
   const [statusPending, startStatus] = useTransition()
   const [commentPending, startComment] = useTransition()
   const [comment, setComment] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [otUploading, setOtUploading] = useState(false)
+  const [otSaved, setOtSaved] = useState(!!otFileUrl)
   const [error, setError] = useState('')
 
   const nextStatuses = TECNICO_TRANSITIONS[status] ?? []
@@ -63,6 +66,24 @@ export function TecnicoTicketActions({ ticketId, status, documents }: Props) {
       }
     } finally {
       setUploading(false)
+    }
+  }
+
+  async function uploadOT(file: File) {
+    setOtUploading(true)
+    setError('')
+    try {
+      const fd = new FormData()
+      fd.set('file', file)
+      const res = await fetch(`/api/tickets/${ticketId}/ot-photo`, { method: 'POST', body: fd })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error ?? `Error ${res.status} al subir la OT.`)
+      } else {
+        setOtSaved(true)
+      }
+    } finally {
+      setOtUploading(false)
     }
   }
 
@@ -111,6 +132,34 @@ export function TecnicoTicketActions({ ticketId, status, documents }: Props) {
             {commentPending ? 'Guardando…' : 'Registrar atención'}
           </button>
         </div>
+      </div>
+
+      {/* Orden de trabajo (OT) — la escanean en terreno (app de escaneo → PDF) */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-gray-700">Orden de trabajo (OT)</h2>
+        {otSaved ? (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-sm text-gray-600">✓ OT guardada</span>
+            <a
+              href={`/api/tickets/${ticketId}/ot-photo`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-medium text-brand hover:underline"
+            >
+              Ver OT ↗
+            </a>
+          </div>
+        ) : (
+          <label className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
+            {otUploading ? 'Subiendo…' : '📄 Escanear / adjuntar OT (PDF)'}
+            <input
+              type="file"
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadOT(f); e.target.value = '' }}
+            />
+          </label>
+        )}
       </div>
 
       {/* Evidencia (fotos / documentos) */}

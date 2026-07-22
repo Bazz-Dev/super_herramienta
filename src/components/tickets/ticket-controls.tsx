@@ -15,6 +15,7 @@ interface Props {
     id: string
     status: string
     otNumber: string | null
+    otFileUrl: string | null
     assignedToId: string | null
     estimatedDate: string | null
     workSummary: string | null
@@ -317,10 +318,20 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
           </h3>
 
           {/* OT */}
-          {ticket.otNumber && (
+          {(ticket.otNumber || ticket.otFileUrl) && (
             <div className="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">OT</span>
-              <span className="font-mono text-sm font-bold text-ink">{ticket.otNumber}</span>
+              {ticket.otNumber && <span className="font-mono text-sm font-bold text-ink">{ticket.otNumber}</span>}
+              {ticket.otFileUrl && (
+                <a
+                  href={`/api/tickets/${ticket.id}/ot-photo`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-auto text-xs font-medium text-brand hover:underline"
+                >
+                  Ver OT ↗
+                </a>
+              )}
             </div>
           )}
 

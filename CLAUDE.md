@@ -17,6 +17,12 @@ Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 > gastos vinculados a trabajos, mutualidad + teléfono2 en ficha técnico, adjuntos R2 en portal (nueva solicitud + comentarios).
 > **Nuevo v1.10 (jul-2026)**: Pipeline comercial — ProposalStatus enum, kanban columnar (Borrador/Enviada/Vista/Aceptada/Rechazada/Perdida),
 > KPIs (total, monto en juego, tasa de cierre, por vencer), integrado en `/documentos` (badge + botón "Agregar al pipeline").
+> **Nuevo v1.11 (jul-2026)**: Gestión de accesos desde la UI — crear/resetear cuenta de técnico y activar portal de cliente
+> + usuarios autorizados, ambos restringidos a `super` (`src/lib/password.ts`, `RevealedCredential`, `TechnicianAccountPanel`,
+> `PortalUserManager`). `PeriodFilter` generalizado (`basePath`) con selector de mes/año específico + comparación delta vs
+> período anterior, reutilizado en `/flujo` y `/dashboard` ("Resumen del período": facturación y tickets resueltos vs
+> período anterior). Fix de identidad PWA por portal (`generateMetadata`/`generateViewport` en vez de tags JSX crudos —
+> cada portal instalaba con el `id`/ícono de INGEGAR One por un bug de tags duplicados).
 > **Pendiente**: import histórico Turso (`scripts/import-flujo.ts`), estadísticas por técnico.
 
 ---
@@ -245,10 +251,14 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 9. ✅ **RR.HH.** — fichas de empleado, permisos/vacaciones, liquidaciones mensuales, FES (Firma Electrónica Simple desde `/mi-panel`).
 10. ✅ **Portal PWA multi-cliente** — isotipo INGEGAR dinámico PNG (`/ingegar-icon/[size]`), manifest+icon independiente por portal, logo dinámico desde `Client.logoUrl`. `apple-touch-icon` iOS también usa la ruta dinámica.
 11. ✅ **Pipeline comercial** — `/pipeline` kanban columnar (Borrador/Enviada/Vista/Aceptada/Rechazada/Perdida), KPIs (total, monto en juego, tasa de cierre, por vencer >7d), integrado en `/documentos` con badge de estado y botón "Agregar al pipeline". `ProposalStatus` enum en `ClientDocument`. `src/lib/pipeline/` + `src/components/pipeline/pipeline-board.tsx`.
+12. ✅ **Gestión de accesos** — crear cuenta de técnico y resetear contraseña desde `/recursos/tecnicos/[id]` (tab "Acceso"); activar portal de cliente (`hasPortal`/`portalSlug` en el form) + crear/resetear usuarios autorizados del portal desde `/recursos/clientes/[id]`. Ambas acciones sensibles (crear/resetear password) restringidas a `super`; el CRUD normal de técnico/cliente sigue siendo `super`+`supervisor`. `src/lib/password.ts`, `src/components/ui/revealed-credential.tsx`.
+13. ✅ **KPIs con comparación de período** — `PeriodFilter` (`src/components/cashflow/period-filter.tsx`) generalizado con `basePath` + selector de mes/año calendario específico, reutilizado en `/flujo` y `/dashboard`. `KpiCard` acepta `delta` (▲/▼ % vs período anterior). `/dashboard` suma una sección "Resumen del período" (facturación + tickets resueltos, comparados) que antes no existía.
 
 **Próximos (sugeridos en orden de valor):**
-- Import histórico Flujo de Caja a Turso en producción (`scripts/import-flujo.ts`).
 - Estadísticas por técnico: trabajos ejecutados, horas, distribución semanal.
+
+Ya hecho (verificado 2026-07-21 contra Turso prod, no listar de nuevo como pendiente):
+- Import histórico Flujo de Caja (`scripts/import-flujo.ts`) — Turso prod ya tiene 205 jobs de Just Burger + 1 Decathlon + 1 Unity (con `importRef`), total 207, coincide exacto con lo que produce el script leyendo los 3 Excel fuente hoy. Roadmap quedó desactualizado, no era trabajo real pendiente.
 
 Ya implementados (no listar de nuevo como pendiente):
 - Alertas automáticas de seguimiento en Pipeline (`/api/cron/pipeline-alerts`, propuesta enviada/vista > 7 días sin respuesta o `followUpAt` vencido → push a staff).

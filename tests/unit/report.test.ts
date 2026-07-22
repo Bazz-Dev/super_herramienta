@@ -38,6 +38,22 @@ test('HTML: escapa caracteres especiales (sin inyección)', () => {
   assert.match(html, /A &amp; B/)
 })
 
+test('HTML: no muestra la fecha de generación (el cliente no debe verla)', () => {
+  const html = renderReportHTML(sampleReport)
+  assert.doesNotMatch(html, />Fecha</)
+})
+
+test('HTML: sin foto de OT no agrega la página de Orden de trabajo', () => {
+  const html = renderReportHTML({ ...sampleReport, otImageUrl: '' })
+  assert.doesNotMatch(html, /Orden de trabajo/)
+})
+
+test('HTML: con foto de OT agrega su página con el N° de OT en el título', () => {
+  const html = renderReportHTML({ ...sampleReport, otImageUrl: IMG, workOrder: '0320' })
+  assert.match(html, /Orden de trabajo · N° 0320/)
+  assert.match(html, /class="photo ot-photo"><img src="data:image\/png/)
+})
+
 test('nombre de archivo: IT - <reportId> - <SUCURSAL>', () => {
   assert.equal(reportFilename(sampleReport), 'IT - 260519-JB-PR-78 - PROVIDENCIA')
   assert.equal(reportFilename({ reportId: 'X-1', branch: '' }), 'IT - X-1')
@@ -75,4 +91,13 @@ test('PDF: el registro fotográfico empieza en su propia página', { timeout: TI
   assert.ok(isPdf(buf))
   // sample (2 págs aprox) + anexo en página nueva ⇒ al menos 2 páginas
   assert.ok((await pageCount(buf)) >= 2, 'el anexo fotográfico debe paginar')
+})
+
+test('PDF: la OT (si existe) agrega una página final sin romper el resto', { timeout: TIMEOUT }, async () => {
+  const base = await generateReportPdf(sampleReport)
+  const withOT = await generateReportPdf({ ...sampleReport, otImageUrl: IMG })
+  assert.ok(isPdf(withOT))
+  const basePages = await pageCount(base)
+  const withOTPages = await pageCount(withOT)
+  assert.ok(withOTPages > basePages, 'la OT debe sumar al menos una página al informe')
 })

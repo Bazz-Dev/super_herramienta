@@ -52,6 +52,7 @@ export const sampleReport: ReportData = {
   ],
 
   photos: [],
+  otImageUrl: '',
 
   company: 'INGEGAR CHILE SpA.',
   rut: '77.542.218-1',

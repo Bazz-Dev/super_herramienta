@@ -17,7 +17,7 @@ export default async function TecnicoTicketDetail({ params }: { params: Promise<
     where: { id, tenantId: actor.tenantId, assignedToId: actor.effectiveId, deletedAt: null },
     select: {
       id: true, ticketCode: true, title: true, description: true, status: true,
-      urgency: true, category: true, otNumber: true, estimatedDate: true, createdAt: true,
+      urgency: true, category: true, otNumber: true, otFileUrl: true, estimatedDate: true, createdAt: true,
       client: { select: { name: true } },
       branch: { select: { name: true } },
       history: {
@@ -59,11 +59,12 @@ export default async function TecnicoTicketDetail({ params }: { params: Promise<
         {ticket.description && <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{ticket.description}</p>}
       </div>
 
-      {/* Acciones del técnico: estado permitido + comentario + evidencia */}
+      {/* Acciones del técnico: estado permitido + comentario + evidencia + OT */}
       <TecnicoTicketActions
         ticketId={ticket.id}
         status={ticket.status}
         documents={ticket.documents}
+        otFileUrl={ticket.otFileUrl}
       />
 
       {/* Historial */}

@@ -22,7 +22,7 @@ export default async function InformePage({ searchParams }: Props) {
     prisma.ticket.findMany({
       where: { ...tenantScope(actor), deletedAt: null, status: { notIn: ['cancelado', 'fusionado'] } },
       select: {
-        id: true, ticketCode: true, title: true, otNumber: true,
+        id: true, ticketCode: true, title: true, otNumber: true, otFileUrl: true,
         client: { select: { id: true, name: true } },
         branch: { select: { name: true } },
       },
@@ -45,6 +45,7 @@ export default async function InformePage({ searchParams }: Props) {
     ticketCode: t.ticketCode,
     title: t.title,
     otNumber: t.otNumber,
+    otFileUrl: t.otFileUrl,
     clientId: t.client.id,
     clientName: t.client.name,
     branchName: t.branch?.name ?? '',

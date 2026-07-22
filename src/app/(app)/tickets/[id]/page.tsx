@@ -230,6 +230,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               id: ticket.id,
               status: ticket.status,
               otNumber: ticket.otNumber,
+              otFileUrl: ticket.otFileUrl,
               assignedToId: ticket.assignedToId,
               estimatedDate: ticket.estimatedDate?.toISOString().split('T')[0] ?? null,
               workSummary: ticket.workSummary,

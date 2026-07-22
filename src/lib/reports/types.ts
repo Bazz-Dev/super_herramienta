@@ -38,6 +38,9 @@ export const reportDataSchema = z.object({
   // Photo annex
   photos: z.array(reportPhotoSchema).default([]),
 
+  // OT (orden de trabajo) annex — foto de la OT firmada, va como última página. data: URI.
+  otImageUrl: z.string().default(''),
+
   // Footer / company block
   company: z.string().default('INGEGAR CHILE SpA.'),
   rut: z.string().default('77.542.218-1'),
