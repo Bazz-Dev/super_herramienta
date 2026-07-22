@@ -23,7 +23,15 @@ Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 > período anterior, reutilizado en `/flujo` y `/dashboard` ("Resumen del período": facturación y tickets resueltos vs
 > período anterior). Fix de identidad PWA por portal (`generateMetadata`/`generateViewport` en vez de tags JSX crudos —
 > cada portal instalaba con el `id`/ícono de INGEGAR One por un bug de tags duplicados).
-> **Pendiente**: import histórico Turso (`scripts/import-flujo.ts`), estadísticas por técnico.
+> **Nuevo v1.12 (jul-2026)**: Informe Técnico — quitada la "Fecha" de generación (revelaba al cliente cuándo se armó
+> el documento), repaso visual del PDF/preview (id-card, encabezados de sección, anexos con tratamiento "ANEXO"
+> diferenciado de las secciones numeradas) sin tocar reglas de paginación. **OT como PDF real**: `Ticket.otFileUrl`
+> guarda el archivo original (PDF o foto) sin tocar en R2; `GET /api/tickets/[id]/ot-photo?as=image` rasteriza la
+> página 1 a PNG solo al insertarla como última página del informe (Chromium no incrusta un PDF dentro de otro PDF).
+> Técnicos pueden escanear/adjuntar la OT directo desde `/mi-panel/tickets/[id]` (mismo endpoint, ya scopeado a
+> `assignedToId`). `pdf-to-img`/`pdfjs-dist` movidos a dependencia real + `serverExternalPackages` en
+> `next.config.ts` — Turbopack no puede bundlear el worker de `pdfjs-dist` (rompía tanto `next dev` como
+> `next build`); la migración `otFileUrl` es local únicamente, falta el script additivo contra Turso prod.
 
 ---
 
@@ -155,8 +163,9 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **Pendiente**: persistencia en DB (guardar/listar/editar cotizaciones) — se hará con Pipeline.
 
 ### Módulo Informe Técnico (`src/lib/reports/`, `/informe`)
-- Editor con identificación (n.º reporte, OT, cliente, sucursal), secciones numeradas (reordenables), registro fotográfico. Preview en vivo + PDF A4.
-- `renderReportHTML(data)` — fuente única para preview y PDF. Registro fotográfico en página propia (`break-before: page`).
+- Editor con identificación (n.º reporte, OT, cliente, sucursal), secciones numeradas (reordenables), registro fotográfico. Preview en vivo + PDF A4. **Sin campo de fecha de generación** — se sacó deliberadamente (no debe revelarse al cliente cuándo se armó el documento).
+- `renderReportHTML(data)` — fuente única para preview y PDF. Registro fotográfico y OT en página propia (`break-before: page`), con encabezado `.annex-header` ("ANEXO") distinto del `.section-header` de las secciones numeradas.
+- **Selector de ticket** ("Vincular a ticket existente") autocompleta cliente/sucursal/OT; si el ticket ya tiene `otFileUrl`, la carga sola (vía `?as=image`, convertida a data URI igual que las fotos); si no, se puede adjuntar ahí mismo (PDF o foto) — sube al ticket vía `POST .../ot-photo` y queda disponible para el próximo informe. Sin ticket vinculado solo se admite foto (no hay dónde persistir un PDF).
 - API: `POST /api/reports/generate` (autenticada, `runtime='nodejs'`).
 
 ### Módulo Carpetas de Clientes (`/documentos`, `src/app/api/client-documents/`)
@@ -209,8 +218,15 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **Pendiente prod**: correr `scripts/import-flujo.ts` contra Turso (205 trabajos históricos).
 
 ### Módulo Tickets (`/tickets` — top-level interno; `/portal/[slug]/tickets` — portal cliente)
-- Modelo `Ticket` (ticketCode, urgency, category, status, otNumber, assignedToId, jobId, branchId, showToClient).
+- Modelo `Ticket` (ticketCode, urgency, category, status, otNumber, otFileUrl, assignedToId, jobId, branchId, showToClient).
 - Vistas internas: Kanban por estado, filtros por cliente/asignado. Detalle con historial y documentos.
+- **OT (orden de trabajo)**: `otNumber` es el texto/folio; `otFileUrl` es el archivo real (PDF o foto, escaneado en
+  terreno por el técnico) — clave R2, nunca se convierte al subirlo. `POST /api/tickets/[id]/ot-photo` (roles
+  `super`/`supervisor`/`tecnico`, técnico solo en tickets `assignedToId === self`) sube/reemplaza; `GET .../ot-photo`
+  redirige a URL firmada del original; `GET .../ot-photo?as=image` rasteriza la página 1 a PNG on-demand (vía
+  `src/lib/pdf-rasterize.ts` + `pdf-to-img`) — solo se usa para incrustarla en el Informe Técnico, nunca se persiste
+  la versión rasterizada. Técnicos la adjuntan desde `/mi-panel/tickets/[id]` (`TecnicoTicketActions`); staff desde
+  `ticket-controls.tsx` (link "Ver OT ↗") o desde el propio editor de informe (`/informe`, ver más abajo).
 - **Portal cliente** (`/portal/[slug]/`): PWA independiente con tema propio, login por sesión separada (rol `client`). Tickets, reportes, notificaciones push. Tema: `resolvePortalTheme()` en `src/lib/portal-theme.ts` — **solo lee `primary` de la DB**; `bg`/`card`/`text` siempre hardcoded claros (beige `#f4f3f1`/blanco). Nunca usar `var(--p-*)` en inline styles del portal (no tienen fallback garantizado).
 - `portal-shell.tsx` — sidebar siempre oscuro (`#121110`); contenido principal usa inline styles con props `bg`/`cardBg`/`textColor`.
 - `portal-push-prompt.tsx` — banner flotante para activar notificaciones push en el portal.
@@ -224,7 +240,7 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **IDs de cotización**: `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`.
 - **Commits**: inglés, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`).
 - **Componentes**: archivos enfocados; un propósito por archivo.
-- **Versión**: `package.json` → `"version": "1.9.0"`. Badge en sidebar y dashboard hero.
+- **Versión**: `package.json` → `"version": "1.11.0"` (no siempre se bumpea por sesión — ver el header del doc para el changelog real). Badge en sidebar y dashboard hero.
 
 ### Branding
 - Primario `#f5b100` (`bg-brand` / `text-brand`), texto `#111111` (`text-ink`).
@@ -253,12 +269,27 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 11. ✅ **Pipeline comercial** — `/pipeline` kanban columnar (Borrador/Enviada/Vista/Aceptada/Rechazada/Perdida), KPIs (total, monto en juego, tasa de cierre, por vencer >7d), integrado en `/documentos` con badge de estado y botón "Agregar al pipeline". `ProposalStatus` enum en `ClientDocument`. `src/lib/pipeline/` + `src/components/pipeline/pipeline-board.tsx`.
 12. ✅ **Gestión de accesos** — crear cuenta de técnico y resetear contraseña desde `/recursos/tecnicos/[id]` (tab "Acceso"); activar portal de cliente (`hasPortal`/`portalSlug` en el form) + crear/resetear usuarios autorizados del portal desde `/recursos/clientes/[id]`. Ambas acciones sensibles (crear/resetear password) restringidas a `super`; el CRUD normal de técnico/cliente sigue siendo `super`+`supervisor`. `src/lib/password.ts`, `src/components/ui/revealed-credential.tsx`.
 13. ✅ **KPIs con comparación de período** — `PeriodFilter` (`src/components/cashflow/period-filter.tsx`) generalizado con `basePath` + selector de mes/año calendario específico, reutilizado en `/flujo` y `/dashboard`. `KpiCard` acepta `delta` (▲/▼ % vs período anterior). `/dashboard` suma una sección "Resumen del período" (facturación + tickets resueltos, comparados) que antes no existía.
+14. ✅ **Estadísticas por técnico** — card "Productividad" en la ficha de técnico (`/recursos/tecnicos/[id]`): trabajos completados + horas totales (de `Assignment.start`/`end`) + gráfico de barras de las últimas 8 semanas (`computeWeeklyProductivity()`, mismo patrón tabla+`width:%` que `MonthlyTrend`). Vista individual únicamente — no hay comparativa entre técnicos todavía.
+15. ✅ **OT en PDF real + repaso visual del Informe Técnico** — ver "Nuevo v1.12" arriba y "Módulo Tickets"/"Módulo Informe Técnico" para el detalle técnico.
 
 **Próximos (sugeridos en orden de valor):**
-- Estadísticas por técnico: trabajos ejecutados, horas, distribución semanal.
+- Estadísticas por técnico: vista comparativa/global (hoy solo existe por técnico individual).
+- Base documental por técnico + empresa con descarga en ZIP (requerimiento nuevo, jul-2026 — ver nota abajo).
 
 Ya hecho (verificado 2026-07-21 contra Turso prod, no listar de nuevo como pendiente):
 - Import histórico Flujo de Caja (`scripts/import-flujo.ts`) — Turso prod ya tiene 205 jobs de Just Burger + 1 Decathlon + 1 Unity (con `importRef`), total 207, coincide exacto con lo que produce el script leyendo los 3 Excel fuente hoy. Roadmap quedó desactualizado, no era trabajo real pendiente.
+
+### Pendiente de diseño — Base documental por técnico/empresa (jul-2026, no iniciado)
+Pedido explícito del dueño, aún sin plan: cada card de técnico (hoy en `/recursos/tecnicos`) debe poder subir sus
+documentos obligatorios (contrato, carnet ambos lados, certificado de altura, anexos firmados, etc.) y el admin
+poder descargar un ZIP por técnico bajo demanda — uso real: acreditar al técnico ante plataformas de proveedores/
+clientes que piden esta base documental para autorizar el ingreso a faenas. También documentos a nivel empresa
+(procedimiento interno, mutualidad, reglamento). El técnico debe ver solo sus propios documentos desde `/mi-panel`.
+Pedido de navegación asociado: sacar **Técnicos**, **Clientes** y **Vehículos** de "Inventario" a ítems propios del
+sidebar (más visual/accesible); Inventario queda solo con Herramientas/Activos por ahora. `TechnicianDocument` ya
+existe en el schema (usado hoy por RR.HH. para documentos generales del técnico, sube a R2 vía
+`api/technicians/[id]/documents`) — punto de partida a evaluar, no necesariamente alcanza tal cual para "obligatorio
+vs opcional" + firma + selección para ZIP.
 
 Ya implementados (no listar de nuevo como pendiente):
 - Alertas automáticas de seguimiento en Pipeline (`/api/cron/pipeline-alerts`, propuesta enviada/vista > 7 días sin respuesta o `followUpAt` vencido → push a staff).
@@ -286,6 +317,14 @@ PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 - **DB**: `db-adapter.ts` elige `better-sqlite3` (local, `file:`) vs `@libsql/client` (Turso, `libsql://`).
 - **Imágenes de cotizador**: data URI inline — no requieren filesystem (serverless-safe).
 - **Push subscriptions**: guardadas en Turso. Notificaciones enviadas desde Server Actions/API routes.
+- **`serverExternalPackages`** (`next.config.ts`): módulos con binario nativo o que hacen su propia carga dinámica de
+  archivos (worker, binario de plataforma) van AQUÍ, no se dejan bundlear por Turbopack — `better-sqlite3`,
+  `@libsql/client`, `@sparticuz/chromium`, `playwright(-core)`, `pdf-to-img`/`pdfjs-dist`. Sin esto, `pdf-to-img`
+  rompía tanto `next dev` (worker de pdfjs-dist no resuelve vía import dinámico) como `next build` (Turbopack
+  intenta bundlear igual el worker y explota con un `TypeError` interno al recolectar datos de la ruta) — mismo
+  patrón que ya resolvía `@sparticuz/chromium`/`playwright-core`, se reutilizó tal cual. Cualquier dependencia nueva
+  que falle solo en Vercel (o solo en build, no en dev) con errores de módulo no encontrado es sospechosa de
+  necesitar esto.
 
 ### VPS / contenedor (alternativa)
 SQLite local + `npx playwright install --with-deps chromium`. Sin Turso ni @sparticuz.
