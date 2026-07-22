@@ -25,6 +25,8 @@ const nextConfig: NextConfig = {
     '@sparticuz/chromium',
     'playwright-core',
     'playwright',
+    'pdf-to-img',
+    'pdfjs-dist',
   ],
   // Force the serverless function to include files Next's tracing misses:
   //  - @sparticuz/chromium binary (bin/*.br) → otherwise executablePath is missing
@@ -38,6 +40,10 @@ const nextConfig: NextConfig = {
     '/api/reports/generate': [
       './node_modules/@sparticuz/chromium/**',
       './node_modules/playwright-core/**',
+    ],
+    '/api/tickets/[id]/ot-photo': [
+      './node_modules/pdf-to-img/**',
+      './node_modules/pdfjs-dist/**',
     ],
   },
 }
