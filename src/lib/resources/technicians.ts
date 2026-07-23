@@ -21,6 +21,7 @@ export async function listTechnicians(actor: TenantActor, search?: string) {
       tenant: { select: { slug: true } },
       _count: { select: { crews: true } },
       vehicle: { select: { id: true, plate: true, _count: { select: { assets: true } } } },
+      documents: { select: { type: true, label: true } },
     },
     orderBy: [{ active: 'desc' }, { name: 'asc' }],
   })

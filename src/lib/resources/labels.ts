@@ -118,11 +118,12 @@ export const DOC_TYPE_LABELS: Record<DocTypeId, string> = {
   otro: 'Otro documento',
 }
 
-// Documentos que la empresa exige tener siempre al día por técnico — base
-// para acreditarlo ante plataformas de proveedores/clientes. "carnet" exige
-// las 2 caras (Frontal/Reverso vía el campo `label` libre, sin duplicar el
-// enum) — el resto solo necesita al menos un documento subido de ese tipo.
-export const MANDATORY_DOC_TYPES: DocTypeId[] = ['contrato', 'carnet', 'altura']
+// Documentos "fijos" que siempre se piden por técnico — base para
+// acreditarlo ante plataformas de proveedores/clientes. "carnet" exige las 2
+// caras (Frontal/Reverso vía el campo `label` libre, sin duplicar el enum).
+// Todo lo demás (altura, epp, antecedentes, licencia, y cualquier documento
+// libre agregado con "+") es adicional/extensible, no un slot fijo.
+export const MANDATORY_DOC_TYPES: DocTypeId[] = ['contrato', 'carnet']
 
 export function mandatoryDocChecklist(docs: { type: string; label: string | null }[]) {
   return MANDATORY_DOC_TYPES.map((type) => {
