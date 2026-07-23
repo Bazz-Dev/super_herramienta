@@ -31,7 +31,8 @@ Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 > Técnicos pueden escanear/adjuntar la OT directo desde `/mi-panel/tickets/[id]` (mismo endpoint, ya scopeado a
 > `assignedToId`). `pdf-to-img`/`pdfjs-dist` movidos a dependencia real + `serverExternalPackages` en
 > `next.config.ts` — Turbopack no puede bundlear el worker de `pdfjs-dist` (rompía tanto `next dev` como
-> `next build`); la migración `otFileUrl` es local únicamente, falta el script additivo contra Turso prod.
+> `next build`); migración `otFileUrl` aplicada a Turso prod 2026-07-23 (ver G44 — quedó pendiente tras el deploy
+> inicial y causó una caída real en `/informe`, `scripts/add-ot-file-and-company-docs.ts` la resolvió).
 > **Nuevo v1.13 (jul-2026)**: Base documental por técnico + empresa — `DocType` gana `carnet` (2 caras vía `label`),
 > `MANDATORY_DOC_TYPES` + checklist ✓/✗ en la ficha de técnico, descarga en ZIP por técnico (botón en la card del
 > listado y en la ficha) y por empresa (`CompanyDocument`, modelo nuevo, página `/recursos/empresa`) — uso real:
@@ -98,6 +99,7 @@ Antes de correr CUALQUIER comando que toque la base de datos:
 4. **Flujo seguro para schema changes**:
    - Editar schema → `prisma migrate dev` (solo con `DATABASE_URL=file:`) → `tsc --noEmit` → `git commit` → DESPUÉS `npm run db:migrate:prod`
 5. **Para Turso producción**: SOLO usar `scripts/turso-migrate.ts` que aplica migraciones additive y es idempotente. NUNCA apuntar el CLI de Prisma directamente a la URL de Turso.
+6. **⚠️ Si el deploy a Vercel incluye una migración de schema nueva, el script additivo contra Turso se corre en el MISMO turno que el push a main** (con confirmación, como siempre) — no dejarlo "pendiente para después": el código ya desplegado sirve tráfico real contra un schema que aún no existe en prod. Incidente real, G44 (2026-07-23): `/informe` cayó en producción por exactamente esto — la migración de `otFileUrl` quedó "pendiente de confirmar" mientras el código que la usaba ya estaba en vivo.
 
 Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida irreparable de confianza.
 
@@ -220,7 +222,7 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - **Descarga en ZIP**: `src/lib/zip.ts` (`buildZipFromR2Keys`) — compartido entre `GET /api/technicians/[id]/documents/zip` y `GET /api/company-documents/zip`. Usa `archiver` (dependencia real, no dev — **pineado en `^7`, no `^8`**: v8 reescribió la API a clases ESM-only y hubiera repetido el susto de build que tuvo `pdf-to-img` el mismo día — v7 es la API clásica `archiver('zip', opts)`, madura, sin binarios nativos, no necesitó `serverExternalPackages`). `getObjectBuffer()` nuevo en `r2.ts` (baja bytes completos, para armar el ZIP — antes solo existían `uploadToR2`/URLs firmadas).
 - **Técnico ve solo lo suyo**: `/mi-panel/rrhh` ya mostraba "Mis documentos" de solo lectura antes de este trabajo (`technicianId: actor.technicianId`) — decisión explícita del dueño: el técnico NO sube sus propios documentos obligatorios (a diferencia de la OT), el admin sube todo desde la ficha.
 - `/api/files?type=company` — nueva rama en la ruta de descarga firmada existente (junto a `ticket`/`technician`), valida `CompanyDocument.tenantId`.
-- Migración `add_carnet_and_company_documents` es aditiva (tabla nueva + valor de enum, SQLite no impone constraint de enum) — local únicamente, falta el script additivo contra Turso.
+- Migración `add_carnet_and_company_documents` es aditiva (tabla nueva + valor de enum, SQLite no impone constraint de enum) — aplicada a Turso prod 2026-07-23 junto con `otFileUrl` (ver G44).
 
 ### Módulo Cronograma (`/cronograma` — top-level)
 - Modelo `Assignment` (status + permissionRequested + clientId + meetingUrl) + `AssignmentAssignee` (M:N técnico↔asignación, rol `tecnico|ayudante`).
