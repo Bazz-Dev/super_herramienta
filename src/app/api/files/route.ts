@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const key = searchParams.get('key')
-  const type = searchParams.get('type') as 'ticket' | 'technician' | null
+  const type = searchParams.get('type') as 'ticket' | 'technician' | 'company' | null
 
   if (!key || !type) {
     return NextResponse.json({ error: 'Missing key or type' }, { status: 400 })
@@ -51,6 +51,12 @@ export async function GET(req: NextRequest) {
         fileUrl: key,
         technician: role === 'super' ? undefined : { tenantId },
       },
+      select: { id: true },
+    })
+    if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  } else if (type === 'company') {
+    const doc = await prisma.companyDocument.findFirst({
+      where: { fileUrl: key, tenantId: role === 'super' ? undefined : tenantId },
       select: { id: true },
     })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })

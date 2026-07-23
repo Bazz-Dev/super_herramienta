@@ -47,6 +47,13 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
   return getSignedUrl(r2, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn })
 }
 
+/** Download an object's full bytes from R2 — for server-side processing (e.g. building a ZIP). */
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const res = await r2.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
+  const bytes = await res.Body!.transformToByteArray()
+  return Buffer.from(bytes)
+}
+
 /** Returns true if an R2 key (not "inline" JSON storage, a legacy /uploads/ path, or an external URL). */
 export function isR2Key(value: string): boolean {
   return value !== 'inline' && !value.startsWith('/') && !value.startsWith('http')

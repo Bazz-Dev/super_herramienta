@@ -105,15 +105,45 @@ export const CONTRACT_TYPE_DOT: Record<ContractTypeId, string> = {
 }
 
 // --- Tipo de documento de técnico ---
-export const DOC_TYPE = ['contrato', 'epp', 'altura', 'antecedentes', 'licencia', 'otro'] as const
+export const DOC_TYPE = ['contrato', 'carnet', 'epp', 'altura', 'antecedentes', 'licencia', 'otro'] as const
 export type DocTypeId = (typeof DOC_TYPE)[number]
 
 export const DOC_TYPE_LABELS: Record<DocTypeId, string> = {
   contrato: 'Contrato de trabajo',
+  carnet: 'Carnet de identidad',
   epp: 'Certificado EPP',
   altura: 'Examen altura geográfica',
   antecedentes: 'Certificado de antecedentes',
   licencia: 'Licencia de conducir',
+  otro: 'Otro documento',
+}
+
+// Documentos que la empresa exige tener siempre al día por técnico — base
+// para acreditarlo ante plataformas de proveedores/clientes. "carnet" exige
+// las 2 caras (Frontal/Reverso vía el campo `label` libre, sin duplicar el
+// enum) — el resto solo necesita al menos un documento subido de ese tipo.
+export const MANDATORY_DOC_TYPES: DocTypeId[] = ['contrato', 'carnet', 'altura']
+
+export function mandatoryDocChecklist(docs: { type: string; label: string | null }[]) {
+  return MANDATORY_DOC_TYPES.map((type) => {
+    if (type === 'carnet') {
+      const carnetDocs = docs.filter((d) => d.type === 'carnet')
+      const hasFrontal = carnetDocs.some((d) => d.label?.toLowerCase().includes('frontal'))
+      const hasReverso = carnetDocs.some((d) => d.label?.toLowerCase().includes('reverso'))
+      return { type, label: DOC_TYPE_LABELS[type], complete: hasFrontal && hasReverso, detail: `${hasFrontal ? '✓' : '✗'} Frontal · ${hasReverso ? '✓' : '✗'} Reverso` }
+    }
+    return { type, label: DOC_TYPE_LABELS[type], complete: docs.some((d) => d.type === type), detail: null }
+  })
+}
+
+// --- Tipo de documento de empresa (reglamento, mutualidad, etc.) ---
+export const COMPANY_DOC_TYPE = ['reglamento', 'mutualidad', 'procedimiento', 'otro'] as const
+export type CompanyDocTypeId = (typeof COMPANY_DOC_TYPE)[number]
+
+export const COMPANY_DOC_TYPE_LABELS: Record<CompanyDocTypeId, string> = {
+  reglamento: 'Reglamento interno',
+  mutualidad: 'Mutualidad',
+  procedimiento: 'Procedimiento interno',
   otro: 'Otro documento',
 }
 

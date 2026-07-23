@@ -33,7 +33,7 @@ export default async function VehiculosPage({ searchParams }: { searchParams: Pr
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/recursos" className="text-xs text-gray-400 hover:text-gray-600">← Recursos</Link>
+          <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600">← Dashboard</Link>
           <h1 className="text-2xl font-bold">Vehículos</h1>
           <p className="mt-0.5 text-sm text-gray-500">
             {vehicles.length} camioneta{vehicles.length !== 1 ? 's' : ''}

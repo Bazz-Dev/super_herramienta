@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { DOC_TYPE, DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
+import { DOC_TYPE, DOC_TYPE_LABELS, mandatoryDocChecklist, type DocTypeId } from '@/lib/resources/labels'
 import { deleteDocument } from '@/app/(app)/recursos/tecnicos/actions'
 import { Spinner } from '@/components/ui/spinner'
 
@@ -95,6 +95,9 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
     })
   }
 
+  const checklist = mandatoryDocChecklist(docs)
+  const allComplete = checklist.every((c) => c.complete)
+
   return (
     <div className="mt-8 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
@@ -106,12 +109,35 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
             </span>
           )}
         </h2>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-md bg-brand px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brand-600"
-        >
-          {showForm ? 'Cancelar' : '+ Subir documento'}
-        </button>
+        <div className="flex items-center gap-2">
+          <a
+            href={`/api/technicians/${technicianId}/documents/zip`}
+            className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Descargar ZIP
+          </a>
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-md bg-brand px-2.5 py-1 text-xs font-semibold text-ink hover:bg-brand-600"
+          >
+            {showForm ? 'Cancelar' : '+ Subir documento'}
+          </button>
+        </div>
+      </div>
+
+      {/* Checklist de documentos obligatorios — base para acreditar al técnico
+          ante plataformas de proveedores/clientes (permisos de ingreso a faenas). */}
+      <div className={`mb-4 rounded-lg border px-3 py-2.5 ${allComplete ? 'border-ok-200 bg-ok-50' : 'border-warn-200 bg-warn-50'}`}>
+        <p className={`mb-1.5 text-xs font-semibold ${allComplete ? 'text-ok-700' : 'text-warn-700'}`}>
+          {allComplete ? '✓ Documentación obligatoria completa' : 'Documentación obligatoria'}
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {checklist.map((c) => (
+            <span key={c.type} className={`text-xs ${c.complete ? 'text-ok-700' : 'text-gray-500'}`}>
+              {c.complete ? '✓' : '✗'} {c.label}{c.detail ? ` (${c.detail})` : ''}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Upload form */}
@@ -132,13 +158,25 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Nombre personalizado</label>
-              <input
-                type="text"
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="Ej. Examen altura 2026"
-                className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-brand focus:outline-none"
-              />
+              {type === 'carnet' ? (
+                <select
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  className="w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm focus:border-brand focus:outline-none"
+                >
+                  <option value="">— Selecciona el lado —</option>
+                  <option value="Frontal">Frontal</option>
+                  <option value="Reverso">Reverso</option>
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Ej. Examen altura 2026"
+                  className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-brand focus:outline-none"
+                />
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Vencimiento</label>

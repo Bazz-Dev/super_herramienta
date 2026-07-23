@@ -53,11 +53,35 @@ enum ContractType {
 
 enum DocType {
   contrato
+  carnet
   epp
   altura
   antecedentes
   licencia
   otro
+}
+
+// Documentos a nivel empresa (reglamento, mutualidad, procedimiento interno) —
+// no van por técnico ni por cliente, son tenant-wide. Mismo shape que
+// TechnicianDocument a propósito (reutiliza el mismo patrón de subida a R2).
+enum CompanyDocType {
+  reglamento
+  mutualidad
+  procedimiento
+  otro
+}
+
+model CompanyDocument {
+  id         String         @id @default(cuid())
+  tenantId   String
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type       CompanyDocType @default(otro)
+  label      String?
+  fileUrl    String
+  uploadedAt DateTime       @default(now())
+
+  @@index([tenantId])
+  @@map("company_documents")
 }
 
 enum ExpenseCategory {
@@ -93,6 +117,7 @@ model Tenant {
   clients       Client[]
   leaveRequests LeaveRequest[]
   payrolls      Payroll[]
+  companyDocuments CompanyDocument[]
 
   @@map("tenants")
 }

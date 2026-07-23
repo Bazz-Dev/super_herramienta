@@ -32,6 +32,14 @@ Multi-tenant ligero (INGEGAR + clientes). UI en español, código en inglés.
 > `assignedToId`). `pdf-to-img`/`pdfjs-dist` movidos a dependencia real + `serverExternalPackages` en
 > `next.config.ts` — Turbopack no puede bundlear el worker de `pdfjs-dist` (rompía tanto `next dev` como
 > `next build`); la migración `otFileUrl` es local únicamente, falta el script additivo contra Turso prod.
+> **Nuevo v1.13 (jul-2026)**: Base documental por técnico + empresa — `DocType` gana `carnet` (2 caras vía `label`),
+> `MANDATORY_DOC_TYPES` + checklist ✓/✗ en la ficha de técnico, descarga en ZIP por técnico (botón en la card del
+> listado y en la ficha) y por empresa (`CompanyDocument`, modelo nuevo, página `/recursos/empresa`) — uso real:
+> acreditar al técnico/empresa ante plataformas de proveedores/clientes que piden esta base documental para
+> autorizar el ingreso a faenas. Navegación: Técnicos/Clientes/Vehículos/Herramientas/Empresa pasan a ser ítems
+> propios del sidebar (antes agrupados bajo un único link "Inventario"); Cuadrillas sin punto de entrada (sin uso
+> real, decisión del dueño, modelo intacto). El técnico sigue viendo solo sus propios documentos (ya existía en
+> `/mi-panel/rrhh`) — el admin es quien sube todo, decisión explícita distinta al autoservicio de la OT.
 
 ---
 
@@ -198,12 +206,21 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 - `requireActor` actualizado para aceptar `allowedRoles?: Role[]` — redirige a `/dashboard` si el rol no está permitido.
 
 ### Módulo Recursos (`src/lib/resources/`, `/recursos`)
-- 5 entidades CRUD scoped por tenant: **Técnicos**, **Vehículos**, **Activos**, **Cuadrillas**, **Clientes**.
+- 5 entidades CRUD scoped por tenant: **Técnicos**, **Vehículos**, **Activos**, **Cuadrillas** (sin punto de entrada en nav — ver abajo), **Clientes**.
 - Patrón: `lib/resources/<entidad>.ts` + `actions.ts` (`'use server'`) + páginas + form component.
+- **Navegación (jul-2026)**: Técnicos/Clientes/Vehículos/Herramientas("Activos")/Empresa son ítems propios del sidebar (sección "Recursos"), ya no pasan por una landing intermedia — `/recursos` es solo un `redirect()` a `/recursos/activos` para bookmarks viejos. Cuadrillas deliberadamente sin link en ningún lado (módulo sin uso real, decisión del dueño) — rutas y modelo `Crew` intactos, reversible.
 - **Inventario**: Técnico ↔ Camioneta (1:1, `Vehicle.technicianId @unique`); Camioneta → Activos (1:N). `freeTechnician()` libera al asignar a otra camioneta.
 - **Técnicos — ContractType enum**: `indefinido | plazo_fijo | ayudante | no_renovado | despedido`. Los dos últimos = desvinculados, se muestran en sección separada en la lista y auto-inactivan al seleccionarlos. Arrays `CONTRACT_TYPE_ACTIVE` / `CONTRACT_TYPE_TERMINATED` en `labels.ts`.
 - **Clientes**: `portalSlug` (único) activa el portal; `portalTheme` solo guarda `primary` (bg/card/text son hardcoded claros). `label` (principal/ocasional/prospecto/inactivo/proyecto). `clientRuts[]` (múltiples RUTs por cliente).
 - `labels.ts` — todos los mapas de badges/dots/cards por tipo. `schemas.ts` — Zod inputs.
+
+### Base documental — técnico + empresa (jul-2026)
+- **`TechnicianDocument`** (`type: DocType` — `contrato/carnet/epp/altura/antecedentes/licencia/otro`, `label` libre, `expiryDate` opcional): ya existía; se agregó `carnet`. `MANDATORY_DOC_TYPES` (`labels.ts`) = `contrato/carnet/altura` — "obligatorio" es una constante TS, no un campo en el modelo. `carnet` exige 2 caras (Frontal/Reverso vía `label`, sin duplicar el enum) — el selector de "Nombre personalizado" se vuelve un `<select>` Frontal/Reverso cuando `type === 'carnet'`. `mandatoryDocChecklist(docs)` calcula el ✓/✗ por tipo, mostrado en la ficha del técnico (`doc-section.tsx`) y determina si la documentación está completa.
+- **`CompanyDocument`** (nuevo modelo, tenant-wide — reglamento/mutualidad/procedimiento/otro): mismo patrón de subida que técnico (`POST/DELETE /api/company-documents`, gated `super`+`supervisor`), página propia `/recursos/empresa`.
+- **Descarga en ZIP**: `src/lib/zip.ts` (`buildZipFromR2Keys`) — compartido entre `GET /api/technicians/[id]/documents/zip` y `GET /api/company-documents/zip`. Usa `archiver` (dependencia real, no dev — **pineado en `^7`, no `^8`**: v8 reescribió la API a clases ESM-only y hubiera repetido el susto de build que tuvo `pdf-to-img` el mismo día — v7 es la API clásica `archiver('zip', opts)`, madura, sin binarios nativos, no necesitó `serverExternalPackages`). `getObjectBuffer()` nuevo en `r2.ts` (baja bytes completos, para armar el ZIP — antes solo existían `uploadToR2`/URLs firmadas).
+- **Técnico ve solo lo suyo**: `/mi-panel/rrhh` ya mostraba "Mis documentos" de solo lectura antes de este trabajo (`technicianId: actor.technicianId`) — decisión explícita del dueño: el técnico NO sube sus propios documentos obligatorios (a diferencia de la OT), el admin sube todo desde la ficha.
+- `/api/files?type=company` — nueva rama en la ruta de descarga firmada existente (junto a `ticket`/`technician`), valida `CompanyDocument.tenantId`.
+- Migración `add_carnet_and_company_documents` es aditiva (tabla nueva + valor de enum, SQLite no impone constraint de enum) — local únicamente, falta el script additivo contra Turso.
 
 ### Módulo Cronograma (`/cronograma` — top-level)
 - Modelo `Assignment` (status + permissionRequested + clientId + meetingUrl) + `AssignmentAssignee` (M:N técnico↔asignación, rol `tecnico|ayudante`).
@@ -271,25 +288,14 @@ Esta empresa maneja datos sensibles de clientes reales. Perder datos = pérdida 
 13. ✅ **KPIs con comparación de período** — `PeriodFilter` (`src/components/cashflow/period-filter.tsx`) generalizado con `basePath` + selector de mes/año calendario específico, reutilizado en `/flujo` y `/dashboard`. `KpiCard` acepta `delta` (▲/▼ % vs período anterior). `/dashboard` suma una sección "Resumen del período" (facturación + tickets resueltos, comparados) que antes no existía.
 14. ✅ **Estadísticas por técnico** — card "Productividad" en la ficha de técnico (`/recursos/tecnicos/[id]`): trabajos completados + horas totales (de `Assignment.start`/`end`) + gráfico de barras de las últimas 8 semanas (`computeWeeklyProductivity()`, mismo patrón tabla+`width:%` que `MonthlyTrend`). Vista individual únicamente — no hay comparativa entre técnicos todavía.
 15. ✅ **OT en PDF real + repaso visual del Informe Técnico** — ver "Nuevo v1.12" arriba y "Módulo Tickets"/"Módulo Informe Técnico" para el detalle técnico.
+16. ✅ **Base documental por técnico + empresa + navegación** — ver "Nuevo v1.13" arriba y "Base documental — técnico + empresa" para el detalle técnico. Queda pendiente (decisión de negocio, no técnica): firma de anexos vía FES para "conocimiento de procedimiento seguro" — decidido reutilizar FES, no construido aún.
 
 **Próximos (sugeridos en orden de valor):**
 - Estadísticas por técnico: vista comparativa/global (hoy solo existe por técnico individual).
-- Base documental por técnico + empresa con descarga en ZIP (requerimiento nuevo, jul-2026 — ver nota abajo).
+- Firma de anexos de empresa (reglamento, procedimientos) vía FES — vincular `SignatureRequest` a `CompanyDocument`.
 
 Ya hecho (verificado 2026-07-21 contra Turso prod, no listar de nuevo como pendiente):
 - Import histórico Flujo de Caja (`scripts/import-flujo.ts`) — Turso prod ya tiene 205 jobs de Just Burger + 1 Decathlon + 1 Unity (con `importRef`), total 207, coincide exacto con lo que produce el script leyendo los 3 Excel fuente hoy. Roadmap quedó desactualizado, no era trabajo real pendiente.
-
-### Pendiente de diseño — Base documental por técnico/empresa (jul-2026, no iniciado)
-Pedido explícito del dueño, aún sin plan: cada card de técnico (hoy en `/recursos/tecnicos`) debe poder subir sus
-documentos obligatorios (contrato, carnet ambos lados, certificado de altura, anexos firmados, etc.) y el admin
-poder descargar un ZIP por técnico bajo demanda — uso real: acreditar al técnico ante plataformas de proveedores/
-clientes que piden esta base documental para autorizar el ingreso a faenas. También documentos a nivel empresa
-(procedimiento interno, mutualidad, reglamento). El técnico debe ver solo sus propios documentos desde `/mi-panel`.
-Pedido de navegación asociado: sacar **Técnicos**, **Clientes** y **Vehículos** de "Inventario" a ítems propios del
-sidebar (más visual/accesible); Inventario queda solo con Herramientas/Activos por ahora. `TechnicianDocument` ya
-existe en el schema (usado hoy por RR.HH. para documentos generales del técnico, sube a R2 vía
-`api/technicians/[id]/documents`) — punto de partida a evaluar, no necesariamente alcanza tal cual para "obligatorio
-vs opcional" + firma + selección para ZIP.
 
 Ya implementados (no listar de nuevo como pendiente):
 - Alertas automáticas de seguimiento en Pipeline (`/api/cron/pipeline-alerts`, propuesta enviada/vista > 7 días sin respuesta o `followUpAt` vencido → push a staff).

@@ -57,8 +57,8 @@ export default async function TecnicosPage({
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/recursos" className="text-xs text-gray-400 hover:text-gray-600">
-            ← Recursos
+          <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600">
+            ← Dashboard
           </Link>
           <h1 className="text-2xl font-bold">Técnicos</h1>
         </div>
@@ -229,12 +229,21 @@ export default async function TecnicosPage({
                       <span className="text-xs text-gray-400">
                         {t._count.crews} cuadrilla{t._count.crews !== 1 ? 's' : ''}
                       </span>
-                      <Link
-                        href={`/recursos/tecnicos/${t.id}`}
-                        className="rounded-md border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
-                      >
-                        Ver ficha →
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`/api/technicians/${t.id}/documents/zip`}
+                          title={`Descargar documentos de ${t.name} (ZIP)`}
+                          className="rounded-md border border-gray-300 px-2.5 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                        >
+                          ZIP
+                        </a>
+                        <Link
+                          href={`/recursos/tecnicos/${t.id}`}
+                          className="rounded-md border border-gray-300 px-4 py-2 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                        >
+                          Ver ficha →
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>

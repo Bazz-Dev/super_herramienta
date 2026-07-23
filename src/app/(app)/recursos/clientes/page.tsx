@@ -31,8 +31,8 @@ export default async function ClientesPage({
     <div className="mx-auto max-w-5xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/recursos" className="text-xs text-gray-400 hover:text-gray-600">
-            ← Recursos
+          <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600">
+            ← Dashboard
           </Link>
           <h1 className="text-2xl font-bold">Clientes</h1>
         </div>
