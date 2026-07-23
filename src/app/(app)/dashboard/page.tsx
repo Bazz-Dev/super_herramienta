@@ -246,7 +246,7 @@ export default async function DashboardPage({
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">Resumen del período</h2>
-          <Suspense fallback={null}><PeriodFilter basePath="/dashboard" /></Suspense>
+          <Suspense fallback={null}><PeriodFilter basePath="/dashboard" active={periodo} /></Suspense>
         </div>
         {periodMetrics ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

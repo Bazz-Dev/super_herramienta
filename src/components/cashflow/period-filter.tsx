@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 const PERIODS = [
@@ -14,10 +15,18 @@ const MONTHS = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ]
 
-export function PeriodFilter({ basePath = '/flujo' }: { basePath?: string }) {
+export function PeriodFilter({
+  basePath = '/flujo',
+  active: activeProp,
+}: {
+  basePath?: string
+  active?: string
+}) {
   const router = useRouter()
   const params = useSearchParams()
-  const active = params.get('periodo') ?? '12m'
+  // activeProp viene del server (searchParams del page) — más fiable que
+  // useSearchParams() durante la hidratación inicial.
+  const active = activeProp ?? params.get('periodo') ?? '12m'
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
@@ -26,10 +35,14 @@ export function PeriodFilter({ basePath = '/flujo' }: { basePath?: string }) {
   const specificYear = specificMatch?.[1] ?? ''
   const specificMonth = specificMatch?.[2] ?? ''
 
-  function select(value: string) {
+  function buildUrl(value: string) {
     const next = new URLSearchParams(params.toString())
     next.set('periodo', value)
-    router.push(`${basePath}?${next.toString()}`)
+    return `${basePath}?${next.toString()}`
+  }
+
+  function select(value: string) {
+    router.push(buildUrl(value))
   }
 
   function selectYear(year: string) {
@@ -45,9 +58,9 @@ export function PeriodFilter({ basePath = '/flujo' }: { basePath?: string }) {
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex flex-wrap gap-1">
         {PERIODS.map((p) => (
-          <button
+          <Link
             key={p.value}
-            onClick={() => select(p.value)}
+            href={buildUrl(p.value)}
             className={`interactive min-h-11 rounded-md px-2.5 text-xs font-medium transition-colors ${
               active === p.value
                 ? 'bg-brand text-ink'
@@ -55,7 +68,7 @@ export function PeriodFilter({ basePath = '/flujo' }: { basePath?: string }) {
             }`}
           >
             {p.label}
-          </button>
+          </Link>
         ))}
       </div>
       <div className="flex gap-1">

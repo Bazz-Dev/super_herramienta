@@ -94,7 +94,7 @@ export default async function FlujoPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Suspense fallback={null}><PeriodFilter /></Suspense>
+          <Suspense fallback={null}><PeriodFilter active={periodo} /></Suspense>
           <ClientFilter clients={clients} />
           <Link
             href="/flujo/trabajos"
