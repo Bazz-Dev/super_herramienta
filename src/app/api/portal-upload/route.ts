@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { getPresignedPutUrl } from '@/lib/r2'
+import { uploadToR2 } from '@/lib/r2'
 
 export const runtime = 'nodejs'
 
@@ -26,29 +26,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { filename?: string; mimeType?: string }
+  let form: FormData
   try {
-    body = await req.json()
+    form = await req.formData()
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
   }
 
-  const { filename, mimeType } = body
-  if (!filename || !mimeType) {
-    return NextResponse.json({ error: 'Missing filename or mimeType' }, { status: 400 })
+  const file = form.get('file')
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: 'Missing file' }, { status: 400 })
   }
 
+  const mimeType = file.type || 'application/octet-stream'
   if (!isAllowedMimeType(mimeType)) {
     return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 400 })
   }
 
-  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100)
+  const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100)
   const key = `portal/${session.user.tenantId}/${session.user.id}/${Date.now()}-${safeFilename}`
 
   try {
-    const url = await getPresignedPutUrl(key, mimeType, 300)
-    return NextResponse.json({ url, key })
+    const buffer = Buffer.from(await file.arrayBuffer())
+    await uploadToR2(key, buffer, mimeType)
+    return NextResponse.json({ key })
   } catch {
-    return NextResponse.json({ error: 'Error generando URL de subida' }, { status: 503 })
+    return NextResponse.json({ error: 'Error al subir el archivo' }, { status: 503 })
   }
 }

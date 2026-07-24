@@ -12,15 +12,11 @@ type UploadedFile = { key: string; name: string; mimeType: string }
 async function uploadFiles(files: File[]): Promise<UploadedFile[]> {
   const results: UploadedFile[] = []
   for (const file of files) {
-    const res = await fetch('/api/portal-upload', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream' }),
-    })
-    if (!res.ok) throw new Error(`Error al preparar subida de ${file.name}`)
-    const { url, key } = await res.json()
-    const putRes = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } })
-    if (!putRes.ok) throw new Error(`Error al subir ${file.name}`)
+    const fd = new FormData()
+    fd.set('file', file)
+    const res = await fetch('/api/portal-upload', { method: 'POST', body: fd })
+    if (!res.ok) throw new Error(`Error al subir ${file.name}`)
+    const { key } = await res.json()
     results.push({ key, name: file.name, mimeType: file.type })
   }
   return results

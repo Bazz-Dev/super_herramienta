@@ -319,16 +319,12 @@ function DocCard({
 // ─── Drag & drop upload — para documentos previos a "guardar en carpeta" ──────
 
 async function uploadOne(clientId: string, file: File): Promise<Doc> {
-  const prep = await fetch('/api/client-documents/upload-url', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ clientId, filename: file.name, mimeType: file.type || 'application/octet-stream' }),
-  })
-  if (!prep.ok) throw new Error(`No se pudo preparar la subida de ${file.name}`)
-  const { url, key } = await prep.json()
-
-  const put = await fetch(url, { method: 'PUT', body: file, headers: { 'Content-Type': file.type || 'application/octet-stream' } })
-  if (!put.ok) throw new Error(`Error al subir ${file.name}`)
+  const fd = new FormData()
+  fd.set('clientId', clientId)
+  fd.set('file', file)
+  const prep = await fetch('/api/client-documents/upload-url', { method: 'POST', body: fd })
+  if (!prep.ok) throw new Error(`Error al subir ${file.name}`)
+  const { key } = await prep.json()
 
   const title = file.name.replace(/\.[^.]+$/, '')
   const create = await fetch('/api/client-documents', {
