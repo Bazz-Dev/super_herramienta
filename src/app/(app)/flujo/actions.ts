@@ -8,6 +8,7 @@ import { tenantScope } from '@/lib/tenant'
 import { branchInput, jobInput, jobCostInput, jobQuickEditInput } from '@/lib/cashflow/schemas'
 import { fromDateInput } from '@/lib/cashflow/dates'
 import { deriveJobStatus, deriveCollectionStatus } from '@/lib/cashflow/derive-legacy-status'
+import { generateJobCode, clientCodeFrom, JOB_TYPE_CODE } from '@/lib/cashflow/generate-code'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -92,7 +93,7 @@ export async function createJob(_prev: FormState, form: FormData): Promise<FormS
   const u = await requireActor(['super', 'supervisor'])
   const parsed = jobInput.safeParse(Object.fromEntries(form))
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
-  const client = await prisma.client.findFirst({ where: { id: parsed.data.clientId, ...tenantScope(u) }, select: { id: true } })
+  const client = await prisma.client.findFirst({ where: { id: parsed.data.clientId, ...tenantScope(u) }, select: { id: true, name: true } })
   if (!client) return { error: 'Cliente no válido.' }
   const branch = await prisma.branch.findFirst({ where: { id: parsed.data.branchId, clientId: client.id, ...tenantScope(u) }, select: { id: true } })
   if (!branch) return { error: 'Sucursal no válida.' }
@@ -110,10 +111,12 @@ export async function createJob(_prev: FormState, form: FormData): Promise<FormS
     const doc = await prisma.clientDocument.findFirst({ where: { id: originProposalId, tenantId: u.tenantId, type: 'propuesta' }, select: { id: true } })
     if (!doc) return { error: 'Propuesta origen no válida.' }
   }
+  const code = await generateJobCode(clientCodeFrom(client.name), JOB_TYPE_CODE[parsed.data.type] ?? 'OT', parsed.data.executionDate || null)
   const job = await prisma.job.create({
     data: {
       tenantId: u.tenantId,
       clientId: parsed.data.clientId,
+      code,
       ...jobData(parsed.data),
       ...(originTicketId ? { originTicketId } : {}),
       ...(originProposalId ? { originProposalId } : {}),
@@ -187,18 +190,38 @@ export async function quickUpdateJob(id: string, form: FormData): Promise<{ erro
   return {}
 }
 
-// Botón de estado de pago del acordeón — alterna pagado/pendiente de pago.
-export async function toggleJobPaid(id: string) {
+// Botón de estado de pago del acordeón — mark/revert son dos acciones
+// separadas (no un toggle de un clic): marcar pagada pide fecha/medio de
+// pago, revertir pide solo confirmación. Es dinero real, no un checkbox.
+export async function markJobPaid(id: string, form: FormData) {
   const u = await requireActor(['super', 'supervisor'])
-  const job = await prisma.job.findFirst({ where: { id, ...tenantScope(u) }, select: { financialStage: true, operationalStage: true, nonBillable: true } })
+  const job = await prisma.job.findFirst({ where: { id, ...tenantScope(u) }, select: { operationalStage: true, nonBillable: true } })
   if (!job) return
-  const financialStage = job.financialStage === 'paid' ? 'payment_pending' : 'paid'
+  const paymentDate = fromDateInput(form.get('paymentDate') as string) ?? new Date()
+  const paymentMethodRaw = (form.get('paymentMethodRaw') as string | null)?.trim() || null
   await prisma.job.updateMany({
     where: { id, ...tenantScope(u) },
     data: {
-      financialStage,
-      collectionStatus: deriveCollectionStatus(financialStage),
-      paymentDate: financialStage === 'paid' ? new Date() : null,
+      financialStage: 'paid',
+      collectionStatus: deriveCollectionStatus('paid'),
+      paymentDate,
+      paymentMethodRaw,
+      status: deriveJobStatus(job.operationalStage, job.nonBillable),
+    },
+  })
+  revalidatePath('/flujo')
+}
+
+export async function markJobPending(id: string) {
+  const u = await requireActor(['super', 'supervisor'])
+  const job = await prisma.job.findFirst({ where: { id, ...tenantScope(u) }, select: { operationalStage: true, nonBillable: true } })
+  if (!job) return
+  await prisma.job.updateMany({
+    where: { id, ...tenantScope(u) },
+    data: {
+      financialStage: 'payment_pending',
+      collectionStatus: deriveCollectionStatus('payment_pending'),
+      paymentDate: null,
       status: deriveJobStatus(job.operationalStage, job.nonBillable),
     },
   })

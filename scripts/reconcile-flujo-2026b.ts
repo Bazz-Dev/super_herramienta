@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs'
 import { prisma } from '../src/lib/prisma.js'
 import { normalizeBranchName, normalizeType } from '../src/lib/cashflow/normalize.js'
 import { deriveJobStatus, deriveCollectionStatus } from '../src/lib/cashflow/derive-legacy-status.js'
+import { generateJobCode, JOB_TYPE_CODE } from '../src/lib/cashflow/generate-code.js'
 import type {
   ProcessFlow, CommercialStage, OperationalStage, DocumentationStage, FinancialStage,
 } from '../src/generated/prisma/enums.js'
@@ -90,7 +91,7 @@ const CLIENT_MAP: Record<string, { name: string; code: string; importPrefix: str
   'JLL':         { name: 'Alcon Laboratorios Chile (JLL)', code: 'JLL', importPrefix: null as unknown as string },
 }
 
-const TYPE_CODE: Record<string, string> = { requerimiento: 'RQ', emergencia: 'EM', preventivo: 'PR', proyecto: 'PY', otro: 'OT' }
+const TYPE_CODE = JOB_TYPE_CODE
 
 // Registros con datos rotos que NO se auto-procesan — ver spec, sección "Requiere revisión manual".
 const BROKEN_IDS = new Set(['IMP-PAN-0007', '260528-DC-RQ-02', 'SIN CENTRO DE COSTO-25'])
@@ -118,29 +119,6 @@ function parseIsoDate(v: string | undefined | null): Date | null {
 }
 
 const codeSeqCache = new Map<string, number>()
-async function generateCode(clientCode: string, typeCode: string, dateStr: string | null): Promise<string> {
-  if (!dateStr) {
-    const prefix = `IMP-${clientCode}-`
-    let seq = codeSeqCache.get(prefix)
-    if (seq == null) {
-      const existing = await prisma.job.findMany({ where: { code: { startsWith: prefix } }, select: { code: true } })
-      seq = existing.reduce((max, e) => Math.max(max, Number(e.code!.slice(prefix.length)) || 0), 0)
-    }
-    seq += 1
-    codeSeqCache.set(prefix, seq)
-    return `${prefix}${String(seq).padStart(4, '0')}`
-  }
-  const yymmdd = dateStr.slice(2).replace(/-/g, '')
-  const prefix = `${yymmdd}-${clientCode}-${typeCode}-`
-  let seq = codeSeqCache.get(prefix)
-  if (seq == null) {
-    const existing = await prisma.job.findMany({ where: { code: { startsWith: prefix } }, select: { code: true } })
-    seq = existing.reduce((max, e) => Math.max(max, Number(e.code!.slice(prefix.length)) || 0), 0)
-  }
-  seq += 1
-  codeSeqCache.set(prefix, seq)
-  return `${prefix}${String(seq).padStart(2, '0')}`
-}
 
 function normalizedClientName(raw: string): string {
   return raw.trim().toUpperCase().replace(/\s+(SPA|LTDA|S\.A\.|CHILE)\.?$/g, '').replace(/\s+/g, ' ')
@@ -286,7 +264,7 @@ async function applyUpdate(jobId: string, j: SourceJob) {
   const nonBillable = !!j.nonBillable
 
   const type = normalizeType(j.workflowType)
-  const code = existing.code ?? (await generateCode(CLIENT_MAP[j.client].code, TYPE_CODE[type], j.requestDate || j.executionDate || null))
+  const code = existing.code ?? (await generateJobCode(CLIENT_MAP[j.client].code, TYPE_CODE[type], j.requestDate || j.executionDate || null, codeSeqCache))
 
   await withRetry(() => prisma.job.update({
     where: { id: jobId },
@@ -362,7 +340,7 @@ async function applyInsert(tenantId: string, clientIdMap: Record<string, string 
   const processFlow = safeEnum(PROCESS_FLOWS, j.processFlow, 'pre_quote')
   const nonBillable = !!j.nonBillable
   const type = normalizeType(j.workflowType)
-  const code = await generateCode(mapped.code, TYPE_CODE[type], j.requestDate || j.executionDate || null)
+  const code = await generateJobCode(mapped.code, TYPE_CODE[type], j.requestDate || j.executionDate || null, codeSeqCache)
 
   await withRetry(() => prisma.job.create({
     data: {
