@@ -23,16 +23,17 @@ import { RevenueByClient } from '@/components/cashflow/revenue-by-client'
 import { MonthlyTrend } from '@/components/cashflow/monthly-trend'
 import { JobAccordion } from '@/components/cashflow/job-accordion'
 import { JOB_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '@/lib/cashflow/labels'
+import { MAIN_STATUS_CHIPS, mainStatusCounts, matchesMainStatus, type MainStatus } from '@/lib/cashflow/job-presets'
 import { Suspense } from 'react'
 
 export default async function FlujoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cliente?: string; periodo?: string }>
+  searchParams: Promise<{ cliente?: string; periodo?: string; estado?: string }>
 }) {
   const session = await auth()
   const actor = session!.user
-  const { cliente, periodo } = await searchParams
+  const { cliente, periodo, estado } = await searchParams
   const { from, to, prevFrom, prevTo, deltaLabel } = periodRange(periodo)
 
   const [clients, jobs, allJobs, monthlyJobs, expensesByCategory, expensesPending, prevJobs] = await Promise.all([
@@ -78,6 +79,25 @@ export default async function FlujoPage({
     jobs.length > 0
       ? Math.round((m.facturado + m.sinOcBacklog) / jobs.length)
       : null
+
+  // Status-strip + reminder-bar del prototipo (renderDashboard final) — 5
+  // chips (Todos/Pagadas/Pendientes de pago/Ejecutadas sin OC/No aprobadas)
+  // + 3 atajos (Vencidas/Vencen en 7 días/Ejecutadas sin OC), todos filtran
+  // la lista de trabajos de abajo. Ver src/lib/cashflow/job-presets.ts.
+  const jobsTyped = jobs as unknown as Parameters<typeof mainStatusCounts>[0]
+  const statusCounts = mainStatusCounts(jobsTyped)
+  const activeStatus: MainStatus | 'overdue' = (['all', 'paid', 'pending', 'no_po', 'rejected', 'overdue'] as const).includes(estado as never)
+    ? (estado as MainStatus | 'overdue')
+    : 'all'
+  const now = new Date()
+  const visibleJobs = activeStatus === 'all' ? jobsTyped : jobsTyped.filter((j) => matchesMainStatus(j, activeStatus, now))
+  const statusHref = (key: string) => {
+    const p = new URLSearchParams()
+    if (cliente) p.set('cliente', cliente)
+    if (periodo) p.set('periodo', periodo)
+    if (key !== 'all') p.set('estado', key)
+    return `/flujo?${p.toString()}`
+  }
 
   const totalExpensesApproved = expensesByCategory.reduce((s, e) => s + (e._sum.amount ?? 0), 0)
   const pendingExpenseCount = expensesPending._count.id
@@ -172,8 +192,48 @@ export default async function FlujoPage({
 
       {/* Trabajos, agrupados por cliente → período */}
       <div className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Trabajos</h2>
-        <JobAccordion jobs={jobs as unknown as Parameters<typeof JobAccordion>[0]['jobs']} />
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-ink">Trabajos</h2>
+          <Link href="/flujo/trabajos" className="text-xs font-semibold text-brand hover:underline">
+            Ver todos / reportes →
+          </Link>
+        </div>
+
+        {/* Status-strip */}
+        <div className="mb-2 flex flex-wrap gap-2">
+          {MAIN_STATUS_CHIPS.map((c) => (
+            <Link
+              key={c.key}
+              href={statusHref(c.key)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                activeStatus === c.key ? 'border-brand bg-brand/15 text-ink' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {c.label}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeStatus === c.key ? 'bg-brand text-ink' : 'bg-gray-100 text-gray-500'}`}>
+                {statusCounts[c.key]}
+              </span>
+            </Link>
+          ))}
+        </div>
+
+        {/* Reminder-bar: 3 atajos con foco en urgencia */}
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <Link href={statusHref('overdue')} className={`rounded-lg border px-3 py-2 text-left transition-colors ${activeStatus === 'overdue' ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+            <p className="text-xs text-gray-500">Facturas vencidas</p>
+            <p className="text-lg font-bold text-red-700">{statusCounts.overdue}</p>
+          </Link>
+          <Link href={statusHref('pending')} className={`rounded-lg border px-3 py-2 text-left transition-colors ${activeStatus === 'pending' ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+            <p className="text-xs text-gray-500">Vencen en 7 días</p>
+            <p className="text-lg font-bold text-amber-700">{statusCounts.due7}</p>
+          </Link>
+          <Link href={statusHref('no_po')} className={`rounded-lg border px-3 py-2 text-left transition-colors ${activeStatus === 'no_po' ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+            <p className="text-xs text-gray-500">Ejecutadas sin OC</p>
+            <p className="text-lg font-bold text-yellow-700">{statusCounts.no_po}</p>
+          </Link>
+        </div>
+
+        <JobAccordion jobs={visibleJobs as unknown as Parameters<typeof JobAccordion>[0]['jobs']} />
       </div>
 
       {/* D. Por cliente (solo cuando no hay filtro activo y hay >1 cliente) */}
