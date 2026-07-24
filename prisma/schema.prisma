@@ -433,6 +433,50 @@ enum CostCategory {
   otros
 }
 
+// --- Flujo de Caja v2: pistas de estado en paralelo (ver
+// docs/superpowers/specs/2026-07-24-flujo-caja-job-schema-design.md) ---
+
+enum ProcessFlow {
+  pre_quote // Flujo B: se cotiza antes de ejecutar
+  post_execution // Flujo A: se ejecuta primero (emergencia), se valoriza después
+}
+
+enum CommercialStage {
+  intake
+  quote_draft
+  quote_sent
+  valuation_pending // solo Flujo A: ejecutado, aún sin precio
+  approved
+  rejected
+}
+
+enum OperationalStage {
+  pending
+  scheduled
+  in_progress
+  executed
+  client_review
+  closed
+}
+
+enum DocumentationStage {
+  pending
+  partial
+  ready
+  sent
+}
+
+enum FinancialStage {
+  no_po
+  po_requested
+  po_received
+  to_invoice
+  invoiced
+  payment_pending
+  overdue
+  paid
+}
+
 model Branch {
   id        String   @id @default(cuid())
   tenantId  String
@@ -492,6 +536,31 @@ model Job {
   originProposalId  String?
   originProposal    ClientDocument?  @relation("JobFromProposal", fields: [originProposalId], references: [id], onDelete: SetNull)
 
+  // Flujo de Caja v2 — pistas de estado en paralelo. status/collectionStatus
+  // arriba se mantienen como derivados (ver src/lib/cashflow/derive-legacy-status.ts)
+  // para no romper computeMetrics()/dashboard/flujo, que siguen leyéndolos tal cual.
+  code               String?             @unique // YYMMDD-CLI-TT-NN | IMP-CLI-NNNN
+  processFlow        ProcessFlow         @default(pre_quote)
+  commercialStage    CommercialStage     @default(intake)
+  operationalStage   OperationalStage    @default(pending)
+  documentationStage DocumentationStage  @default(pending)
+  financialStage     FinancialStage      @default(no_po)
+
+  docOt              Boolean? // null = sin dato, no "no listo"
+  docPhotos          Boolean?
+  docReport          Boolean?
+  docClientSent      Boolean?
+
+  rejectionReason    String?
+  rejectionDate      DateTime?
+
+  nonBillable        Boolean             @default(false)
+  nonBillableReason  String?
+
+  lastContactDate    DateTime?
+  nextContactDate    DateTime?
+  contactNote        String?
+
   costs             JobCost[]
   ticket            Ticket?
   createdAt         DateTime         @default(now())
@@ -501,6 +570,9 @@ model Job {
   @@index([branchId])
   @@index([originTicketId])
   @@index([originProposalId])
+  @@index([code])
+  @@index([processFlow, commercialStage])
+  @@index([financialStage])
   @@map("jobs")
 }
 
