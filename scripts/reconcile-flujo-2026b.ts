@@ -250,6 +250,7 @@ async function main() {
     } else {
       noMatch++
       inserts.push(j)
+      reviewList.push(`${j.id} (${j.client}): sin match — ${APPLY ? 'insertando…' : 'se insertaría con --apply'}`)
       if (APPLY) await applyInsert(tenant.id, clientIdMap, mapped, j)
     }
   }
