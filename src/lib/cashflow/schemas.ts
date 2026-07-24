@@ -37,6 +37,19 @@ export const jobInput = z.object({
   paymentDate: z.string().optional(),
 })
 
+// Edición rápida desde el acordeón de /flujo — subconjunto de jobInput,
+// sin navegar a la página de detalle.
+export const jobQuickEditInput = z.object({
+  quoteRef: z.string().optional(),
+  code: z.string().optional(),
+  purchaseOrder: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  invoiceDate: z.string().optional(),
+  creditDays: z.coerce.number().int().nonnegative().optional(),
+  netAmount: z.coerce.number().int().nonnegative().optional(),
+  taxAmount: z.coerce.number().int().nonnegative().optional(),
+})
+
 export const jobCostInput = z.object({
   jobId: z.string().min(1),
   category: z.enum(costCategories).default('materiales'),

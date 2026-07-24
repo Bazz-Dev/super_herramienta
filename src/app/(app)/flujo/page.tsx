@@ -21,6 +21,7 @@ import { ClientFilter } from '@/components/cashflow/client-filter'
 import { PeriodFilter } from '@/components/cashflow/period-filter'
 import { RevenueByClient } from '@/components/cashflow/revenue-by-client'
 import { MonthlyTrend } from '@/components/cashflow/monthly-trend'
+import { JobAccordion } from '@/components/cashflow/job-accordion'
 import { JOB_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '@/lib/cashflow/labels'
 import { Suspense } from 'react'
 
@@ -168,6 +169,12 @@ export default async function FlujoPage({
           />
         </div>
       )}
+
+      {/* Trabajos, agrupados por cliente → período */}
+      <div className="mt-6">
+        <h2 className="mb-3 text-sm font-semibold text-ink">Trabajos</h2>
+        <JobAccordion jobs={jobs as unknown as Parameters<typeof JobAccordion>[0]['jobs']} />
+      </div>
 
       {/* D. Por cliente (solo cuando no hay filtro activo y hay >1 cliente) */}
       {!cliente && clientBreakdown.length > 1 && (

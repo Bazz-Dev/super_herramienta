@@ -5,8 +5,9 @@ import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { tenantScope } from '@/lib/tenant'
-import { branchInput, jobInput, jobCostInput } from '@/lib/cashflow/schemas'
+import { branchInput, jobInput, jobCostInput, jobQuickEditInput } from '@/lib/cashflow/schemas'
 import { fromDateInput } from '@/lib/cashflow/dates'
+import { deriveJobStatus, deriveCollectionStatus } from '@/lib/cashflow/derive-legacy-status'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -141,6 +142,47 @@ export async function addCost(form: FormData) {
     },
   })
   revalidatePath(`/flujo/trabajos/${p.jobId}`)
+}
+
+// Edición rápida in-line desde el acordeón de /flujo (no navega, no redirige).
+export async function quickUpdateJob(id: string, form: FormData): Promise<{ error?: string }> {
+  const u = await requireActor(['super', 'supervisor'])
+  const parsed = jobQuickEditInput.safeParse(Object.fromEntries(form))
+  if (!parsed.success) return { error: 'Revisa los campos.' }
+  const p = parsed.data
+  await prisma.job.updateMany({
+    where: { id, ...tenantScope(u) },
+    data: {
+      quoteRef: p.quoteRef ?? null,
+      code: p.code || null,
+      purchaseOrder: p.purchaseOrder ?? null,
+      invoiceNumber: p.invoiceNumber ?? null,
+      invoiceDate: fromDateInput(p.invoiceDate),
+      creditDays: p.creditDays ?? null,
+      netAmount: p.netAmount ?? null,
+      taxAmount: p.taxAmount ?? null,
+    },
+  })
+  revalidatePath('/flujo')
+  return {}
+}
+
+// Botón de estado de pago del acordeón — alterna pagado/pendiente de pago.
+export async function toggleJobPaid(id: string) {
+  const u = await requireActor(['super', 'supervisor'])
+  const job = await prisma.job.findFirst({ where: { id, ...tenantScope(u) }, select: { financialStage: true, operationalStage: true, nonBillable: true } })
+  if (!job) return
+  const financialStage = job.financialStage === 'paid' ? 'payment_pending' : 'paid'
+  await prisma.job.updateMany({
+    where: { id, ...tenantScope(u) },
+    data: {
+      financialStage,
+      collectionStatus: deriveCollectionStatus(financialStage),
+      paymentDate: financialStage === 'paid' ? new Date() : null,
+      status: deriveJobStatus(job.operationalStage, job.nonBillable),
+    },
+  })
+  revalidatePath('/flujo')
 }
 
 export async function deleteCost(id: string, jobId: string) {
