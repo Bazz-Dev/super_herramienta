@@ -5,6 +5,7 @@ import ExcelJS from 'exceljs'
 import { auth } from '@/auth'
 import { listJobs } from '@/lib/cashflow/queries'
 import { JOB_TYPE_LABELS, COLLECTION_LABELS, COST_CATEGORY_LABELS } from '@/lib/cashflow/labels'
+import { matchesReportPreset, type ReportPreset } from '@/lib/cashflow/job-presets'
 
 function clpNum(v: number | null) { return v ?? 0 }
 
@@ -24,11 +25,15 @@ export async function GET(req: NextRequest) {
     collectionStatus: sp.get('estado') ?? undefined,
     tipo: sp.get('tipo') ?? undefined,
     branchId: sp.get('sucursal') ?? undefined,
+    processFlow: sp.get('flujo') ?? undefined,
+    financialStage: sp.get('financiero') ?? undefined,
     from: sp.get('desde') ? new Date(sp.get('desde')!) : undefined,
     to: sp.get('hasta') ? new Date(sp.get('hasta')!) : undefined,
   }
 
-  const jobs = await listJobs(actor, opts)
+  const allJobs = await listJobs(actor, opts)
+  const preset = sp.get('preset') as ReportPreset | null
+  const jobs = preset && preset !== 'all' ? allJobs.filter((j) => matchesReportPreset(j, preset, new Date())) : allJobs
 
   const wb = new ExcelJS.Workbook()
   wb.creator = 'INGEGAR Platform'

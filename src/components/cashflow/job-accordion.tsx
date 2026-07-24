@@ -8,7 +8,8 @@ import { clp } from '@/lib/cashflow/format'
 import { toDateInput } from '@/lib/cashflow/dates'
 import { JOB_TYPE_LABELS } from '@/lib/cashflow/labels'
 import { ProcessFlowChip, FinancialStageChip } from '@/components/cashflow/job-status-chips'
-import { quickUpdateJob, toggleJobPaid } from '@/app/(app)/flujo/actions'
+import { quickUpdateJob, markJobPaid, markJobPending } from '@/app/(app)/flujo/actions'
+import { Modal } from '@/components/resources/modal'
 
 type Job = JobLike & {
   id: string
@@ -95,11 +96,18 @@ export function JobAccordion({ jobs }: { jobs: Job[] }) {
 
 function JobCard({ job }: { job: Job }) {
   const [expanded, setExpanded] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const isPaid = job.financialStage === 'paid'
 
-  function togglePaid(e: React.MouseEvent) {
+  function openConfirm(e: React.MouseEvent) {
     e.stopPropagation()
-    startTransition(() => toggleJobPaid(job.id))
+    setConfirmOpen(true)
+  }
+
+  function revertToPending() {
+    startTransition(() => markJobPending(job.id))
+    setConfirmOpen(false)
   }
 
   return (
@@ -119,13 +127,11 @@ function JobCard({ job }: { job: Job }) {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <button
-            onClick={togglePaid}
+            onClick={openConfirm}
             disabled={isPending}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-              job.financialStage === 'paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-            }`}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
           >
-            {job.financialStage === 'paid' ? 'PAGADA' : 'NO PAGADA'}
+            {isPaid ? 'PAGADA' : 'NO PAGADA'}
           </button>
           <span className="text-sm font-bold tabular-nums text-ink">{clp(jobTotal(job))}</span>
         </div>
@@ -142,7 +148,63 @@ function JobCard({ job }: { job: Job }) {
           <QuickEditForm job={job} />
         </div>
       )}
+
+      {/* Confirmación deliberada — nunca un toggle de un clic sobre plata real. */}
+      <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)} title={isPaid ? 'Revertir a pendiente de pago' : 'Marcar como pagada'}>
+        {isPaid ? (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-600">
+              {job.branch?.name ?? 'Sin sucursal'} · {clp(jobTotal(job))} — ¿revertir esta factura a &quot;pendiente de pago&quot;? Se borra la fecha de pago registrada.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmOpen(false)} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+              <button onClick={revertToPending} disabled={isPending} className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
+                Revertir
+              </button>
+            </div>
+          </div>
+        ) : (
+          <MarkPaidForm job={job} onDone={() => setConfirmOpen(false)} />
+        )}
+      </Modal>
     </div>
+  )
+}
+
+function MarkPaidForm({ job, onDone }: { job: Job; onDone: () => void }) {
+  const [isPending, startTransition] = useTransition()
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await markJobPaid(job.id, fd)
+      onDone()
+    })
+  }
+
+  const today = new Date().toISOString().slice(0, 10)
+  const inputCls = 'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand'
+  const labelCls = 'mb-1 block text-xs font-semibold text-gray-500'
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <p className="text-sm text-gray-600">{job.branch?.name ?? 'Sin sucursal'} · {clp(jobTotal(job))}</p>
+      <div>
+        <label className={labelCls}>Fecha de pago</label>
+        <input name="paymentDate" type="date" defaultValue={today} className={inputCls} required />
+      </div>
+      <div>
+        <label className={labelCls}>Medio de pago</label>
+        <input name="paymentMethodRaw" placeholder="Transferencia, cheque…" className={inputCls} />
+      </div>
+      <div className="flex justify-end gap-2">
+        <button type="button" onClick={onDone} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+        <button type="submit" disabled={isPending} className="rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60">
+          {isPending ? 'Guardando…' : 'Confirmar pago'}
+        </button>
+      </div>
+    </form>
   )
 }
 
