@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { tenantScope, type TenantActor } from '@/lib/tenant'
-import type { CollectionStatus, JobType } from '@/generated/prisma/enums'
+import type { CollectionStatus, JobType, ProcessFlow, FinancialStage } from '@/generated/prisma/enums'
 
 type Actor = TenantActor
 
@@ -22,6 +22,8 @@ export async function listJobs(
     to?: Date
     tipo?: string
     branchId?: string
+    processFlow?: string
+    financialStage?: string
   } = {},
 ) {
   return prisma.job.findMany({
@@ -31,6 +33,8 @@ export async function listJobs(
       ...(opts.collectionStatus ? { collectionStatus: opts.collectionStatus as CollectionStatus } : {}),
       ...(opts.tipo ? { type: opts.tipo as JobType } : {}),
       ...(opts.branchId ? { branchId: opts.branchId } : {}),
+      ...(opts.processFlow ? { processFlow: opts.processFlow as ProcessFlow } : {}),
+      ...(opts.financialStage ? { financialStage: opts.financialStage as FinancialStage } : {}),
       ...(opts.from || opts.to
         ? {
             executionDate: {

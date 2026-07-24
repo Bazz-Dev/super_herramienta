@@ -5,6 +5,19 @@ const jobStatuses = ['pendiente', 'en_proceso', 'ejecutado', 'anulado'] as const
 const collectionStatuses = ['sin_oc', 'pendiente_pago', 'pagado'] as const
 const costCategories = ['materiales', 'mano_obra', 'subcontrato', 'transporte', 'otros'] as const
 
+const processFlows = ['pre_quote', 'post_execution'] as const
+const commercialStages = ['intake', 'quote_draft', 'quote_sent', 'valuation_pending', 'approved', 'rejected'] as const
+const operationalStages = ['pending', 'scheduled', 'in_progress', 'executed', 'client_review', 'closed'] as const
+const documentationStages = ['pending', 'partial', 'ready', 'sent'] as const
+const financialStages = ['no_po', 'po_requested', 'po_received', 'to_invoice', 'invoiced', 'payment_pending', 'overdue', 'paid'] as const
+
+// Tri-state Sí/No/Sin dato — un checkbox HTML no puede distinguir "no" de
+// "sin dato" (ambos son "ausente"), así que estos campos van como <select>.
+const triState = z.preprocess(
+  (v) => (v === 'si' ? true : v === 'no' ? false : null),
+  z.boolean().nullable(),
+)
+
 export const branchInput = z.object({
   clientId: z.string().min(1),
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -35,6 +48,24 @@ export const jobInput = z.object({
   paymentMethodRaw: z.string().optional(),
   collectionStatus: z.enum(collectionStatuses).default('sin_oc'),
   paymentDate: z.string().optional(),
+
+  // Flujo de Caja v2 — ver docs/superpowers/specs/2026-07-24-flujo-caja-job-schema-design.md
+  processFlow: z.enum(processFlows).default('pre_quote'),
+  commercialStage: z.enum(commercialStages).default('intake'),
+  operationalStage: z.enum(operationalStages).default('pending'),
+  documentationStage: z.enum(documentationStages).default('pending'),
+  financialStage: z.enum(financialStages).default('no_po'),
+  docOt: triState,
+  docPhotos: triState,
+  docReport: triState,
+  docClientSent: triState,
+  rejectionReason: z.string().optional(),
+  rejectionDate: z.string().optional(),
+  nonBillable: z.coerce.boolean().default(false),
+  nonBillableReason: z.string().optional(),
+  lastContactDate: z.string().optional(),
+  nextContactDate: z.string().optional(),
+  contactNote: z.string().optional(),
 })
 
 // Edición rápida desde el acordeón de /flujo — subconjunto de jobInput,

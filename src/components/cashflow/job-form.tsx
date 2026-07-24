@@ -5,8 +5,11 @@ import { useActionState } from 'react'
 import { Button, Field, TextInput, Select, TextArea } from '@/components/quotes/ui'
 import {
   JOB_TYPE_LABELS,
-  JOB_STATUS_LABELS,
-  COLLECTION_LABELS,
+  PROCESS_FLOW_LABELS,
+  COMMERCIAL_STAGE_LABELS,
+  OPERATIONAL_STAGE_LABELS,
+  DOCUMENTATION_STAGE_LABELS,
+  FINANCIAL_STAGE_LABELS,
 } from '@/lib/cashflow/labels'
 import { toDateInput } from '@/lib/cashflow/dates'
 import { ClientSelector } from '@/components/cashflow/client-selector'
@@ -40,6 +43,33 @@ type JobInitial = {
   paymentDate?: Date | null
   originTicketId?: string | null
   originProposalId?: string | null
+  processFlow?: string
+  commercialStage?: string
+  operationalStage?: string
+  documentationStage?: string
+  financialStage?: string
+  docOt?: boolean | null
+  docPhotos?: boolean | null
+  docReport?: boolean | null
+  docClientSent?: boolean | null
+  rejectionReason?: string | null
+  rejectionDate?: Date | null
+  nonBillable?: boolean
+  nonBillableReason?: string | null
+  lastContactDate?: Date | null
+  nextContactDate?: Date | null
+  contactNote?: string | null
+}
+
+function triStateSelect(name: string, value: boolean | null | undefined) {
+  const v = value === true ? 'si' : value === false ? 'no' : ''
+  return (
+    <select name={name} defaultValue={v} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand">
+      <option value="">Sin dato</option>
+      <option value="si">Sí</option>
+      <option value="no">No</option>
+    </select>
+  )
 }
 
 export function JobForm({
@@ -106,16 +136,6 @@ export function JobForm({
           <Field label="Tipo">
             <Select name="type" defaultValue={initial?.type ?? 'requerimiento'}>
               {Object.entries(JOB_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Estado">
-            <Select name="status" defaultValue={initial?.status ?? 'ejecutado'}>
-              {Object.entries(JOB_STATUS_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
                 </option>
@@ -268,15 +288,6 @@ export function JobForm({
               placeholder="Transferencia, cheque…"
             />
           </Field>
-          <Field label="Estado de cobro">
-            <Select name="collectionStatus" defaultValue={initial?.collectionStatus ?? 'sin_oc'}>
-              {Object.entries(COLLECTION_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </Select>
-          </Field>
           <Field label="Fecha de pago">
             <TextInput
               name="paymentDate"
@@ -284,6 +295,90 @@ export function JobForm({
               defaultValue={toDateInput(initial?.paymentDate)}
             />
           </Field>
+        </div>
+      </section>
+
+      {/* --- Estado del trabajo (Flujo de Caja v2) --- */}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+          Estado del trabajo
+        </h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Origen del trabajo">
+            <Select name="processFlow" defaultValue={initial?.processFlow ?? 'pre_quote'}>
+              {Object.entries(PROCESS_FLOW_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </Field>
+          <Field label="Etapa comercial">
+            <Select name="commercialStage" defaultValue={initial?.commercialStage ?? 'intake'}>
+              {Object.entries(COMMERCIAL_STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </Field>
+          <Field label="Etapa operativa">
+            <Select name="operationalStage" defaultValue={initial?.operationalStage ?? 'executed'}>
+              {Object.entries(OPERATIONAL_STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </Field>
+          <Field label="Documentación">
+            <Select name="documentationStage" defaultValue={initial?.documentationStage ?? 'pending'}>
+              {Object.entries(DOCUMENTATION_STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </Field>
+          <Field label="Estado financiero">
+            <Select name="financialStage" defaultValue={initial?.financialStage ?? 'no_po'}>
+              {Object.entries(FINANCIAL_STAGE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </Field>
+        </div>
+
+        <p className="mb-2 mt-4 text-xs font-medium text-gray-500">Checklist de documentos</p>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Field label="OT">{triStateSelect('docOt', initial?.docOt)}</Field>
+          <Field label="Fotos">{triStateSelect('docPhotos', initial?.docPhotos)}</Field>
+          <Field label="Informe">{triStateSelect('docReport', initial?.docReport)}</Field>
+          <Field label="Enviado al cliente">{triStateSelect('docClientSent', initial?.docClientSent)}</Field>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Motivo de rechazo">
+            <TextInput name="rejectionReason" defaultValue={initial?.rejectionReason ?? ''} placeholder="Solo si la etapa comercial es 'No aprobado'" />
+          </Field>
+          <Field label="Fecha de rechazo">
+            <TextInput name="rejectionDate" type="date" defaultValue={toDateInput(initial?.rejectionDate)} />
+          </Field>
+        </div>
+
+        <div className="mt-4 flex items-center gap-2">
+          <input
+            id="nonBillable"
+            type="checkbox"
+            name="nonBillable"
+            defaultChecked={initial?.nonBillable ?? false}
+            className="h-4 w-4 cursor-pointer rounded border-gray-300 accent-brand"
+          />
+          <label htmlFor="nonBillable" className="cursor-pointer text-sm text-gray-700">
+            Cerrado sin cobro (no se factura)
+          </label>
+        </div>
+        <div className="mt-2">
+          <Field label="Motivo (si es sin cobro)">
+            <TextInput name="nonBillableReason" defaultValue={initial?.nonBillableReason ?? ''} />
+          </Field>
+        </div>
+
+        <p className="mb-2 mt-4 text-xs font-medium text-gray-500">Seguimiento de cobranza</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Último contacto">
+            <TextInput name="lastContactDate" type="date" defaultValue={toDateInput(initial?.lastContactDate)} />
+          </Field>
+          <Field label="Próximo contacto">
+            <TextInput name="nextContactDate" type="date" defaultValue={toDateInput(initial?.nextContactDate)} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Nota de seguimiento">
+              <TextArea name="contactNote" defaultValue={initial?.contactNote ?? ''} rows={2} />
+            </Field>
+          </div>
         </div>
       </section>
 

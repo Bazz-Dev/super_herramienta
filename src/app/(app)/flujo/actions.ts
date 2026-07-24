@@ -16,7 +16,6 @@ function jobData(p: ReturnType<typeof jobInput.parse>) {
     branchId: p.branchId,
     description: p.description,
     type: p.type,
-    status: p.status,
     executionDate: fromDateInput(p.executionDate),
     costCenter: p.costCenter ?? null,
     jobNumber: p.jobNumber ?? null,
@@ -33,8 +32,29 @@ function jobData(p: ReturnType<typeof jobInput.parse>) {
     invoiceDate: fromDateInput(p.invoiceDate),
     creditDays: p.creditDays ?? null,
     paymentMethodRaw: p.paymentMethodRaw ?? null,
-    collectionStatus: p.collectionStatus,
     paymentDate: fromDateInput(p.paymentDate),
+
+    // Flujo de Caja v2 — status/collectionStatus (arriba, legacy) se derivan
+    // de estos en vez de aceptarse sueltos del form, para que nunca queden
+    // desincronizados con el detalle real.
+    processFlow: p.processFlow,
+    commercialStage: p.commercialStage,
+    operationalStage: p.operationalStage,
+    documentationStage: p.documentationStage,
+    financialStage: p.financialStage,
+    status: deriveJobStatus(p.operationalStage, p.nonBillable),
+    collectionStatus: deriveCollectionStatus(p.financialStage),
+    docOt: p.docOt,
+    docPhotos: p.docPhotos,
+    docReport: p.docReport,
+    docClientSent: p.docClientSent,
+    rejectionReason: p.rejectionReason ?? null,
+    rejectionDate: fromDateInput(p.rejectionDate),
+    nonBillable: p.nonBillable,
+    nonBillableReason: p.nonBillableReason ?? null,
+    lastContactDate: fromDateInput(p.lastContactDate),
+    nextContactDate: fromDateInput(p.nextContactDate),
+    contactNote: p.contactNote ?? null,
   }
 }
 

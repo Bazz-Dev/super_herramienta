@@ -1,7 +1,8 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { JOB_TYPE_LABELS } from '@/lib/cashflow/labels'
+import { JOB_TYPE_LABELS, PROCESS_FLOW_LABELS, FINANCIAL_STAGE_LABELS } from '@/lib/cashflow/labels'
+import { SearchableCombobox } from '@/components/ui/searchable-combobox'
 
 type Branch = { id: string; name: string }
 type Client = { id: string; name: string }
@@ -32,20 +33,21 @@ export function JobFilters({
   const sucursal = sp.get('sucursal') ?? ''
   const desde = sp.get('desde') ?? ''
   const hasta = sp.get('hasta') ?? ''
+  const flujo = sp.get('flujo') ?? ''
+  const financiero = sp.get('financiero') ?? ''
 
   return (
     <div className="mt-4 flex flex-wrap items-end gap-2">
       {clients.length > 1 && (
-        <select
-          value={cliente}
-          onChange={(e) => set('cliente', e.target.value)}
-          className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-        >
-          <option value="">Todos los clientes</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        <SearchableCombobox
+          key={cliente}
+          name="cliente"
+          defaultValue={cliente}
+          placeholder="Todos los clientes"
+          options={clients.map((c) => ({ value: c.id, label: c.name }))}
+          onChange={(v) => set('cliente', v)}
+          className="w-56"
+        />
       )}
 
       {branches.length > 0 && (
@@ -83,6 +85,28 @@ export function JobFilters({
         <option value="pagado">Pagado</option>
       </select>
 
+      <select
+        value={flujo}
+        onChange={(e) => set('flujo', e.target.value)}
+        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+      >
+        <option value="">Ambos flujos</option>
+        {Object.entries(PROCESS_FLOW_LABELS).map(([v, l]) => (
+          <option key={v} value={v}>{l}</option>
+        ))}
+      </select>
+
+      <select
+        value={financiero}
+        onChange={(e) => set('financiero', e.target.value)}
+        className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+      >
+        <option value="">Todos (detalle financiero)</option>
+        {Object.entries(FINANCIAL_STAGE_LABELS).map(([v, l]) => (
+          <option key={v} value={v}>{l}</option>
+        ))}
+      </select>
+
       <div className="flex items-center gap-1">
         <input
           type="date"
@@ -101,7 +125,7 @@ export function JobFilters({
         />
       </div>
 
-      {(cliente || estado || tipo || sucursal || desde || hasta) && (
+      {(cliente || estado || tipo || sucursal || desde || hasta || flujo || financiero) && (
         <button
           onClick={() => router.push(basePath)}
           className="rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50"

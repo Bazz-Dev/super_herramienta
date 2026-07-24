@@ -14,6 +14,8 @@ interface Props {
   search?: (query: string) => Promise<ComboOption[]>
   required?: boolean
   className?: string
+  /** Uso fuera de un <form> (ej. filtros que navegan al tiro) — se dispara además del hidden input. */
+  onChange?: (value: string) => void
 }
 
 // Reemplazo directo de <select> pero buscable — mismo contrato (name +
@@ -21,12 +23,12 @@ interface Props {
 // Dos modos: `options` precargado (filtra en memoria, listas chicas) o
 // `search` async (Server Action, listas grandes — debounce + descarta
 // resultados obsoletos si llega una tecla nueva antes de resolver).
-export function SearchableCombobox({ name, defaultValue, placeholder, options, search, required, className }: Props) {
+export function SearchableCombobox({ name, defaultValue, placeholder, options, search, required, className, onChange }: Props) {
   const initialLabel = options?.find((o) => o.value === defaultValue)?.label ?? ''
   const [value, setValue] = useState(defaultValue ?? '')
   const [query, setQuery] = useState(initialLabel)
   const [open, setOpen] = useState(false)
-  const [results, setResults] = useState<ComboOption[]>(options?.slice(0, MAX_RESULTS) ?? [])
+  const [searchResults, setSearchResults] = useState<ComboOption[]>([])
   const [activeIndex, setActiveIndex] = useState(-1)
   const rootRef = useRef<HTMLDivElement>(null)
   const requestId = useRef(0)
@@ -49,20 +51,22 @@ export function SearchableCombobox({ name, defaultValue, placeholder, options, s
   }, [options, query])
 
   useEffect(() => {
-    if (filteredOptions) { setResults(filteredOptions); return }
-    if (!search) return
+    if (filteredOptions || !search) return
     const id = ++requestId.current
     const t = setTimeout(() => {
-      search(query.trim()).then((r) => { if (requestId.current === id) setResults(r.slice(0, MAX_RESULTS)) })
+      search(query.trim()).then((r) => { if (requestId.current === id) setSearchResults(r.slice(0, MAX_RESULTS)) })
     }, 150)
     return () => clearTimeout(t)
   }, [query, search, filteredOptions])
+
+  const results = filteredOptions ?? searchResults
 
   function select(opt: ComboOption) {
     setValue(opt.value)
     setQuery(opt.label)
     setOpen(false)
     setActiveIndex(-1)
+    onChange?.(opt.value)
   }
 
   function onKeyDown(e: React.KeyboardEvent) {

@@ -16,10 +16,12 @@ export default async function TrabajosPage({
     sucursal?: string
     desde?: string
     hasta?: string
+    flujo?: string
+    financiero?: string
   }>
 }) {
   const actor = await requireActor()
-  const { cliente, estado, tipo, sucursal, desde, hasta } = await searchParams
+  const { cliente, estado, tipo, sucursal, desde, hasta, flujo, financiero } = await searchParams
 
   const [clients, branches, jobs] = await Promise.all([
     listClientsForCashflow(actor),
@@ -29,6 +31,8 @@ export default async function TrabajosPage({
       collectionStatus: estado,
       tipo,
       branchId: sucursal,
+      processFlow: flujo,
+      financialStage: financiero,
       from: desde ? new Date(desde) : undefined,
       to: hasta ? new Date(hasta) : undefined,
     }),
@@ -45,6 +49,8 @@ export default async function TrabajosPage({
   if (sucursal) exportParams.set('sucursal', sucursal)
   if (desde) exportParams.set('desde', desde)
   if (hasta) exportParams.set('hasta', hasta)
+  if (flujo) exportParams.set('flujo', flujo)
+  if (financiero) exportParams.set('financiero', financiero)
 
   return (
     <div className="mx-auto max-w-6xl">
