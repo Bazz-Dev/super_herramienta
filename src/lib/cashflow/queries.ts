@@ -24,6 +24,7 @@ export async function listJobs(
     branchId?: string
     processFlow?: string
     financialStage?: string
+    sinTecnico?: boolean
   } = {},
 ) {
   return prisma.job.findMany({
@@ -35,6 +36,7 @@ export async function listJobs(
       ...(opts.branchId ? { branchId: opts.branchId } : {}),
       ...(opts.processFlow ? { processFlow: opts.processFlow as ProcessFlow } : {}),
       ...(opts.financialStage ? { financialStage: opts.financialStage as FinancialStage } : {}),
+      ...(opts.sinTecnico ? { technicianId: null } : {}),
       ...(opts.from || opts.to
         ? {
             executionDate: {

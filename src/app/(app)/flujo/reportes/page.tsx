@@ -27,10 +27,11 @@ export default async function ReportesPage({
     flujo?: string
     financiero?: string
     preset?: string
+    sinTecnico?: string
   }>
 }) {
   const actor = await requireActor()
-  const { cliente, estado, tipo, sucursal, desde, hasta, flujo, financiero, preset } = await searchParams
+  const { cliente, estado, tipo, sucursal, desde, hasta, flujo, financiero, preset, sinTecnico } = await searchParams
 
   const [clients, branches, allJobs] = await Promise.all([
     listClientsForCashflow(actor),
@@ -42,6 +43,7 @@ export default async function ReportesPage({
       branchId: sucursal,
       processFlow: flujo,
       financialStage: financiero,
+      sinTecnico: sinTecnico === '1',
       from: desde ? new Date(desde) : undefined,
       to: hasta ? new Date(hasta) : undefined,
     }),
@@ -75,6 +77,7 @@ export default async function ReportesPage({
   if (hasta) exportParams.set('hasta', hasta)
   if (flujo) exportParams.set('flujo', flujo)
   if (financiero) exportParams.set('financiero', financiero)
+  if (sinTecnico === '1') exportParams.set('sinTecnico', '1')
   if (activePreset !== 'all') exportParams.set('preset', activePreset)
 
   const presetHref = (key: ReportPreset) => {

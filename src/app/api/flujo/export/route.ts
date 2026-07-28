@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     branchId: sp.get('sucursal') ?? undefined,
     processFlow: sp.get('flujo') ?? undefined,
     financialStage: sp.get('financiero') ?? undefined,
+    sinTecnico: sp.get('sinTecnico') === '1',
     from: sp.get('desde') ? new Date(sp.get('desde')!) : undefined,
     to: sp.get('hasta') ? new Date(sp.get('hasta')!) : undefined,
   }

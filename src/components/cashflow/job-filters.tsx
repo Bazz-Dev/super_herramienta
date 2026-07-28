@@ -35,6 +35,7 @@ export function JobFilters({
   const hasta = sp.get('hasta') ?? ''
   const flujo = sp.get('flujo') ?? ''
   const financiero = sp.get('financiero') ?? ''
+  const sinTecnico = sp.get('sinTecnico') === '1'
 
   return (
     <div className="mt-4 flex flex-wrap items-end gap-2">
@@ -125,7 +126,16 @@ export function JobFilters({
         />
       </div>
 
-      {(cliente || estado || tipo || sucursal || desde || hasta || flujo || financiero) && (
+      <button
+        onClick={() => set('sinTecnico', sinTecnico ? '' : '1')}
+        className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+          sinTecnico ? 'border-amber-300 bg-amber-50 text-amber-700' : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+        }`}
+      >
+        ⚠ Sin técnico asignado
+      </button>
+
+      {(cliente || estado || tipo || sucursal || desde || hasta || flujo || financiero || sinTecnico) && (
         <button
           onClick={() => router.push(basePath)}
           className="rounded-md border border-gray-300 px-2.5 py-1.5 text-xs text-gray-500 transition-colors hover:bg-gray-50"

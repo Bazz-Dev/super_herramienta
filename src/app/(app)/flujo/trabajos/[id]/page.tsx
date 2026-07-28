@@ -51,11 +51,25 @@ export default async function TrabajoDetailPage({
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
-    prisma.clientDocument.findMany({
-      where: { clientId: job.clientId, ...tenantScope(actor) },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, title: true, type: true, createdAt: true },
-    }),
+    // Documentos de ESTE trabajo, no la carpeta completa del cliente — antes
+    // mostraba todos los informes/propuestas del cliente sin importar a qué
+    // ticket pertenecían, mezclando trabajos no relacionados. Se acota a los
+    // dos vínculos reales que Job ya tiene: el ticket de origen (los
+    // informes técnicos se cargan contra el ticket) y la propuesta de
+    // origen (si el trabajo nació de una cotización específica).
+    job.originTicketId || job.originProposalId
+      ? prisma.clientDocument.findMany({
+          where: {
+            ...tenantScope(actor),
+            OR: [
+              ...(job.originTicketId ? [{ ticketId: job.originTicketId }] : []),
+              ...(job.originProposalId ? [{ id: job.originProposalId }] : []),
+            ],
+          },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, title: true, type: true, createdAt: true },
+        })
+      : Promise.resolve([]),
   ])
 
   const total = jobTotal(job)
@@ -163,7 +177,10 @@ export default async function TrabajoDetailPage({
         </div>
         {clientDocs.length === 0 ? (
           <div className="rounded-xl border border-dashed border-gray-200 py-6 text-center text-sm text-gray-400">
-            Sin documentos para este cliente.{' '}
+            {job.originTicketId || job.originProposalId
+              ? 'Sin documentos vinculados a este trabajo todavía.'
+              : 'Este trabajo no tiene ticket ni propuesta de origen — no hay documentos que vincular automáticamente.'}
+            {' '}
             <Link href="/cotizador" className="font-semibold text-brand hover:underline">
               Crear propuesta →
             </Link>
