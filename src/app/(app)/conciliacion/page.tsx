@@ -4,6 +4,7 @@ import { requireActor, tenantScope } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { clp } from '@/lib/cashflow/format'
 import { ClientFilter } from '@/components/cashflow/client-filter'
+import { buttonClass } from '@/components/ui/button'
 
 export const metadata = { title: 'Conciliación — INGEGAR' }
 
@@ -85,7 +86,10 @@ export default async function ConciliacionPage({
       <div>
         <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600">← Dashboard</Link>
         <h1 className="text-2xl font-bold">Conciliación</h1>
-        <p className="mt-0.5 text-sm text-gray-500">Estado real de cada trabajo: ¿tiene ticket, OT e informe técnico cargados?</p>
+        <p className="mt-0.5 text-sm text-gray-500">
+          Compara cada trabajo de Flujo de Caja contra su ticket de origen, y ese ticket contra su OT (orden de
+          trabajo firmada) y su informe técnico. Cada fila con un problema tiene una acción directa para resolverlo.
+        </p>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -125,7 +129,7 @@ export default async function ConciliacionPage({
                 <th className="px-4 py-2.5 font-medium">Ticket</th>
                 <th className="px-4 py-2.5 font-medium">Estado</th>
                 <th className="px-4 py-2.5 font-medium text-right">Monto</th>
-                <th className="px-2 py-2.5" />
+                <th className="px-4 py-2.5 font-medium">Acción siguiente</th>
               </tr>
             </thead>
             <tbody>
@@ -143,11 +147,19 @@ export default async function ConciliacionPage({
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{job.netAmount ? clp(job.netAmount) : '—'}</td>
-                  <td className="px-2 py-2.5">
+                  <td className="px-4 py-2.5">
                     {!job.originTicketId && (
-                      <Link href={`/tickets/new?jobId=${job.id}`} className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                        Crear ticket
+                      <Link href={`/tickets/new?jobId=${job.id}`} className={buttonClass('secondary', 'sm')}>
+                        Crear ticket →
                       </Link>
+                    )}
+                    {job.originTicketId && (estados.includes('SIN_OT') || estados.includes('SIN_IT')) && (
+                      <Link href={`/tickets/${job.originTicketId}`} className={buttonClass('secondary', 'sm')}>
+                        {estados.includes('SIN_OT') ? 'Subir OT →' : 'Cargar informe →'}
+                      </Link>
+                    )}
+                    {estados.length === 1 && estados[0] === 'VINCULADO' && (
+                      <span className="text-xs text-gray-300">Completo</span>
                     )}
                   </td>
                 </tr>

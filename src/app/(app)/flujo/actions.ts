@@ -235,3 +235,25 @@ export async function deleteCost(id: string, jobId: string) {
   })
   revalidatePath(`/flujo/trabajos/${jobId}`)
 }
+
+// Detalle completo para el drill-down de /flujo/reportes — click en una
+// fila abre esto en un panel en vez de navegar a /flujo/trabajos/[id].
+// Job.technicianId no tiene relación Prisma declarada (solo el scalar),
+// así que el técnico se resuelve aparte.
+export async function getJobSummary(id: string) {
+  const u = await requireActor()
+  const job = await prisma.job.findFirst({
+    where: { id, ...tenantScope(u) },
+    include: {
+      branch: { select: { name: true } },
+      client: { select: { name: true } },
+      costs: { select: { id: true, category: true, amount: true, supplier: true } },
+      originTicket: { select: { id: true, ticketCode: true, title: true, status: true } },
+    },
+  })
+  if (!job) return null
+  const technician = job.technicianId
+    ? await prisma.technician.findUnique({ where: { id: job.technicianId }, select: { name: true } })
+    : null
+  return { ...job, technicianName: technician?.name ?? null }
+}

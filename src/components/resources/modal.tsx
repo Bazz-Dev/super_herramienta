@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { XIcon } from '@/components/quotes/icons'
 
 const SIZE = {
@@ -34,7 +35,10 @@ export function Modal({
 
   if (!open) return null
 
-  return (
+  // Portal a document.body — sin esto, un Modal abierto desde dentro de una
+  // <table> (p.ej. un drill-down de fila) inyecta un <div> como hijo directo
+  // de <tbody>, HTML inválido que React marca como error de hidratación.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
       <div
         className="absolute inset-0"
@@ -60,6 +64,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
