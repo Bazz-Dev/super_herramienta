@@ -1,7 +1,9 @@
 # INGEGAR Platform — Arquitectura y Contexto
 
 > Documento de referencia para navegación rápida. Actualizar al agregar módulos o cambiar modelos.
-> Última actualización: 2026-07-19 — v1.10.0. **Pendientes vivos: ver `docs/architecture/GAP_REGISTER.md`** (este documento describe arquitectura estable, no tracking de tareas — evita que ambos diverjan otra vez).
+> Última actualización: 2026-07-28 — v1.13.0. **Pendientes vivos: ver `docs/architecture/GAP_REGISTER.md`** (2 abiertos ahora mismo — G19: limpieza de tickets E2E que se filtraron a Turso prod el 2026-07-16, espera autorización del dueño; G22: decisión de negocio sobre aprobación de la cuenta portal genérica). Este documento describe arquitectura estable, no tracking de tareas.
+>
+> **PROD es la fuente de verdad.** Flujo permitido: `PROD → snapshot LOCAL`. Nunca `LOCAL → PROD`. Ver `.claude/rules/production-safety.md`.
 
 ---
 
@@ -56,10 +58,14 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Campos clave**: `showToClient`, `internalNotes`, `deletedAt` (soft delete), `folderKey` (R2 prefix)
 **Portal**: cliente ve tickets con `showToClient=true`, puede editar si `status=nuevo`, agregar sub-tareas si `status=nuevo|en_revision`.
 
-### Flujo de Caja (`/flujo`)
-**Para qué**: Control financiero de trabajos ejecutados — facturación, cobranza, márgenes.
-**Modelos**: `Branch`, `Job`, `JobCost`
-**Carga histórica**: `scripts/import-flujo.ts` (JB: 205 jobs, Decathlon: 1, Unity: 1).
+### Flujo de Caja (`/flujo`, `/flujo/reportes`, `/flujo/trabajos/[id]`)
+**Para qué**: Control financiero de trabajos ejecutados — facturación, cobranza, márgenes. Rediseñado 2026-07-28 contra `flujo de caja produccion/*.html` (prototipo de referencia del dueño).
+**Modelos**: `Branch`, `Job` (dos sistemas de estado, ver Taxonomía más abajo), `JobCost`.
+**`/flujo`**: panel "Control de hoy" (4 indicadores de excepción — vencidas/vencen en 7 días/sin OC/programados — NO dependen del filtro de período) + lista de trabajos agrupada por cliente→período con toggle Lista/Calendario (mes-grid con punto de color por estado) + búsqueda. Filtro de período: un solo control Desde/Hasta (`DateRangeFilter`, `src/components/cashflow/date-range-filter.tsx`), no presets relativos.
+**`/flujo/reportes`**: filtros completos (cliente/sucursal/tipo/estado/flujo/financiero/sin técnico/rango de fechas) + tabla con drill-down por fila (panel con contexto completo, sin navegar) + export Excel que respeta los mismos filtros.
+**Predicados de negocio**: `src/lib/cashflow/job-presets.ts` — única fuente de verdad para "vencido"/"sin OC"/"pagado"/etc., con fallback a campos clásicos (ver Taxonomía). No reimplementar estas reglas en un componente.
+**`recordDate()`** (`group-by-client-period.ts`): fecha de agrupación con fallback `executionDate → parseada del código YYMMDD → createdAt` — sin esto, jobs sin `executionDate` (todo el histórico importado) desaparecían de la lista.
+**Carga histórica**: `scripts/import-flujo.ts` (JB: 205 jobs, Decathlon: 1, Unity: 1) — ya aplicada a Turso prod.
 
 ### Cotizador (`/cotizador`) + Informes Técnicos (`/informe`)
 **Para qué**: Generar propuestas/informes en PDF y guardarlos en carpeta del cliente — el cliente ve los documentos consolidados dentro del portal, en el menú Informes (`/portal/[slug]/informes`) para informes técnicos y Propuestas para comerciales. Soporta tanto documentos JSON editables (generados desde el editor) como archivos reales subidos a R2 (informes históricos vinculados desde evidencia de ticket) — ambos casos descargables desde el portal.
@@ -87,6 +93,15 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Perfil técnico**: navegación por tabs (Resumen / Datos / Vehículo / Documentos). Resumen: stats de cronograma + stats de tickets + tickets recientes + próximas asignaciones. Links accionables a `/tickets?usuario=id` y `/cronograma?tecnico=id`.
 **ContractType enum**: `indefinido | plazo_fijo | ayudante | no_renovado | despedido`. Los dos últimos = desvinculados (sección separada en lista, auto-inactivan).
 **Documentos**: `DocSection` lista archivos con preview inline vía signed-URL proxy (`/api/files?key=...`).
+
+### Documentación y acreditación (`/documentacion`)
+**Para qué**: vista cruzada de solo-lectura sobre documentos ya existentes (técnicos, empresa, OT de tickets) para preparar rápido un paquete de acreditación — NO es una biblioteca de archivos nueva, no duplica ningún archivo.
+**Fuentes leídas** (`src/lib/resources/documentacion.ts`): `TechnicianDocument`, `CompanyDocument`, `Ticket.otFileUrl` (la OT vive en `Ticket`, no en `ClientDocument` — son documentos con dueño y ciclo de vida distintos, ver `.claude/rules/data.md`).
+**Funciones**: filtrar/buscar, selección individual o masiva, ZIP (`POST /api/documents/zip`, reusa `buildZipFromR2Keys`), banner de técnicos con documentación obligatoria incompleta.
+**Preview universal**: `FilePreviewButton` (`src/components/ui/file-preview-modal.tsx`) — modal in-app (nunca navega afuera), reusado en técnico/empresa/`/documentacion`. Un solo patrón de preview en toda la app.
+
+### Conciliación (`/conciliacion`)
+**Para qué**: compara cada `Job` contra su `Ticket` de origen (`originTicketId`), y ese ticket contra su OT (`Ticket.otFileUrl`) e informe técnico (`ClientDocument` type=`informe`). Cada estado con problema (sin ticket / sin OT / sin IT) tiene una acción directa a resolverlo, no solo una etiqueta.
 
 ### Gastos (`/gastos`)
 **Para qué**: Control de gastos operacionales por técnico (combustible, viáticos, materiales).
@@ -461,14 +476,27 @@ Crew       ──< Technician  M:N — cuadrilla de técnicos
 | `maintenance` | Mantención |
 | `retired` | De baja |
 
-### Job (Flujo de Caja) — `status` / `collectionStatus`
+### Job (Flujo de Caja) — dos sistemas de estado en paralelo
 
-| JobStatus | Label | Cobranza → CollectionStatus |
-|-----------|-------|---------------------------|
-| `sin_oc` | Sin OC | `sin_oc` → KPI separado |
-| `cotizado` | Cotizado | — |
-| `facturado` | Facturado | `pendiente → parcial → cobrado` |
-| `cancelado` | Cancelado | — |
+`Job` tiene los campos **clásicos** (`status`: `pendiente|en_proceso|ejecutado|anulado`, `collectionStatus`:
+`sin_oc|pendiente_pago|pagado`) y un sistema **v2** más granular añadido después
+(`processFlow`, `commercialStage`, `operationalStage`, `documentationStage`,
+`financialStage` — ver enums en `schema.prisma`). `derive-legacy-status.ts`
+deriva los clásicos a partir de v2 en cada escritura, para que
+`computeMetrics()`/dashboard/flujo (que leen los clásicos) no queden
+desincronizados.
+
+**🔴 Trampa real, ya mordida una vez (2026-07-28)**: los 207 jobs importados
+del histórico (Excel) SOLO tienen los campos clásicos poblados — `financialStage`/
+`operationalStage`/`commercialStage` quedaron en su default de schema
+(`no_po`/`pending`/`intake`) para el 100% de ellos, porque nunca hubo un backfill
+al introducir v2. Cualquier predicado de negocio sobre `Job` que lea SOLO los
+campos v2 (`isPaidJob`, `isExecutedJob`, etc. en `src/lib/cashflow/job-presets.ts`)
+da resultados incorrectos para todo ese histórico — p.ej. trabajos realmente
+pagados aparecían como "no pagados". Ya corregido con un fallback explícito a
+los campos clásicos en cada predicado (ver comentario en `job-presets.ts`), pero
+**cualquier predicado nuevo sobre `Job` debe considerar este mismo fallback**
+o repetirá el bug para datos importados.
 
 ### LeaveRequest — `status`
 
