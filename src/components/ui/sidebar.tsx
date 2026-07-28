@@ -80,7 +80,18 @@ export function Sidebar({
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
+  // Longest-prefix match across every nav href (incl. portal links) — a
+  // plain prefix check lit up both "Flujo de Caja" (/flujo) and "Reportes"
+  // (/flujo/reportes) at once whenever a more specific sibling route
+  // existed under a parent's path.
+  const allHrefs = [
+    ...NAV_SECTIONS.flatMap((s) => s.links.map((l) => l.href)),
+    ...portalClients.map((c) => `/portal/${c.portalSlug}`),
+  ]
+  const bestMatch = allHrefs
+    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0]
+  const isActive = (href: string) => href === bestMatch
 
   const content = (
     <div className="flex h-full flex-col">

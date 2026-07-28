@@ -120,7 +120,7 @@ export default async function TicketsPage() {
         </Link>
       </div>
 
-      <TicketListView tickets={serialized} clients={clients} users={users} closedTickets={serializedClosed}  />
+      <TicketListView tickets={serialized} clients={clients} users={users} closedTickets={serializedClosed} canDelete={actor.role === 'super' || actor.role === 'supervisor'} />
     </div>
   )
 }

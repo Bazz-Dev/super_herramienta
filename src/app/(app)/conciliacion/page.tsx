@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { requireActor, tenantScope } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { clp } from '@/lib/cashflow/format'
+import { ClientFilter } from '@/components/cashflow/client-filter'
 
 export const metadata = { title: 'Conciliación — INGEGAR' }
 
@@ -101,13 +103,11 @@ export default async function ConciliacionPage({
         ))}
       </div>
 
-      <form className="mt-3" action="/conciliacion" method="get">
-        {estado && <input type="hidden" name="estado" value={estado} />}
-        <select name="cliente" defaultValue={cliente ?? ''} className="rounded-md border border-gray-300 px-3 py-2 text-sm" onChange={(e) => e.currentTarget.form?.submit()}>
-          <option value="">Todos los clientes</option>
-          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      </form>
+      <div className="mt-3">
+        <Suspense fallback={null}>
+          <ClientFilter clients={clients} basePath="/conciliacion" />
+        </Suspense>
+      </div>
 
       <div className="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         {pageRows.length === 0 ? (

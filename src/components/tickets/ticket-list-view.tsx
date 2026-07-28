@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useTransition } from 'react'
 import {
   STATUS_LABEL, STATUS_DOT,
   URGENCY_LABEL,
@@ -8,6 +8,9 @@ import {
 } from '@/lib/tickets/labels'
 import { now } from '@/lib/now'
 import { FilterBar, FilterSearch, FilterSelect, FilterPill, FilterClear } from '@/components/ui/filter-bar'
+import { Button } from '@/components/ui/button'
+import { Modal } from '@/components/resources/modal'
+import { deleteTicket } from '@/app/(app)/tickets/actions'
 
 // Urgency dot colors — hardcoded, no CSS classes
 const URG_DOT: Record<string, string> = {
@@ -67,9 +70,22 @@ interface Props {
   clients: { id: string; name: string }[]
   users: { id: string; name: string }[]
   closedTickets?: ClosedTicket[]
+  /** Solo super/supervisor — mismo gate que ya aplica el server action deleteTicket(). */
+  canDelete?: boolean
 }
 
-export function TicketListView({ tickets, clients, users, closedTickets = [] }: Props) {
+export function TicketListView({ tickets, clients, users, closedTickets = [], canDelete = false }: Props) {
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; code: string; title: string } | null>(null)
+  const [isDeleting, startDelete] = useTransition()
+
+  function confirmDelete() {
+    if (!deleteTarget) return
+    const id = deleteTarget.id
+    startDelete(async () => {
+      await deleteTicket(id)
+      setDeleteTarget(null)
+    })
+  }
   const [q, setQ]           = useState('')
   const [status, setStatus] = useState('')
   const [clientId, setCli]  = useState('')
@@ -269,6 +285,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                         >
                           Fecha{sortKey === 'date' && <span className="ml-1 text-brand">{sortDir === 'asc' ? '▲' : '▼'}</span>}
                         </th>
+                        {canDelete && <th className="px-3 py-2.5" />}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -366,6 +383,18 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
                               <div className="text-[10px] text-gray-400">{new Date(ticket.createdAt).toLocaleDateString('es-CL')}</div>
                               {overdue && <div className="text-[10px] font-semibold text-red-500">vencido</div>}
                             </td>
+
+                            {canDelete && (
+                              <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  variant="danger" size="sm"
+                                  onClick={() => setDeleteTarget({ id: ticket.id, code: ticket.ticketCode, title: ticket.title })}
+                                  aria-label={`Eliminar ${ticket.ticketCode}`}
+                                >
+                                  Eliminar
+                                </Button>
+                              </td>
+                            )}
                           </tr>
                         )
                       })}
@@ -461,6 +490,23 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
           )}
         </div>
       )}
+
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Eliminar ticket">
+        {deleteTarget && (
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-600">
+              <span className="font-mono text-xs text-gray-400">{deleteTarget.code}</span> — {deleteTarget.title}
+              <br />¿Eliminar este ticket? No aparecerá más en el listado.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+              <Button variant="danger" onClick={confirmDelete} disabled={isDeleting} aria-busy={isDeleting}>
+                {isDeleting ? 'Eliminando…' : 'Eliminar'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   )
 }
