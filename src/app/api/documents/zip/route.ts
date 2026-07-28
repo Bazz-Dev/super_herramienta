@@ -6,14 +6,15 @@ import { DOC_TYPE_LABELS, COMPANY_DOC_TYPE_LABELS, type DocTypeId, type CompanyD
 
 export const runtime = 'nodejs'
 
-type Ref = { type: 'technician' | 'company'; id: string }
+type Ref = { type: 'technician' | 'company' | 'ticket'; id: string }
 
 /**
  * POST /api/documents/zip — cross-entity ZIP for the /documentacion view,
- * which lists documents from multiple técnicos + empresa at once. Body:
- * { refs: [{ type: 'technician'|'company', id }, ...] }. POST (not GET
- * with ?ids=) because refs span two tables and can get long. Same
- * super/supervisor gate as the per-entity ZIP routes; reuses buildZipFromR2Keys.
+ * which lists documents from técnicos + empresa + OT de tickets at once.
+ * Body: { refs: [{ type: 'technician'|'company'|'ticket', id }, ...] }.
+ * POST (not GET with ?ids=) because refs span three tables and can get
+ * long. Same super/supervisor gate as the per-entity ZIP routes; reuses
+ * buildZipFromR2Keys.
  */
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -28,9 +29,10 @@ export async function POST(req: NextRequest) {
 
   const techIds = refs.filter((r) => r.type === 'technician').map((r) => r.id)
   const companyIds = refs.filter((r) => r.type === 'company').map((r) => r.id)
+  const ticketIds = refs.filter((r) => r.type === 'ticket').map((r) => r.id)
   const isSuper = session.user.role === 'super'
 
-  const [techDocs, companyDocs] = await Promise.all([
+  const [techDocs, companyDocs, ticketOTs] = await Promise.all([
     techIds.length
       ? prisma.technicianDocument.findMany({
           where: { id: { in: techIds }, technician: isSuper ? undefined : { tenantId: session.user.tenantId } },
@@ -43,9 +45,15 @@ export async function POST(req: NextRequest) {
           select: { type: true, label: true, fileUrl: true },
         })
       : Promise.resolve([]),
+    ticketIds.length
+      ? prisma.ticket.findMany({
+          where: { id: { in: ticketIds }, tenantId: isSuper ? undefined : session.user.tenantId, otFileUrl: { not: null } },
+          select: { ticketCode: true, otNumber: true, otFileUrl: true },
+        })
+      : Promise.resolve([]),
   ])
 
-  if (techDocs.length + companyDocs.length === 0) {
+  if (techDocs.length + companyDocs.length + ticketOTs.length === 0) {
     return NextResponse.json({ error: 'Sin documentos' }, { status: 404 })
   }
 
@@ -57,6 +65,10 @@ export async function POST(req: NextRequest) {
     ...companyDocs.map((d) => ({
       key: d.fileUrl,
       baseName: d.label || COMPANY_DOC_TYPE_LABELS[d.type as CompanyDocTypeId] || d.type,
+    })),
+    ...ticketOTs.map((t) => ({
+      key: t.otFileUrl!,
+      baseName: `OT ${t.otNumber ?? t.ticketCode}`,
     })),
   ]
 

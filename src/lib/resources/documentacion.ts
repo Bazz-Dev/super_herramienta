@@ -4,14 +4,14 @@ import { DOC_TYPE_LABELS, COMPANY_DOC_TYPE_LABELS, mandatoryDocChecklist, type D
 
 export type UnifiedDocRow = {
   id: string
-  source: 'technician' | 'company'
+  source: 'technician' | 'company' | 'ticket'
   type: string
   typeLabel: string
   label: string | null
   fileUrl: string
   uploadedAt: Date
   expiryDate: Date | null
-  ownerId: string // Technician.id, or 'company' for empresa-wide docs
+  ownerId: string // Technician.id, 'company', o Ticket.id para OT
   ownerName: string
 }
 
@@ -24,7 +24,7 @@ export type IncompleteTechnician = { id: string; name: string; missing: string[]
  * instead of opening técnicos one at a time.
  */
 export async function listAllDocuments(actor: TenantActor) {
-  const [technicians, companyDocs] = await Promise.all([
+  const [technicians, companyDocs, ticketsWithOT] = await Promise.all([
     prisma.technician.findMany({
       where: { ...tenantScope(actor) },
       select: { id: true, name: true, documents: { orderBy: { uploadedAt: 'desc' } } },
@@ -33,6 +33,16 @@ export async function listAllDocuments(actor: TenantActor) {
     prisma.companyDocument.findMany({
       where: { ...tenantScope(actor) },
       orderBy: { uploadedAt: 'desc' },
+    }),
+    // OT (orden de trabajo) vive en Ticket.otFileUrl, no en ClientDocument —
+    // son cosas distintas (comprobante físico firmado en terreno vs. informe
+    // técnico generado en el editor). Se lee desde su fuente real, no se
+    // copia a otra tabla — evita la duplicación que tendría forzarla dentro
+    // de ClientDocument.
+    prisma.ticket.findMany({
+      where: { ...tenantScope(actor), otFileUrl: { not: null }, deletedAt: null },
+      select: { id: true, ticketCode: true, otNumber: true, otFileUrl: true, updatedAt: true, client: { select: { name: true } } },
+      orderBy: { updatedAt: 'desc' },
     }),
   ])
 
@@ -72,6 +82,21 @@ export async function listAllDocuments(actor: TenantActor) {
       expiryDate: null,
       ownerId: 'company',
       ownerName: 'Empresa',
+    })
+  }
+
+  for (const t of ticketsWithOT) {
+    rows.push({
+      id: t.id,
+      source: 'ticket',
+      type: 'ot',
+      typeLabel: 'Orden de trabajo',
+      label: t.otNumber ? `OT ${t.otNumber} — ${t.ticketCode}` : `OT — ${t.ticketCode}`,
+      fileUrl: t.otFileUrl!,
+      uploadedAt: t.updatedAt,
+      expiryDate: null,
+      ownerId: t.id,
+      ownerName: t.client.name,
     })
   }
 

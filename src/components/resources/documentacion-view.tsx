@@ -10,7 +10,7 @@ import { buttonClass } from '@/components/ui/button'
 
 type Row = {
   id: string
-  source: 'technician' | 'company'
+  source: 'technician' | 'company' | 'ticket'
   type: string
   typeLabel: string
   label: string | null
@@ -198,9 +198,9 @@ export function DocumentacionView({
                   <Td className="font-medium text-ink">{displayName(r)}</Td>
                   <Td><Badge tone="neutral">{r.typeLabel}</Badge></Td>
                   <Td>
-                    {r.ownerId === 'company'
-                      ? r.ownerName
-                      : <Link href={`/recursos/tecnicos/${r.ownerId}`} className="hover:underline">{r.ownerName}</Link>}
+                    {r.source === 'company' && r.ownerName}
+                    {r.source === 'technician' && <Link href={`/recursos/tecnicos/${r.ownerId}`} className="hover:underline">{r.ownerName}</Link>}
+                    {r.source === 'ticket' && <Link href={`/tickets/${r.ownerId}`} className="hover:underline">{r.ownerName}</Link>}
                   </Td>
                   <Td className="whitespace-nowrap text-xs text-gray-500">{formatDate(r.uploadedAt)}</Td>
                   <Td>
