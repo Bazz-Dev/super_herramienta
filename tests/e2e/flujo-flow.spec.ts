@@ -81,6 +81,11 @@ test.describe.serial('cadena Ticket → Trabajo → Costo → Flujo de Caja (G11
     await page.goto(jobUrl)
     await page.waitForLoadState('load')
 
+    // "Costos del trabajo" es una sección plegable de la ficha (Cambio 3) y
+    // el formulario de alta queda oculto hasta hacer clic en "+ Agregar
+    // costo" (Cambio 3, evita ensuciar la sección con un form vacío).
+    await page.getByRole('button', { name: /Costos del trabajo/i }).click()
+    await page.getByRole('button', { name: '+ Agregar costo' }).click()
     await page.locator('input[name="amount"]').fill(String(COST_AMOUNT))
     await page.getByRole('button', { name: /Agregar costo/i }).click()
     const marginText = new RegExp(`Margen:\\s*\\$?${MARGIN.toLocaleString('es-CL')}`)

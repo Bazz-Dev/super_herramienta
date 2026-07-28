@@ -3,7 +3,10 @@ import { auth } from '@/auth'
 import {
   listClientsForCashflow,
   listJobs,
+  listAllBranches,
 } from '@/lib/cashflow/queries'
+import { prisma } from '@/lib/prisma'
+import { tenantScope } from '@/lib/tenant'
 import { clp } from '@/lib/cashflow/format'
 import { dateRange } from '@/lib/cashflow/period'
 import { KpiCard } from '@/components/cashflow/kpi-card'
@@ -38,7 +41,7 @@ export default async function FlujoPage({
   const { from, to } = dateRange(desde, hasta)
   const now = new Date()
 
-  const [clients, jobs, controlJobs] = await Promise.all([
+  const [clients, jobs, controlJobs, branches, technicians] = await Promise.all([
     listClientsForCashflow(actor),
     listJobs(actor, { clientId: cliente, from, to }),
     // "Control de hoy" — respeta el filtro de cliente (es una entidad, no
@@ -47,7 +50,37 @@ export default async function FlujoPage({
     // en la referencia ("Estos indicadores no dependen del período
     // seleccionado").
     listJobs(actor, { clientId: cliente }),
+    // Edición rápida del acordeón necesita sucursal/técnico por trabajo —
+    // se cargan una vez acá (no por tarjeta) y se filtran por clientId en
+    // el cliente.
+    listAllBranches(actor),
+    prisma.technician.findMany({
+      where: { ...tenantScope(actor), active: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
   ])
+
+  // Estado documental de OT/Informe (bloque C de edición rápida) — se
+  // resuelve en 2 consultas batch para toda la lista visible en vez de una
+  // por tarjeta. OT vive en el ticket de origen (Ticket.otFileUrl); Informe
+  // es un ClientDocument type=informe vinculado al mismo ticket — mismo
+  // criterio que ya usa "Documentos del cliente" en /flujo/trabajos/[id].
+  const originTicketIds = [...new Set(jobs.map((j) => j.originTicketId).filter((v): v is string => !!v))]
+  const [otTickets, informeDocs] = originTicketIds.length
+    ? await Promise.all([
+        prisma.ticket.findMany({ where: { id: { in: originTicketIds } }, select: { id: true, otFileUrl: true } }),
+        prisma.clientDocument.findMany({ where: { ticketId: { in: originTicketIds }, type: 'informe' }, select: { id: true, ticketId: true } }),
+      ])
+    : [[], []]
+  const otByTicket = new Map(otTickets.map((t) => [t.id, t.otFileUrl]))
+  const informeByTicket = new Map(informeDocs.filter((d) => d.ticketId).map((d) => [d.ticketId as string, d.id]))
+  const withDocStatus = <T extends { originTicketId: string | null }>(rows: T[]) =>
+    rows.map((j) => ({
+      ...j,
+      otFileUrl: j.originTicketId ? otByTicket.get(j.originTicketId) ?? null : null,
+      informeDocId: j.originTicketId ? informeByTicket.get(j.originTicketId) ?? null : null,
+    }))
 
   const DAY = 24 * 60 * 60 * 1000
   const controlTyped = controlJobs as unknown as Parameters<typeof mainStatusCounts>[0]
@@ -62,7 +95,7 @@ export default async function FlujoPage({
   // Status-strip del prototipo (renderDashboard final) — 5 chips
   // (Todos/Pagadas/Pendientes de pago/Ejecutadas sin OC/No aprobadas),
   // filtran la lista de trabajos de abajo. Ver src/lib/cashflow/job-presets.ts.
-  const jobsTyped = jobs as unknown as Parameters<typeof mainStatusCounts>[0]
+  const jobsTyped = withDocStatus(jobs) as unknown as Parameters<typeof mainStatusCounts>[0]
   const statusCounts = mainStatusCounts(jobsTyped)
   const activeStatus: MainStatus | 'overdue' | 'due_soon' = (['all', 'paid', 'pending', 'no_po', 'rejected', 'overdue', 'due_soon'] as const).includes(estado as never)
     ? (estado as MainStatus | 'overdue' | 'due_soon')
@@ -164,7 +197,11 @@ export default async function FlujoPage({
           ))}
         </div>
 
-        <JobAccordion jobs={visibleJobs as unknown as Parameters<typeof JobAccordion>[0]['jobs']} />
+        <JobAccordion
+          jobs={visibleJobs as unknown as Parameters<typeof JobAccordion>[0]['jobs']}
+          branches={branches}
+          technicians={technicians}
+        />
       </div>
 
       {/* Quick links — análisis (margen/aging/mix/tendencia/por cliente),

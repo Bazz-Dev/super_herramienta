@@ -87,9 +87,9 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **KPIs**: total en pipeline, monto en juego (enviada+vista), tasa de cierre, propuestas por vencer (>7 días sin respuesta).
 
 ### Recursos (`/recursos`) — Inventario
-**Para qué**: Técnicos, vehículos, activos, clientes. (Cuadrillas: módulo sin uso en la operación real — ruta/modelo `Crew` intactos pero quitado de la navegación.)
-**Modelos**: `Technician`, `Vehicle`, `Asset`, `Crew`, `Client`, `TechnicianDocument`
-**Relaciones**: Técnico ↔ Vehículo 1:1, Vehículo → Activos 1:N, Cuadrilla ↔ Técnicos M:N.
+**Para qué**: Técnicos, vehículos, activos, clientes. (Cuadrillas: descartado — módulo `Crew` sin uso en la operación real, removido por completo el 2026-07-28: ruta, modelo, migración, seed y tests.)
+**Modelos**: `Technician`, `Vehicle`, `Asset`, `Client`, `TechnicianDocument`
+**Relaciones**: Técnico ↔ Vehículo 1:1, Vehículo → Activos 1:N.
 **Perfil técnico**: navegación por tabs (Resumen / Datos / Vehículo / Documentos). Resumen: stats de cronograma + stats de tickets + tickets recientes + próximas asignaciones. Links accionables a `/tickets?usuario=id` y `/cronograma?tecnico=id`.
 **ContractType enum**: `indefinido | plazo_fijo | ayudante | no_renovado | despedido`. Los dos últimos = desvinculados (sección separada en lista, auto-inactivan).
 **Documentos**: `DocSection` lista archivos con preview inline vía signed-URL proxy (`/api/files?key=...`).
@@ -146,7 +146,6 @@ Tenant ──< User (role: super|supervisor|tecnico|client)
                 ──< Payroll (liquidaciones)
                 ──< SignatureRequest (FES)
                 ──< Expense
-       ──< Crew ──< Technician (M:N)
        ──< Assignment ──< AssignmentAssignee (técnico+rol)
                       ──< Expense
 ```
@@ -263,12 +262,12 @@ Playwright + Chromium. Requieren dev server corriendo (se inicia automáticament
 | `auth.spec.ts` | Login, redirección sin auth, credenciales inválidas |
 | `mobile-audit.spec.ts` | No-horizontal-scroll + touch-targets ≥40px en todas las rutas; portal mobile |
 | `technicians.spec.ts` | Lista técnicos, crear + eliminar técnico |
-| `resources.spec.ts` | Activos, cuadrillas, cronograma seeded |
+| `resources.spec.ts` | Activos, cronograma seeded |
 | `cashflow.spec.ts` | Dashboard KPIs flujo de caja, jobs list, branches admin |
 | `features-v2.spec.ts` | Cotizador, cronograma vistas, vehiculos, clientes, activos |
 | `quotes.spec.ts` | Preview cotizador, endpoint PDF auth |
 | `tickets-flow.spec.ts` | Kanban board, crear ticket, badge de urgencia, filtros, abrir detalle |
-| `recursos-flow.spec.ts` | CRUD técnicos + vehículos, campos de vencimiento, activos/cuadrillas/clientes |
+| `recursos-flow.spec.ts` | CRUD técnicos + vehículos, campos de vencimiento, activos/clientes |
 | `cotizador-flow.spec.ts` | Editor cotizador, IVA, agregar ítem, carpetas de clientes |
 | `cronograma-flow.spec.ts` | Vistas calendario/técnico/carga, vista técnico swimlane, nueva asignación |
 | `rrhh-flujo.spec.ts` | Dashboard RR.HH., vacaciones, liquidaciones, navegación empleado; Flujo KPIs, trabajos, sucursales, filtro cliente |
@@ -345,7 +344,6 @@ Ver `docs/architecture/GAP_REGISTER.md` y la sección "Próximos" de `CLAUDE.md`
 | `Technician` | Técnico en terreno | tenant | nombre + `contractType` |
 | `Vehicle` | Camioneta o vehículo de trabajo | tenant | `plate` (patente única) |
 | `Asset` | Instrumento/herramienta inventariada | tenant | `code` (ej: INV-001) |
-| `Crew` | Cuadrilla de técnicos | tenant | nombre |
 
 ### Entidades de trabajo
 
@@ -387,7 +385,6 @@ Vehicle    ──< Asset      1:N  — instrumentos en esa camioneta
 
 Assignment ──< AssignmentAssignee M:N — técnico principal (tecnico) + ayudantes
 Assignment ──? Ticket      opt — un trabajo puede referenciar un ticket
-Crew       ──< Technician  M:N — cuadrilla de técnicos
 ```
 
 **Invariantes de integridad:**

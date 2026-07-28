@@ -117,14 +117,6 @@ export const assetInputSchema = z.object({
 })
 export type AssetInput = z.infer<typeof assetInputSchema>
 
-export const crewInputSchema = z.object({
-  name: z.string().trim().min(1, 'El nombre es obligatorio.'),
-  description: optionalText,
-  active: z.boolean().default(true),
-  technicianIds: z.array(z.string()).default([]),
-})
-export type CrewInput = z.infer<typeof crewInputSchema>
-
 const assigneeSchema = z.object({
   technicianId: z.string().min(1),
   role: z.enum(['tecnico', 'ayudante']).default('tecnico'),

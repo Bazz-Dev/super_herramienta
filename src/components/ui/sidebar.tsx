@@ -14,9 +14,13 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    // Cronograma (el calendario de Assignment/AssignmentAssignee) salió de
+    // este menú a pedido del dueño — Tickets ya cubre la asignación y fecha
+    // del trabajo día a día. El módulo en sí sigue existiendo (mi-panel/agenda
+    // del técnico y el tab Cronograma del portal cliente lo siguen usando),
+    // solo dejó de tener entrada en la navegación interna de staff.
     label: 'Operaciones',
     links: [
-      { href: '/cronograma', label: 'Cronograma', icon: CalendarIcon },
       { href: '/tickets', label: 'Tickets', icon: TicketIcon },
     ],
   },
@@ -240,14 +244,6 @@ function ToolsIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M14.7 6.3a4 4 0 0 0 5 5l-9 9a2.8 2.8 0 0 1-4-4Z" />
       <path d="m18 2 4 4-3 1-2-2Z" />
-    </svg>
-  )
-}
-function CalendarIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M3 10h18M8 2v4M16 2v4" />
     </svg>
   )
 }

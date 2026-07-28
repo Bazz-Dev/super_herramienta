@@ -8,7 +8,7 @@
  * - Prints a clear summary of what was applied vs skipped.
  */
 import { createClient } from '@libsql/client'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 const url = process.env.DATABASE_URL
@@ -39,32 +39,17 @@ if (applied.size > 0) {
   for (const m of applied) console.log(`   ✓ ${m}`)
 }
 
-const migrations = [
-  '20260609175152_init',
-  '20260610003228_add_resources',
-  '20260610013459_resources_v2',
-  '20260610104529_recursos_v3',
-  '20260620022941_cashflow_module',
-  '20260623001007_cashflow_table_naming_and_restrict',
-  '20260624034801_technicians_contracts_vehicle_expiry_docs',
-  '20260624120000_clientops_tickets_portal',
-  '20260627021940_technicians_terminated_status',
-  '20260629162516_expenses_and_technician_role',
-  '20260629162705_add_tecnico_role',
-  '20260629173303_fix_expense_cascade_and_assignment_relation',
-  '20260629213328_soft_delete_ticket_and_expiry_cron',
-  '20260629220000_username_login_indexes_fk_fixes',
-  '20260630033400_rename_drive_folder_url_to_folder_key',
-  '20260630122118_assignment_ticket_link',
-  '20260630214131_client_documents_and_fes',
-  '20260630222439_add_data_json_to_client_documents',
-  '20260630223147_rrhh_module',
-  '20260706041156_add_client_logo_url',
-  '20260709150320_add_technician_mutualidad_phone2',
-  '20260709215827_add_branch_client_admin_approval_status',
-  '20260713045307_add_pipeline_fields',
-  '20260714000000_add_job_origin_ticket',
-]
+// Se leen las carpetas de prisma/migrations/ en vez de mantener una lista a
+// mano — la lista hardcodeada que vivía acá se quedó desactualizada 8
+// migraciones atrás sin que nada lo marcara como error (el script solo
+// decía "0 pendientes" y se veía exitoso). Con esto, cualquier migración
+// nueva se detecta automáticamente por el simple hecho de tener su carpeta
+// en el repo — no hay un segundo lugar que actualizar y olvidar.
+const migrationsDir = join(process.cwd(), 'prisma', 'migrations')
+const migrations = readdirSync(migrationsDir, { withFileTypes: true })
+  .filter((e) => e.isDirectory() && e.name !== 'migration_lock.toml')
+  .map((e) => e.name)
+  .sort() // los nombres empiezan con timestamp YYYYMMDDHHMMSS — el orden alfabético es el orden cronológico
 
 const pending = migrations.filter((m) => !applied.has(m))
 console.log(`\n⏳ Migraciones pendientes: ${pending.length}`)
@@ -74,11 +59,63 @@ if (pending.length === 0) {
   process.exit(0)
 }
 
+// Guardrail añadido tras un incidente evitado a mano: si el ledger queda
+// desactualizado (una migración se aplicó por otra vía sin quedar
+// registrada), este script la vuelve a ver como "pendiente". El patrón
+// RedefineTables de SQLite (CREATE new_X -> INSERT SELECT -> DROP X ->
+// RENAME) es catastrófico en ese escenario — recrea la tabla con SOLO las
+// columnas que esa migración vieja conocía, perdiendo en silencio
+// cualquier columna agregada por migraciones posteriores que sí se
+// aplicaron. Antes de ejecutar cualquier RedefineTables, se compara contra
+// el schema real: si la tabla viva tiene columnas que la migración no
+// conoce, se aborta en vez de destruir datos.
+function extractRedefineTargets(sql: string): { liveTable: string; columns: string[] }[] {
+  const results: { liveTable: string; columns: string[] }[] = []
+  const createRe = /CREATE TABLE "(new_[a-zA-Z0-9_]+)" \(([\s\S]*?)\n\);/g
+  let m: RegExpExecArray | null
+  while ((m = createRe.exec(sql))) {
+    const liveTable = m[1].replace(/^new_/, '')
+    const columns: string[] = []
+    for (const rawLine of m[2].split(',\n')) {
+      const line = rawLine.trim()
+      if (!line || /^(CONSTRAINT|PRIMARY KEY|FOREIGN KEY|UNIQUE)\b/i.test(line)) continue
+      const colMatch = line.match(/^"([a-zA-Z0-9_]+)"/)
+      if (colMatch) columns.push(colMatch[1])
+    }
+    results.push({ liveTable, columns })
+  }
+  return results
+}
+
+async function assertRedefineSafe(name: string, sql: string) {
+  for (const { liveTable, columns } of extractRedefineTargets(sql)) {
+    const info = await client.execute(`PRAGMA table_info("${liveTable}")`).catch(() => null)
+    if (!info || info.rows.length === 0) continue // la tabla no existe aún — nada que perder
+    const liveColumns = info.rows.map((r) => String(r.name))
+    const missing = liveColumns.filter((c) => !columns.includes(c))
+    if (missing.length > 0) {
+      throw new Error(
+        `La migración "${name}" reconstruye "${liveTable}" (RedefineTables de SQLite) pero el schema real ya tiene ` +
+        `columnas que esta migración no conoce y destruiría: ${missing.join(', ')}. Esto indica un ledger ` +
+        `_applied_migrations desactualizado (la migración ya se aplicó antes por otra vía) — no se ejecuta.`
+      )
+    }
+  }
+}
+
 for (const name of pending) {
   process.stdout.write(`\n⚙️  Aplicando ${name} … `)
 
   const sqlPath = join(process.cwd(), 'prisma', 'migrations', name, 'migration.sql')
   const sql = readFileSync(sqlPath, 'utf8')
+
+  try {
+    await assertRedefineSafe(name, sql)
+  } catch (err) {
+    console.error(`\n🛑 ${err instanceof Error ? err.message : String(err)}`)
+    await client.close()
+    process.exit(1)
+  }
 
   // Split on semicolon+newline, strip leading comment lines from each block
   const statements = sql

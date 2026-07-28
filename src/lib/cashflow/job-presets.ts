@@ -17,6 +17,7 @@ type Job = {
   paymentDate: Date | null
   executionDate: Date | null
   creditDays: number | null
+  technicianId?: string | null
   // Campos "clásicos" — únicos que los 207 trabajos importados llegaron a
   // poblar (financialStage/operationalStage quedaron en su default de
   // schema, 'no_po'/'pending', para el 100% del histórico: nunca hubo un
@@ -43,6 +44,12 @@ export function isExecutedJob(j: Job): boolean {
 }
 export function isRejectedJob(j: Job): boolean {
   return j.commercialStage === 'rejected' || j.status === 'anulado'
+}
+// "Por agendar" — nadie puede ejecutar el trabajo todavía porque no tiene
+// técnico asignado y tampoco se ejecutó ya (un trabajo ya ejecutado sin
+// técnico registrado es un dato histórico incompleto, no algo "por agendar").
+export function isPendingSchedule(j: Job): boolean {
+  return !j.technicianId && !isExecutedJob(j)
 }
 // ensureDue: factura + plazo de crédito (30 días por defecto si no hay dato — igual que el prototipo).
 export function jobDueDateV2(j: Job): Date | null {
@@ -155,4 +162,36 @@ export function reportPresetCounts(jobs: Job[]): Record<ReportPreset, number> {
     paid: jobs.filter((j) => matchesReportPreset(j, 'paid', now)).length,
     unvalued: jobs.filter((j) => matchesReportPreset(j, 'unvalued', now)).length,
   }
+}
+
+// Estados visuales de documentos (OC/Factura/OT/Informe) en la edición
+// rápida — ver Cambio 4 de la especificación de UX de trabajos. Falta = sin
+// número y sin archivo. Registrado = número cargado pero sin archivo
+// adjunto. Adjunto = archivo subido directo en el campo (OC/Factura, dueños
+// del scalar en Job). Vinculado = el documento existe pero se gestiona en
+// otro módulo (OT y Informe viven en el ticket de origen, no en Job).
+export type DocState = 'falta' | 'registrado' | 'adjunto' | 'vinculado'
+
+export function ownedDocState(numberValue: string | null | undefined, fileUrl: string | null | undefined): DocState {
+  if (fileUrl) return 'adjunto'
+  if (numberValue) return 'registrado'
+  return 'falta'
+}
+
+export function linkedDocState(fileUrl: string | null | undefined): DocState {
+  return fileUrl ? 'vinculado' : 'falta'
+}
+
+export const DOC_STATE_LABELS: Record<DocState, string> = {
+  falta: 'Falta',
+  registrado: 'Registrado',
+  adjunto: 'Adjunto',
+  vinculado: 'Vinculado',
+}
+
+export const DOC_STATE_DOT: Record<DocState, string> = {
+  falta: 'bg-gray-300',
+  registrado: 'bg-amber-400',
+  adjunto: 'bg-green-500',
+  vinculado: 'bg-blue-500',
 }

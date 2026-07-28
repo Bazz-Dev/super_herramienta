@@ -168,14 +168,35 @@ export async function addCost(form: FormData) {
 }
 
 // Edición rápida in-line desde el acordeón de /flujo (no navega, no redirige).
-export async function quickUpdateJob(id: string, form: FormData): Promise<{ error?: string }> {
+// Bloque A (datos principales) + bloque B (cobranza) viajan en el mismo
+// submit — mismo patrón "reemplaza todo el bloque visible" que ya usaba
+// esta acción para cobranza, extendido en vez de reescrito.
+export async function quickUpdateJob(id: string, form: FormData): Promise<FormState> {
   const u = await requireActor(['super', 'supervisor'])
   const parsed = jobQuickEditInput.safeParse(Object.fromEntries(form))
-  if (!parsed.success) return { error: 'Revisa los campos.' }
+  if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const p = parsed.data
+
+  if (p.branchId) {
+    const branch = await prisma.branch.findFirst({ where: { id: p.branchId, ...tenantScope(u) }, select: { id: true } })
+    if (!branch) return { error: 'Sucursal no válida.', fieldErrors: { branchId: ['Sucursal no válida'] } }
+  }
+  if (p.technicianId) {
+    const tech = await prisma.technician.findFirst({ where: { id: p.technicianId, ...tenantScope(u) }, select: { id: true } })
+    if (!tech) return { error: 'Técnico no válido.', fieldErrors: { technicianId: ['Técnico no válido'] } }
+  }
+
+  const job = await prisma.job.findFirst({ where: { id, ...tenantScope(u) }, select: { originTicketId: true } })
+  if (!job) return { error: 'Trabajo no encontrado.' }
+
   await prisma.job.updateMany({
     where: { id, ...tenantScope(u) },
     data: {
+      ...(p.branchId ? { branchId: p.branchId } : {}),
+      ...(p.description !== undefined ? { description: p.description } : {}),
+      ...(p.type ? { type: p.type } : {}),
+      ...(p.executionDate !== undefined ? { executionDate: fromDateInput(p.executionDate) } : {}),
+      ...(p.technicianId !== undefined ? { technicianId: p.technicianId || null } : {}),
       quoteRef: p.quoteRef ?? null,
       code: p.code || null,
       purchaseOrder: p.purchaseOrder ?? null,
@@ -186,6 +207,21 @@ export async function quickUpdateJob(id: string, form: FormData): Promise<{ erro
       taxAmount: p.taxAmount ?? null,
     },
   })
+
+  // Asignar técnico a un trabajo "por agendar" debe reflejarse en el ticket
+  // de origen — si no, el técnico nunca ve el trabajo asignado en Tickets,
+  // que es la superficie real donde opera. Ticket.assignedToId es un
+  // User.id, no un Technician.id (relación suelta, ver .claude/rules/data.md)
+  // — se resuelve vía User.technicianId. Si el técnico no tiene cuenta
+  // vinculada, se guarda el trabajo igual y el ticket queda sin tocar.
+  if (p.technicianId && job.originTicketId) {
+    const technicianUser = await prisma.user.findFirst({ where: { technicianId: p.technicianId }, select: { id: true } })
+    if (technicianUser) {
+      await prisma.ticket.updateMany({ where: { id: job.originTicketId, tenantId: u.tenantId }, data: { assignedToId: technicianUser.id } })
+      revalidatePath(`/tickets/${job.originTicketId}`)
+    }
+  }
+
   revalidatePath('/flujo')
   return {}
 }

@@ -160,22 +160,6 @@ test.describe('activos', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Cuadrillas
-// ---------------------------------------------------------------------------
-
-test.describe('cuadrillas', () => {
-  test('list renders', async ({ page }) => {
-    await login(page)
-    await page.goto('/recursos/cuadrillas')
-    await page.waitForLoadState('load')
-
-    const heading = page.getByRole('heading').first()
-    await expect(heading).toBeVisible({ timeout: 15000 })
-    await expect(page.locator('h1').first()).not.toHaveText(/not found/i)
-  })
-})
-
-// ---------------------------------------------------------------------------
 // Clientes
 // ---------------------------------------------------------------------------
 

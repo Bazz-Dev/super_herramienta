@@ -110,7 +110,6 @@ model Tenant {
 
   users         User[]
   technicians   Technician[]
-  crews         Crew[]
   assets        Asset[]
   vehicles      Vehicle[]
   assignments   Assignment[]
@@ -223,7 +222,6 @@ model Technician {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   user          User?    // back-relation: User.technicianId → this technician
-  crews         Crew[] // M:N implícito
   vehicle       Vehicle? // 1:1 — camioneta asignada (back-relation de Vehicle.technicianId)
   assignees     AssignmentAssignee[] // participaciones en asignaciones (técnico/ayudante)
   documents     TechnicianDocument[]
@@ -318,23 +316,6 @@ model ClientRut {
 
   @@index([clientId])
   @@map("client_ruts")
-}
-
-model Crew {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tenantId String
-  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  technicians Technician[] // M:N implícito
-
-  @@index([tenantId])
-  @@map("crews")
 }
 
 model Asset {
@@ -523,8 +504,10 @@ model Job {
   taxAmount         Int?
 
   purchaseOrder     String?
+  purchaseOrderFileUrl String? // R2 key — mismo patrón que Ticket.otFileUrl, reemplazo sobrescribe
   purchaseOrderDate DateTime?
   invoiceNumber     String?
+  invoiceFileUrl    String? // R2 key — mismo patrón que Ticket.otFileUrl, reemplazo sobrescribe
   invoiceDate       DateTime?
   creditDays        Int?
   paymentMethodRaw  String?

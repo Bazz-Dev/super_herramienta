@@ -217,8 +217,7 @@ export default async function TecnicosPage({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-1.5 border-t border-gray-100 pt-3">
-                    <StatPill value={t._count.crews} label="Cuadrillas" />
+                  <div className="grid grid-cols-2 gap-1.5 border-t border-gray-100 pt-3">
                     <StatPill value={t.vehicle?._count.assets ?? 0} label="Herram." />
                     <StatPill
                       value={docsOk}

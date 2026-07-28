@@ -59,6 +59,18 @@ export async function listBranchesForClient(actor: Actor, clientId: string) {
   })
 }
 
+// Todas las sucursales del tenant (con clientId) — usada por la edición
+// rápida del acordeón de /flujo, que mezcla trabajos de varios clientes en
+// una sola lista y necesita filtrar el selector de sucursal por el cliente
+// de cada trabajo sin una consulta por tarjeta.
+export async function listAllBranches(actor: Actor) {
+  return prisma.branch.findMany({
+    where: tenantScope(actor),
+    select: { id: true, name: true, clientId: true },
+    orderBy: { name: 'asc' },
+  })
+}
+
 export async function getJob(actor: Actor, id: string) {
   return prisma.job.findFirst({
     where: { id, ...tenantScope(actor) },
@@ -66,7 +78,7 @@ export async function getJob(actor: Actor, id: string) {
       branch: true,
       client: true,
       costs: { orderBy: { createdAt: 'desc' } },
-      originTicket: { select: { id: true, ticketCode: true, title: true, status: true } },
+      originTicket: { select: { id: true, ticketCode: true, title: true, status: true, otFileUrl: true } },
     },
   })
 }

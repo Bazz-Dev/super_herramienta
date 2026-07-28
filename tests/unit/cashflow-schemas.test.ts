@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { jobInput, jobCostInput } from '../../src/lib/cashflow/schemas.ts'
+import { jobInput, jobCostInput, jobQuickEditInput } from '../../src/lib/cashflow/schemas.ts'
 import { toDateInput, fromDateInput } from '../../src/lib/cashflow/dates.ts'
 
 test('jobInput: requires description + branchId, coerces numbers', () => {
@@ -19,6 +19,31 @@ test('jobCostInput: coerces amount', () => {
   const ok = jobCostInput.safeParse({ jobId: 'j1', amount: '15000' })
   assert.ok(ok.success)
   assert.equal(ok.data.amount, 15000)
+})
+
+test('jobQuickEditInput: accepts partial payload — Block B only, no Block A fields', () => {
+  const ok = jobQuickEditInput.safeParse({ quoteRef: 'REF-1', netAmount: '10000' })
+  assert.ok(ok.success)
+  assert.equal(ok.data.branchId, undefined)
+  assert.equal(ok.data.description, undefined)
+})
+
+test('jobQuickEditInput: Block A fields validate when present — empty description/branchId rejected', () => {
+  const badDescription = jobQuickEditInput.safeParse({ description: '' })
+  assert.equal(badDescription.success, false)
+
+  const badBranch = jobQuickEditInput.safeParse({ branchId: '' })
+  assert.equal(badBranch.success, false)
+
+  const ok = jobQuickEditInput.safeParse({ branchId: 'b1', description: 'Trabajo válido', type: 'emergencia', technicianId: 't1' })
+  assert.ok(ok.success)
+  assert.equal(ok.data.type, 'emergencia')
+})
+
+test('jobQuickEditInput: technicianId empty string is valid (means "sin asignar")', () => {
+  const ok = jobQuickEditInput.safeParse({ technicianId: '' })
+  assert.ok(ok.success)
+  assert.equal(ok.data.technicianId, '')
 })
 
 test('date helpers round-trip', () => {

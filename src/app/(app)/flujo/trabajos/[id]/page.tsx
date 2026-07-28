@@ -4,13 +4,13 @@ import { requireActor } from '@/lib/tenant'
 import { getJob, listBranches } from '@/lib/cashflow/queries'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
-import { JOB_TYPE_LABELS, JOB_STATUS_LABELS } from '@/lib/cashflow/labels'
 import { clp } from '@/lib/cashflow/format'
-import { toDateInput } from '@/lib/cashflow/dates'
 import { jobTotal } from '@/lib/cashflow/metrics'
-import { CollectionChip } from '@/components/cashflow/collection-chip'
 import { JobForm } from '@/components/cashflow/job-form'
 import { CostList } from '@/components/cashflow/cost-list'
+import { JobDocumentsGrid } from '@/components/cashflow/job-document-slots'
+import { FinancialStageChip } from '@/components/cashflow/job-status-chips'
+import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import { DeleteButton } from '@/components/resources/delete-button'
 import { AutoFilledBadge } from '@/components/ui/auto-filled-badge'
 import { updateJob, deleteJob } from '../../actions'
@@ -21,25 +21,22 @@ const DOC_TYPE: Record<string, { label: string; badge: string }> = {
   otro:      { label: 'Otro',      badge: 'bg-gray-100 text-gray-600 border-gray-200' },
 }
 
-function InfoRow({ label, value, autoFilled }: { label: string; value: string; autoFilled?: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs font-medium text-gray-500">
-        {label}
-        {autoFilled && <AutoFilledBadge reason={autoFilled} />}
-      </span>
-      <span className="text-sm text-ink">{value || '—'}</span>
-    </div>
-  )
-}
-
+// Ficha completa — ver docs de la spec "Cambio 3": el resumen superior se
+// redujo a lo mínimo (antes duplicaba 12 campos en modo solo-lectura Y
+// editable más abajo, en 2 lugares distintos de la misma página) y todos
+// los campos editables + costos + documentos + historial viven en 6
+// secciones plegables, ninguno removido, solo "Datos del trabajo" abierta
+// por defecto. ?section=<slug> permite deep-link desde una alerta.
 export default async function TrabajoDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ section?: string }>
 }) {
   const actor = await requireActor()
   const { id } = await params
+  const { section } = await searchParams
 
   const job = await getJob(actor, id)
   if (!job) notFound()
@@ -73,6 +70,9 @@ export default async function TrabajoDetailPage({
   ])
 
   const total = jobTotal(job)
+  const totalCosts = job.costs.reduce((s, c) => s + c.amount, 0)
+  const margin = job.netAmount != null ? job.netAmount - totalCosts : null
+  const informeDoc = clientDocs.find((d) => d.type === 'informe')
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -94,23 +94,6 @@ export default async function TrabajoDetailPage({
         </div>
       )}
 
-      {/* Header */}
-      <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{job.description}</h1>
-          <p className="mt-0.5 text-sm text-gray-500">{job.branch.name} · {job.client.name}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-            {JOB_TYPE_LABELS[job.type] ?? job.type}
-          </span>
-          <CollectionChip status={job.collectionStatus} />
-          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-            {JOB_STATUS_LABELS[job.status] ?? job.status}
-          </span>
-        </div>
-      </div>
-
       {/* Origen: registro importado desde el Excel histórico de reconciliación */}
       {job.importRef && (
         <div className="mt-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-500">
@@ -119,101 +102,132 @@ export default async function TrabajoDetailPage({
         </div>
       )}
 
-      {/* Info grid */}
-      <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-3 lg:grid-cols-4">
-        <InfoRow
-          label="Código"
-          value={job.code ?? ''}
-          autoFilled={job.code ? 'Generado automáticamente (YYMMDD-CLIENTE-TIPO-N°)' : undefined}
-        />
-        <InfoRow label="N° trabajo" value={job.jobNumber?.toString() ?? ''} />
-        <InfoRow label="Centro de costo" value={job.costCenter ?? ''} />
-        <InfoRow label="Ref. cotización" value={job.quoteRef ?? ''} />
-        <InfoRow label="N° OC" value={job.purchaseOrder ?? ''} />
-        <InfoRow label="N° factura" value={job.invoiceNumber ?? ''} />
-        <InfoRow label="Fecha ejecución" value={toDateInput(job.executionDate)} />
-        <InfoRow label="Fecha OC" value={toDateInput(job.purchaseOrderDate)} />
-        <InfoRow label="Fecha factura" value={toDateInput(job.invoiceDate)} />
-        <InfoRow label="Fecha pago" value={toDateInput(job.paymentDate)} />
-        <InfoRow label="Días crédito" value={job.creditDays?.toString() ?? ''} />
-        <InfoRow label="Forma de pago" value={job.paymentMethodRaw ?? ''} />
-        <InfoRow
-          label="Total (neto + IVA)"
-          value={clp(total)}
-          autoFilled={job.taxAmount == null ? 'IVA calculado automáticamente como 19% del neto (no se ingresó un monto de IVA manual)' : undefined}
-        />
+      {/* Resumen — reducido a título/cliente-sucursal/código/fecha/estado
+          financiero/total. El resto (12 campos que antes vivían acá en
+          modo solo-lectura, duplicados con el formulario de abajo) ahora
+          se edita directo en su sección correspondiente. */}
+      <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{job.description}</h1>
+          <p className="mt-0.5 text-sm text-gray-500">{job.branch.name} · {job.client.name}</p>
+        </div>
+        <FinancialStageChip value={job.financialStage} />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
+        <span>Código: <span className="font-medium text-ink">{job.code ?? '—'}</span></span>
+        <span>{job.executionDate ? job.executionDate.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Sin fecha de ejecución'}</span>
+        <strong className="text-base font-extrabold tabular-nums text-ink">{clp(total)}</strong>
       </div>
 
-      {/* Edit form */}
-      <div className="mt-8">
-        <h2 className="mb-4 text-base font-semibold text-ink">Editar trabajo</h2>
+      <div className="mt-6 flex flex-col gap-4">
+        {/* Secciones 1-3: datos del trabajo / cobros y pago / estados y
+            seguimiento — todas dentro del mismo <form>, ver JobForm. */}
         <JobForm
           action={updateJob.bind(null, job.id)}
           branches={branches}
           technicians={technicianRows}
           clientId={job.clientId}
           initial={job}
+          openSection={section}
         />
-      </div>
 
-      {/* Cost list */}
-      <CostList costs={job.costs} jobId={job.id} netAmount={job.netAmount} />
+        {/* 4. Costos del trabajo */}
+        <CollapsibleSection
+          title="Costos del trabajo"
+          forceOpen={section === 'costos'}
+          summary={`${job.costs.length} costo${job.costs.length === 1 ? '' : 's'} · Margen: ${margin != null ? clp(margin) : '—'}`}
+        >
+          <CostList costs={job.costs} jobId={job.id} netAmount={job.netAmount} />
+        </CollapsibleSection>
 
-      {/* Client documents */}
-      <div className="mt-10">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-ink">Documentos del cliente</h2>
-          <div className="flex items-center gap-3">
-            <Link href="/cotizador" className="text-xs font-semibold text-brand hover:underline">
-              + Propuesta
-            </Link>
-            <Link href="/informe" className="text-xs font-semibold text-brand hover:underline">
-              + Informe
-            </Link>
-            <Link href="/documentos" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-              Ver carpeta →
-            </Link>
+        {/* 5. Documentos — OC/Factura/OT/Informe (adjuntar/vincular en
+            contexto) + la carpeta de propuestas/informes del cliente ya
+            soportada. */}
+        <CollapsibleSection
+          title="Documentos"
+          forceOpen={section === 'documentos'}
+          summary={`OC: ${job.purchaseOrder || 'Falta'} · Factura: ${job.invoiceNumber || 'Falta'}`}
+        >
+          <JobDocumentsGrid
+            jobId={job.id}
+            purchaseOrder={job.purchaseOrder}
+            purchaseOrderFileUrl={job.purchaseOrderFileUrl}
+            invoiceNumber={job.invoiceNumber}
+            invoiceFileUrl={job.invoiceFileUrl}
+            otFileUrl={job.originTicket?.otFileUrl ?? null}
+            originTicketId={job.originTicketId}
+            informeDocId={informeDoc?.id ?? null}
+          />
+
+          <div className="mt-6">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Carpeta del cliente</h3>
+              <div className="flex items-center gap-3">
+                <Link href="/cotizador" className="text-xs font-semibold text-brand hover:underline">+ Propuesta</Link>
+                <Link href="/informe" className="text-xs font-semibold text-brand hover:underline">+ Informe</Link>
+                <Link href="/documentos" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Ver carpeta →</Link>
+              </div>
+            </div>
+            {clientDocs.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-gray-200 py-6 text-center text-sm text-gray-400">
+                {job.originTicketId || job.originProposalId
+                  ? 'Sin documentos vinculados a este trabajo todavía.'
+                  : 'Este trabajo no tiene ticket ni propuesta de origen — no hay documentos que vincular automáticamente.'}
+                {' '}
+                <Link href="/cotizador" className="font-semibold text-brand hover:underline">Crear propuesta →</Link>
+                {' '}o{' '}
+                <Link href="/informe" className="font-semibold text-brand hover:underline">Crear informe →</Link>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                {clientDocs.map((doc, i) => {
+                  const cfg = DOC_TYPE[doc.type] ?? DOC_TYPE.otro
+                  const editorHref = `/${doc.type === 'propuesta' ? 'cotizador' : 'informe'}?docId=${doc.id}`
+                  return (
+                    <div key={doc.id} className={`flex items-center gap-3 px-4 py-3 ${i < clientDocs.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cfg.badge}`}>{cfg.label}</span>
+                      <span className="flex-1 truncate text-sm text-gray-800">{doc.title}</span>
+                      <span className="shrink-0 text-xs text-gray-400">{doc.createdAt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <Link href={editorHref} className="shrink-0 text-xs font-semibold text-brand hover:underline">Editar →</Link>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        </div>
-        {clientDocs.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-200 py-6 text-center text-sm text-gray-400">
-            {job.originTicketId || job.originProposalId
-              ? 'Sin documentos vinculados a este trabajo todavía.'
-              : 'Este trabajo no tiene ticket ni propuesta de origen — no hay documentos que vincular automáticamente.'}
-            {' '}
-            <Link href="/cotizador" className="font-semibold text-brand hover:underline">
-              Crear propuesta →
-            </Link>
-            {' '}o{' '}
-            <Link href="/informe" className="font-semibold text-brand hover:underline">
-              Crear informe →
-            </Link>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            {clientDocs.map((doc, i) => {
-              const cfg = DOC_TYPE[doc.type] ?? DOC_TYPE.otro
-              const editorHref = `/${doc.type === 'propuesta' ? 'cotizador' : 'informe'}?docId=${doc.id}`
-              return (
-                <div
-                  key={doc.id}
-                  className={`flex items-center gap-3 px-4 py-3 ${i < clientDocs.length - 1 ? 'border-b border-gray-100' : ''}`}
-                >
-                  <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${cfg.badge}`}>
-                    {cfg.label}
-                  </span>
-                  <span className="flex-1 truncate text-sm text-gray-800">{doc.title}</span>
-                  <span className="shrink-0 text-xs text-gray-400">
-                    {doc.createdAt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </span>
-                  <Link href={editorHref} className="shrink-0 text-xs font-semibold text-brand hover:underline">
-                    Editar →
-                  </Link>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        </CollapsibleSection>
+
+        {/* 6. Historial y auditoría — solo metadatos reales ya trackeados
+            (createdAt/updatedAt/importRef/origen); no se construye un
+            subsistema de auditoría nuevo. */}
+        <CollapsibleSection
+          title="Historial y auditoría"
+          forceOpen={section === 'historial'}
+          summary={`Creado ${job.createdAt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+        >
+          <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium text-gray-500">Creado</dt>
+              <dd className="text-ink">{job.createdAt.toLocaleString('es-CL')}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-gray-500">Última actualización</dt>
+              <dd className="text-ink">{job.updatedAt.toLocaleString('es-CL')}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium text-gray-500">Origen</dt>
+              <dd className="text-ink">
+                {job.importRef ? `Importación histórica (${job.importRef})` : job.originTicket ? `Ticket ${job.originTicket.ticketCode}` : 'Creado manualmente'}
+              </dd>
+            </div>
+            {job.originProposalId && (
+              <div>
+                <dt className="text-xs font-medium text-gray-500">Propuesta de origen</dt>
+                <dd><Link href={`/cotizador?docId=${job.originProposalId}`} className="text-brand hover:underline">Ver propuesta →</Link></dd>
+              </div>
+            )}
+          </dl>
+        </CollapsibleSection>
       </div>
 
       {/* Delete job */}

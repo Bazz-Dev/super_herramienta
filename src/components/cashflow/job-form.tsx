@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useActionState } from 'react'
 import { Button, Field, TextInput, Select, TextArea } from '@/components/quotes/ui'
+import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import {
   JOB_TYPE_LABELS,
   PROCESS_FLOW_LABELS,
@@ -12,6 +13,7 @@ import {
   FINANCIAL_STAGE_LABELS,
 } from '@/lib/cashflow/labels'
 import { toDateInput } from '@/lib/cashflow/dates'
+import { clp } from '@/lib/cashflow/format'
 import { ClientSelector } from '@/components/cashflow/client-selector'
 
 type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
@@ -72,6 +74,11 @@ function triStateSelect(name: string, value: boolean | null | undefined) {
   )
 }
 
+// Ficha completa — campos agrupados en secciones plegables (ninguno
+// removido respecto a la versión plana anterior), solo "Datos del trabajo"
+// abierta por defecto. openSection permite deep-link desde una alerta
+// ("datos" | "cobros" | "estados") que fuerza esa sección abierta además de
+// la que ya está abierta por defecto.
 export function JobForm({
   action,
   branches,
@@ -79,6 +86,7 @@ export function JobForm({
   clients = [],
   clientId,
   initial,
+  openSection,
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>
   branches: { id: string; name: string }[]
@@ -86,12 +94,22 @@ export function JobForm({
   clients?: { id: string; name: string }[]
   clientId: string
   initial?: JobInitial
+  openSection?: string
 }) {
   const [state, formAction, pending] = useActionState(action, {})
   const err = (f: string) => state.fieldErrors?.[f]?.[0]
 
+  const branchName = branches.find((b) => b.id === initial?.branchId)?.name
+  const technicianName = technicians.find((t) => t.id === initial?.technicianId)?.name
+  // Trabajo nuevo (sin id todavía): no hay nada que "reducir" — colapsar
+  // Cobros/Estados por defecto en /flujo/trabajos/new solo escondía el
+  // campo de monto que cualquier trabajo nuevo necesita cargar de entrada.
+  // El colapso por defecto tiene sentido para EDITAR un trabajo ya
+  // existente (reducir ruido de un registro largo), no para crear uno.
+  const isNewJob = !initial?.id
+
   return (
-    <form action={formAction} className="flex max-w-3xl flex-col gap-6">
+    <form action={formAction} className="flex max-w-4xl flex-col gap-4 pb-20">
       {/* Hidden ids */}
       <input type="hidden" name="clientId" value={clientId} />
       {initial?.originTicketId && (
@@ -101,11 +119,13 @@ export function JobForm({
         <input type="hidden" name="originProposalId" value={initial.originProposalId} />
       )}
 
-      {/* --- Identificación --- */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Identificación
-        </h2>
+      {/* --- 1. Datos del trabajo --- */}
+      <CollapsibleSection
+        title="Datos del trabajo"
+        defaultOpen
+        forceOpen={openSection === 'datos'}
+        summary={`${branchName ?? 'Sin sucursal'} · ${JOB_TYPE_LABELS[initial?.type ?? ''] ?? initial?.type ?? '—'} · ${technicianName ?? 'Sin técnico'}`}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {clients.length > 1 && (
             <Field label="Cliente *">
@@ -209,13 +229,15 @@ export function JobForm({
             <TextArea name="extraNotes" defaultValue={initial?.extraNotes ?? ''} rows={2} />
           </Field>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      {/* --- Ingreso --- */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Ingreso
-        </h2>
+      {/* --- 2. Cobros y pago --- */}
+      <CollapsibleSection
+        title="Cobros y pago"
+        defaultOpen={isNewJob}
+        forceOpen={openSection === 'cobros'}
+        summary={`Neto: ${clp(initial?.netAmount ?? 0)} · OC: ${initial?.purchaseOrder || 'Falta'} · Factura: ${initial?.invoiceNumber || 'Falta'}`}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Neto (CLP)">
             <TextInput
@@ -235,15 +257,6 @@ export function JobForm({
               placeholder="Vacío = 19% automático"
             />
           </Field>
-        </div>
-      </section>
-
-      {/* --- Cobranza --- */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Cobranza
-        </h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="N° OC">
             <TextInput
               name="purchaseOrder"
@@ -296,13 +309,14 @@ export function JobForm({
             />
           </Field>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      {/* --- Estado del trabajo (Flujo de Caja v2) --- */}
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
-          Estado del trabajo
-        </h2>
+      {/* --- 3. Estados y seguimiento (Flujo de Caja v2) --- */}
+      <CollapsibleSection
+        title="Estados y seguimiento"
+        forceOpen={openSection === 'estados'}
+        summary={`${FINANCIAL_STAGE_LABELS[initial?.financialStage ?? ''] ?? '—'} · ${OPERATIONAL_STAGE_LABELS[initial?.operationalStage ?? ''] ?? '—'}`}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Origen del trabajo">
             <Select name="processFlow" defaultValue={initial?.processFlow ?? 'pre_quote'}>
@@ -380,11 +394,14 @@ export function JobForm({
             </Field>
           </div>
         </div>
-      </section>
+      </CollapsibleSection>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
 
-      <div className="flex items-center gap-3">
+      {/* Barra sticky de guardado — la ficha se volvió larga (varias
+          secciones plegables); sin esto había que scrollear hasta el final
+          después de cada cambio. */}
+      <div className="sticky bottom-0 -mx-4 mt-2 flex items-center gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
         <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending ? 'Guardando…' : 'Guardar trabajo'}
         </Button>

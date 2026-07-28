@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Field, TextInput, Select, Button } from '@/components/quotes/ui'
 import { Spinner } from '@/components/ui/spinner'
@@ -30,6 +30,7 @@ export function CostList({
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
+  const [adding, setAdding] = useState(false)
 
   const totalCosts = costs.reduce((s, c) => s + c.amount, 0)
   const margin = netAmount != null ? netAmount - totalCosts : null
@@ -44,9 +45,7 @@ export function CostList({
   }
 
   return (
-    <section className="mt-6">
-      <h2 className="mb-3 text-base font-semibold text-ink">Costos del trabajo</h2>
-
+    <div>
       {/* Costs table */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
         {costs.length === 0 ? (
@@ -108,42 +107,60 @@ export function CostList({
         )}
       </div>
 
-      {/* Add cost inline form */}
-      <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4">
-        <h3 className="mb-3 text-sm font-medium text-gray-600">Agregar costo</h3>
-        <form action={addCost} className="flex flex-col gap-3">
-          <input type="hidden" name="jobId" value={jobId} />
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Categoría">
-              <Select name="category" defaultValue="materiales">
-                {Object.entries(COST_CATEGORY_LABELS).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Descripción">
-              <TextInput name="description" placeholder="Detalle del costo" />
-            </Field>
-            <Field label="Monto (CLP) *">
-              <TextInput name="amount" type="number" min={0} required placeholder="0" />
-            </Field>
-            <Field label="Fecha">
-              <TextInput name="date" type="date" />
-            </Field>
-            <Field label="Proveedor">
-              <TextInput name="supplier" placeholder="Nombre del proveedor" />
-            </Field>
-            <Field label="Ref. documento">
-              <TextInput name="documentRef" placeholder="N° boleta, factura…" />
-            </Field>
-          </div>
-          <div>
-            <Button type="submit">+ Agregar costo</Button>
-          </div>
-        </form>
-      </div>
-    </section>
+      {/* Alta de costo — oculta hasta hacer clic, para no ensuciar la
+          sección con un formulario vacío cada vez que se abre. */}
+      {adding ? (
+        <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4">
+          <h3 className="mb-3 text-sm font-medium text-gray-600">Agregar costo</h3>
+          <form
+            action={addCost}
+            onSubmit={() => setAdding(false)}
+            className="flex flex-col gap-3"
+          >
+            <input type="hidden" name="jobId" value={jobId} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Categoría">
+                <Select name="category" defaultValue="materiales">
+                  {Object.entries(COST_CATEGORY_LABELS).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Descripción">
+                <TextInput name="description" placeholder="Detalle del costo" />
+              </Field>
+              <Field label="Monto (CLP) *">
+                <TextInput name="amount" type="number" min={0} required placeholder="0" />
+              </Field>
+              <Field label="Fecha">
+                <TextInput name="date" type="date" />
+              </Field>
+              <Field label="Proveedor">
+                <TextInput name="supplier" placeholder="Nombre del proveedor" />
+              </Field>
+              <Field label="Ref. documento">
+                <TextInput name="documentRef" placeholder="N° boleta, factura…" />
+              </Field>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="submit">+ Agregar costo</Button>
+              <button type="button" onClick={() => setAdding(false)} className="text-sm text-gray-500 hover:text-gray-700">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="mt-4 rounded-md border border-dashed border-gray-300 px-3 py-2 text-sm font-medium text-gray-500 hover:border-brand hover:text-brand"
+        >
+          + Agregar costo
+        </button>
+      )}
+    </div>
   )
 }

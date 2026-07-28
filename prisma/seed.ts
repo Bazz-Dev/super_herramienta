@@ -76,15 +76,6 @@ async function main() {
     )
     firstDemoTech = techs[0]
 
-    await prisma.crew.create({
-      data: {
-        name: 'Cuadrilla A',
-        description: 'Mantención salas limpias',
-        tenantId: ingegar.id,
-        technicians: { connect: [{ id: techs[0].id }, { id: techs[2].id }] },
-      },
-    })
-
     const vehicle = await prisma.vehicle.create({
       data: { plate: 'GJKL-45', brand: 'Toyota', model: 'Hilux', year: 2022, status: 'active', tenantId: ingegar.id, technicianId: techs[0].id },
     })

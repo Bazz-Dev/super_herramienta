@@ -69,8 +69,16 @@ export const jobInput = z.object({
 })
 
 // Edición rápida desde el acordeón de /flujo — subconjunto de jobInput,
-// sin navegar a la página de detalle.
+// sin navegar a la página de detalle. Bloque A (datos principales) + bloque
+// B (cobranza, ya existía) se guardan juntos en un solo submit.
 export const jobQuickEditInput = z.object({
+  // Bloque A — datos principales
+  branchId: z.string().min(1, 'La sucursal es obligatoria').optional(),
+  executionDate: z.string().optional(),
+  description: z.string().min(1, 'La descripción es obligatoria').optional(),
+  type: z.enum(jobTypes).optional(),
+  technicianId: z.string().optional(),
+  // Bloque B — cobranza rápida
   quoteRef: z.string().optional(),
   code: z.string().optional(),
   purchaseOrder: z.string().optional(),
