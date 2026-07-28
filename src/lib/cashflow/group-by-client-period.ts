@@ -2,15 +2,38 @@ import { jobTotal, type JobLike } from './metrics'
 
 export type GroupPeriod = 'day' | 'week' | 'month' | 'year'
 
-type BaseJob = JobLike & { id: string; client: { id: string; name: string }; branch: { name: string } | null; description: string }
+type BaseJob = JobLike & {
+  id: string
+  client: { id: string; name: string }
+  branch: { name: string } | null
+  description: string
+  code: string | null
+  createdAt: Date
+}
 
 type PeriodBucket<J> = { key: string; label: string; jobs: J[] }
 type ClientGroup<J> = { clientId: string; clientName: string; jobs: J[]; pending: number; overdueCount: number; periods: PeriodBucket<J>[] }
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
-function recordDate(j: BaseJob): Date | null {
-  return j.executionDate
+// YYMMDD-CLI-TT-NN — Job.code embeds la fecha de ejecución en el prefijo
+// (ver generate-code.ts). Los IMP-CLI-NNNN de importación histórica no la
+// llevan, cae al siguiente respaldo.
+function dateFromCode(code: string | null): Date | null {
+  const m = code?.match(/^(\d{2})(\d{2})(\d{2})-/)
+  if (!m) return null
+  const [, yy, mm, dd] = m
+  const d = new Date(Date.UTC(2000 + Number(yy), Number(mm) - 1, Number(dd)))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+// executionDate es el dato correcto cuando existe, pero los 207 trabajos
+// importados del histórico nunca lo tuvieron poblado — sin este respaldo,
+// groupByClientPeriod los descarta en silencio (recordDate null → "continue"
+// más abajo) y la lista de Trabajos aparece vacía pese a tener datos reales.
+// Exportada para que JobCard muestre la MISMA fecha por la que se agrupó.
+export function recordDate(j: BaseJob): Date {
+  return j.executionDate ?? dateFromCode(j.code) ?? j.createdAt
 }
 
 function periodKeyAndLabel(d: Date, period: GroupPeriod): { key: string; label: string } {

@@ -4,30 +4,29 @@ import {
   listClientsForCashflow,
   listJobs,
 } from '@/lib/cashflow/queries'
-import {
-  computeMetrics,
-  type JobLike,
-} from '@/lib/cashflow/metrics'
 import { clp } from '@/lib/cashflow/format'
-import { periodRange, pctDelta } from '@/lib/cashflow/period'
+import { periodRange } from '@/lib/cashflow/period'
 import { KpiCard } from '@/components/cashflow/kpi-card'
 import { ClientFilter } from '@/components/cashflow/client-filter'
 import { PeriodFilter } from '@/components/cashflow/period-filter'
 import { JobAccordion } from '@/components/cashflow/job-accordion'
-import { MAIN_STATUS_CHIPS, mainStatusCounts, matchesMainStatus, type MainStatus } from '@/lib/cashflow/job-presets'
+import {
+  MAIN_STATUS_CHIPS, mainStatusCounts, matchesMainStatus, type MainStatus,
+  isOverdueV2, isDueSoon, isNoPOJob, isUnvaluedJob, isNoInvoiceJob,
+} from '@/lib/cashflow/job-presets'
 import { Suspense } from 'react'
 
-// Rediseño de densidad (owner: "el objetivo no es mostrar muchos KPIs, es
-// entender qué trabajos existen y en qué etapa están"). Antes esta página
-// tenía ~21 indicadores numéricos compitiendo (3 filas de KPI + 5 chips +
-// 3 tarjetas de recordatorio que duplicaban los chips + 4 KPIs de gastos)
-// antes de siquiera llegar a la lista de trabajos, que es el contenido
-// real. Ahora: 4 KPIs de decisión + los chips (que ya filtran la lista,
-// no hacen falta como bloque aparte) + la lista. Márgen/aging/mix/tendencia
-// mensual/desglose por cliente se movieron a /flujo/reportes (métricas de
-// análisis, no de operación diaria). Gastos operacionales tiene su propia
-// página (/gastos) hace tiempo — tenerlo repetido acá era la misma
-// información dos veces, no información nueva.
+// Rediseño para calzar con la referencia real (flujo de caja produccion/
+// INGEGAR_Control_IngegarONE_UI_Acordeon_2026 (1).html), que el dueño pidió
+// igualar explícitamente. Antes esta página tenía ~21 indicadores numéricos
+// compitiendo (3 filas de KPI + 5 chips + 3 tarjetas de recordatorio
+// duplicadas + 4 KPIs de gastos) antes de la lista de trabajos. Ahora:
+// "Control de hoy" (4 indicadores de excepción, no dependen del período —
+// mismo criterio que la referencia) + los chips + la lista, con cada
+// trabajo mostrando su presupuesto/OC/factura/código en línea en vez de
+// esconderlos detrás de un clic. Márgen/aging/mix/tendencia mensual/
+// desglose por cliente viven en /flujo/reportes (análisis, no operación
+// diaria). Gastos operacionales tiene su propia página (/gastos).
 export default async function FlujoPage({
   searchParams,
 }: {
@@ -36,35 +35,38 @@ export default async function FlujoPage({
   const session = await auth()
   const actor = session!.user
   const { cliente, periodo, estado } = await searchParams
-  const { from, to, prevFrom, prevTo, deltaLabel } = periodRange(periodo)
+  const { from, to } = periodRange(periodo)
+  const now = new Date()
 
-  const [clients, jobs, prevJobs] = await Promise.all([
+  const [clients, jobs, controlJobs] = await Promise.all([
     listClientsForCashflow(actor),
     listJobs(actor, { clientId: cliente, from, to }),
-    // Período anterior equivalente, para el delta de los KPI — no aplica a
-    // "total" (no hay "anterior" de "todo").
-    from ? listJobs(actor, { clientId: cliente, from: prevFrom, to: prevTo }) : Promise.resolve([]),
+    // "Control de hoy" — respeta el filtro de cliente (es una entidad, no
+    // una ventana de tiempo) pero NUNCA el período: son los mismos
+    // indicadores sin importar qué rango esté mirando el usuario, igual que
+    // en la referencia ("Estos indicadores no dependen del período
+    // seleccionado").
+    listJobs(actor, { clientId: cliente }),
   ])
 
-  const m = computeMetrics(jobs as unknown as JobLike[], new Date())
-
-  const prevM = from ? computeMetrics(prevJobs as unknown as JobLike[], prevTo ?? new Date()) : null
-  const delta = (curr: number, prev: number | undefined) =>
-    prevM && prev !== undefined
-      ? (() => { const pct = pctDelta(curr, prev); return pct != null ? { pct, label: deltaLabel } : undefined })()
-      : undefined
+  const DAY = 24 * 60 * 60 * 1000
+  const controlTyped = controlJobs as unknown as Parameters<typeof mainStatusCounts>[0]
+  const overdueJobs = controlTyped.filter((j) => isOverdueV2(j, now))
+  const dueSoonJobs = controlTyped.filter((j) => isDueSoon(j, now))
+  const noPOJobs = controlTyped.filter(isNoPOJob)
+  const upcomingJobs = controlTyped.filter((j) => j.executionDate && j.executionDate.getTime() > now.getTime() && j.executionDate.getTime() <= now.getTime() + 7 * DAY)
+  const unvaluedCount = controlTyped.filter(isUnvaluedJob).length
+  const noInvoiceCount = controlTyped.filter(isNoInvoiceJob).length
+  const sum = (xs: typeof controlTyped) => xs.reduce((s, j) => s + (j.netAmount ?? 0), 0)
 
   // Status-strip del prototipo (renderDashboard final) — 5 chips
   // (Todos/Pagadas/Pendientes de pago/Ejecutadas sin OC/No aprobadas),
   // filtran la lista de trabajos de abajo. Ver src/lib/cashflow/job-presets.ts.
-  // El antiguo "reminder-bar" (Vencidas/Vencen en 7 días/Sin OC) se quitó —
-  // era la misma información que estos chips, presentada dos veces.
   const jobsTyped = jobs as unknown as Parameters<typeof mainStatusCounts>[0]
   const statusCounts = mainStatusCounts(jobsTyped)
-  const activeStatus: MainStatus | 'overdue' = (['all', 'paid', 'pending', 'no_po', 'rejected', 'overdue'] as const).includes(estado as never)
-    ? (estado as MainStatus | 'overdue')
+  const activeStatus: MainStatus | 'overdue' | 'due_soon' = (['all', 'paid', 'pending', 'no_po', 'rejected', 'overdue', 'due_soon'] as const).includes(estado as never)
+    ? (estado as MainStatus | 'overdue' | 'due_soon')
     : 'all'
-  const now = new Date()
   const visibleJobs = activeStatus === 'all' ? jobsTyped : jobsTyped.filter((j) => matchesMainStatus(j, activeStatus, now))
   const statusHref = (key: string) => {
     const p = new URLSearchParams()
@@ -102,25 +104,43 @@ export default async function FlujoPage({
         </div>
       </div>
 
-      {/* 5 indicadores de decisión — todo lo demás (margen, aging, mix,
-          tendencia, desglose por cliente) vive en /flujo/reportes. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <KpiCard label="Facturado" value={clp(m.facturado)} delta={delta(m.facturado, prevM?.facturado)} />
-        <KpiCard label="Por cobrar" value={clp(m.porCobrar)} tone="warn" />
-        <KpiCard
-          label="Vencido"
-          value={clp(m.vencido)}
-          tone="danger"
-          hint={m.avgCollectionDays != null ? `Cobro prom. ${m.avgCollectionDays} días` : undefined}
-        />
-        <KpiCard label="Cobrado" value={clp(m.cobrado)} tone="good" delta={delta(m.cobrado, prevM?.cobrado)} />
-        <KpiCard
-          label="Ejecutado sin OC"
-          value={clp(m.sinOcBacklog)}
-          tone={m.sinOcBacklog > 0 ? 'danger' : undefined}
-          hint={`${m.sinOcCount} trabajos en riesgo`}
-        />
-      </div>
+      {/* Control de hoy — solo excepciones que requieren una decisión, no
+          totales de facturación (esos viven en /flujo/reportes). No dependen
+          del período seleccionado arriba, igual que la referencia. */}
+      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Control de hoy</h2>
+            <p className="text-xs text-gray-500">Solo lo que requiere una decisión. Estos indicadores no dependen del período seleccionado.</p>
+          </div>
+          <span className="text-xs text-gray-400">
+            Actualizado {now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            label="Facturas vencidas" value={String(overdueJobs.length)} hint={`${clp(sum(overdueJobs))} por cobrar`}
+            tone={overdueJobs.length > 0 ? 'danger' : 'default'} href={statusHref('overdue')}
+          />
+          <KpiCard
+            label="Vencen en 7 días" value={String(dueSoonJobs.length)} hint={`${clp(sum(dueSoonJobs))} próximos`}
+            tone={dueSoonJobs.length > 0 ? 'warn' : 'default'} href={statusHref('due_soon')}
+          />
+          <KpiCard
+            label="Ejecutados sin OC" value={String(noPOJobs.length)} hint={`${clp(sum(noPOJobs))} en gestión`}
+            tone={noPOJobs.length > 0 ? 'warn' : 'default'} href={statusHref('no_po')}
+          />
+          <KpiCard
+            label="Programados próximos" value={String(upcomingJobs.length)} hint="Dentro de los próximos 7 días"
+            tone="info"
+          />
+        </div>
+        <p className="mt-3 text-xs text-gray-400">
+          Otros controles: <span className="font-semibold text-gray-600">{unvaluedCount} sin valor</span>
+          {' · '}
+          <span className="font-semibold text-gray-600">{noInvoiceCount} ejecutados con OC y sin factura</span>
+        </p>
+      </section>
 
       {/* Trabajos, agrupados por cliente → período */}
       <div className="mt-6">

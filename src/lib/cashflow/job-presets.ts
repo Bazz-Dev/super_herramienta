@@ -17,12 +17,20 @@ type Job = {
   paymentDate: Date | null
   executionDate: Date | null
   creditDays: number | null
+  // Campos "clásicos" — únicos que los 207 trabajos importados llegaron a
+  // poblar (financialStage/operationalStage quedaron en su default de
+  // schema, 'no_po'/'pending', para el 100% del histórico: nunca hubo un
+  // backfill al introducir el sistema de etapas v2). Los predicados abajo
+  // los usan como respaldo — no se puede exigir v2 para leer datos reales
+  // que solo existen en el esquema clásico.
+  status?: string
+  collectionStatus?: string
 }
 
 const DAY = 24 * 60 * 60 * 1000
 
 export function isPaidJob(j: Job): boolean {
-  return j.financialStage === 'paid' || j.paymentDate != null
+  return j.financialStage === 'paid' || j.paymentDate != null || j.collectionStatus === 'pagado'
 }
 export function hasPurchaseOrder(j: Job): boolean {
   return !!j.purchaseOrder?.trim()
@@ -31,10 +39,10 @@ export function hasInvoiceInfo(j: Job): boolean {
   return !!j.invoiceNumber?.trim() || j.invoiceDate != null
 }
 export function isExecutedJob(j: Job): boolean {
-  return ['executed', 'client_review', 'closed'].includes(j.operationalStage) || j.executionDate != null
+  return ['executed', 'client_review', 'closed'].includes(j.operationalStage) || j.executionDate != null || j.status === 'ejecutado'
 }
 export function isRejectedJob(j: Job): boolean {
-  return j.commercialStage === 'rejected'
+  return j.commercialStage === 'rejected' || j.status === 'anulado'
 }
 // ensureDue: factura + plazo de crédito (30 días por defecto si no hay dato — igual que el prototipo).
 export function jobDueDateV2(j: Job): Date | null {
@@ -77,9 +85,10 @@ export const MAIN_STATUS_CHIPS: { key: MainStatus; label: string }[] = [
   { key: 'rejected', label: 'No aprobadas' },
 ]
 
-export function matchesMainStatus(j: Job, status: MainStatus | 'overdue', now: Date): boolean {
+export function matchesMainStatus(j: Job, status: MainStatus | 'overdue' | 'due_soon', now: Date): boolean {
   if (status === 'all') return true
-  if (status === 'overdue') return isOverdueV2(j, now) // atajo del reminder-bar, no un chip propio
+  if (status === 'overdue') return isOverdueV2(j, now) // atajos de "Control de hoy", no chips propios
+  if (status === 'due_soon') return isDueSoon(j, now)
   return simpleStatus(j) === status
 }
 

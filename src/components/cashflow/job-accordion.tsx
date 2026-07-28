@@ -2,11 +2,12 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
-import { groupByClientPeriod, type GroupPeriod } from '@/lib/cashflow/group-by-client-period'
+import { groupByClientPeriod, recordDate, type GroupPeriod } from '@/lib/cashflow/group-by-client-period'
 import { jobTotal, type JobLike } from '@/lib/cashflow/metrics'
 import { clp } from '@/lib/cashflow/format'
 import { toDateInput } from '@/lib/cashflow/dates'
 import { JOB_TYPE_LABELS } from '@/lib/cashflow/labels'
+import { simpleStatus, isPaidJob } from '@/lib/cashflow/job-presets'
 import { ProcessFlowChip, FinancialStageChip } from '@/components/cashflow/job-status-chips'
 import { quickUpdateJob, markJobPaid, markJobPending } from '@/app/(app)/flujo/actions'
 import { Modal } from '@/components/resources/modal'
@@ -17,8 +18,13 @@ type Job = JobLike & {
   description: string
   type: string
   processFlow: string
+  commercialStage: string
+  operationalStage: string
   financialStage: string
+  nonBillable: boolean
+  status: string
   code: string | null
+  createdAt: Date
   quoteRef: string | null
   purchaseOrder: string | null
   invoiceNumber: string | null
@@ -34,39 +40,61 @@ const PERIODS: { id: GroupPeriod; label: string }[] = [
   { id: 'year', label: 'Año' },
 ]
 
+function matchesSearch(job: Job, q: string): boolean {
+  const s = q.trim().toLowerCase()
+  if (!s) return true
+  return [job.branch?.name, job.description, job.purchaseOrder, job.invoiceNumber, job.code, job.quoteRef]
+    .some((v) => v?.toLowerCase().includes(s))
+}
+
 // Lista acordeón cliente → período, la vista principal de /flujo (reemplaza
 // la tabla plana). Cada trabajo se expande in-line a edición rápida sin
 // navegar — ver docs/superpowers/specs/2026-07-24-flujo-caja-views-design.md.
 export function JobAccordion({ jobs }: { jobs: Job[] }) {
   const [period, setPeriod] = useState<GroupPeriod>('month')
-  const groups = useMemo(() => groupByClientPeriod(jobs, period), [jobs, period])
-
-  if (jobs.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
-        <p className="text-sm font-semibold text-ink">No encontramos trabajos con estos filtros</p>
-        <p className="mt-1 text-xs text-gray-400">Pruebe otro período, cliente o estado.</p>
-      </div>
-    )
-  }
+  const [q, setQ] = useState('')
+  const filtered = useMemo(() => (q.trim() ? jobs.filter((j) => matchesSearch(j, q)) : jobs), [jobs, q])
+  const groups = useMemo(() => groupByClientPeriod(filtered, period), [filtered, period])
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
-        {PERIODS.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => setPeriod(p.id)}
-            className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-              period === p.id ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-64 flex-1">
+          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 13 13" fill="none">
+            <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M9 9l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+          </svg>
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar sucursal, trabajo, OC, factura, código…"
+            className="w-full rounded-md border border-gray-300 py-2 pl-8 pr-3 text-sm outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Agrupar</span>
+          <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+            {PERIODS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setPeriod(p.id)}
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                  period === p.id ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {groups.map((g) => (
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
+          <p className="text-sm font-semibold text-ink">No encontramos trabajos con estos filtros</p>
+          <p className="mt-1 text-xs text-gray-400">Pruebe otro período, cliente, estado o término de búsqueda.</p>
+        </div>
+      ) : groups.map((g) => (
         <section key={g.clientId} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
             <h3 className="text-sm font-semibold text-ink">{g.clientName}</h3>
@@ -96,11 +124,31 @@ export function JobAccordion({ jobs }: { jobs: Job[] }) {
   )
 }
 
+// Color del borde izquierdo = urgencia real (mismo predicado simpleStatus
+// que ya usan los chips de estado, no un criterio nuevo).
+const BORDER_BY_STATUS: Record<string, string> = {
+  rejected: 'border-l-red-400',
+  no_po: 'border-l-orange-400',
+  pending: 'border-l-amber-400',
+  paid: 'border-l-gray-200',
+  other: 'border-l-gray-200',
+}
+
+function MetaField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="truncate text-xs font-medium text-ink">{value || '—'}</p>
+    </div>
+  )
+}
+
 function JobCard({ job }: { job: Job }) {
   const [expanded, setExpanded] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const isPaid = job.financialStage === 'paid'
+  const isPaid = isPaidJob(job)
+  const borderColor = BORDER_BY_STATUS[simpleStatus(job)] ?? 'border-l-gray-200'
 
   function openConfirm(e: React.MouseEvent) {
     e.stopPropagation()
@@ -113,13 +161,14 @@ function JobCard({ job }: { job: Job }) {
   }
 
   return (
-    <div className={`group rounded-lg border border-gray-200 transition-all duration-150 hover:border-amber-300 hover:shadow-sm ${isPending ? 'opacity-60' : ''} ${expanded ? 'border-amber-300' : ''}`}>
-      <div className="flex cursor-pointer flex-wrap items-center gap-3 px-3.5 py-3" onClick={() => setExpanded((v) => !v)}>
-        <div className="w-16 shrink-0 text-center">
-          <div className="text-xl font-bold leading-none text-ink">{job.executionDate ? new Date(job.executionDate).getUTCDate() : '—'}</div>
-          <div className="mt-0.5 text-[10px] uppercase text-gray-400">{job.executionDate ? new Date(job.executionDate).toLocaleDateString('es-CL', { month: 'short' }) : ''}</div>
+    <div className={`group rounded-lg border border-l-4 border-gray-200 ${borderColor} transition-all duration-150 hover:shadow-sm ${isPending ? 'opacity-60' : ''} ${expanded ? 'shadow-sm' : ''}`}>
+      <div className="flex cursor-pointer flex-wrap items-center gap-4 px-3.5 py-3" onClick={() => setExpanded((v) => !v)}>
+        <div className="w-14 shrink-0 text-center">
+          <div className="text-xl font-bold leading-none text-ink">{recordDate(job).getUTCDate()}</div>
+          <div className="mt-0.5 text-[10px] uppercase text-gray-400">{recordDate(job).toLocaleDateString('es-CL', { month: 'short' })}</div>
+          {!job.executionDate && <div className="mt-0.5 text-[9px] text-gray-300" title="Sin fecha de ejecución registrada — se muestra la fecha estimada del código o de carga">≈</div>}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-40 flex-1 basis-52">
           <p className="truncate text-sm font-semibold text-ink">{job.branch?.name ?? 'Sin sucursal'}</p>
           <p className="truncate text-xs text-gray-500">{job.description}</p>
           <div className="mt-1 flex flex-wrap gap-1.5">
@@ -127,7 +176,13 @@ function JobCard({ job }: { job: Job }) {
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{JOB_TYPE_LABELS[job.type] ?? job.type}</span>
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-4 sm:gap-x-5">
+          <MetaField label="Presupuesto" value={job.quoteRef ?? ''} />
+          <MetaField label="OC" value={job.purchaseOrder ?? ''} />
+          <MetaField label="Factura" value={job.invoiceNumber ?? ''} />
+          <MetaField label="Código" value={job.code ?? ''} />
+        </div>
+        <div className="ml-auto flex shrink-0 flex-col items-end gap-1.5">
           <button
             onClick={openConfirm}
             disabled={isPending}
@@ -136,6 +191,7 @@ function JobCard({ job }: { job: Job }) {
             {isPaid ? 'PAGADA' : 'NO PAGADA'}
           </button>
           <span className="text-base font-extrabold tabular-nums text-ink">{clp(jobTotal(job))}</span>
+          <span className="text-[11px] font-semibold text-brand">Editar / ver</span>
         </div>
       </div>
 

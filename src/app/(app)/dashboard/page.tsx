@@ -106,28 +106,10 @@ function technicianDocAlerts(docs: { type: string; label: string | null; expiryD
   return alerts.sort((a, b) => a.days - b.days)
 }
 
-type AttentionTone = 'danger' | 'warn' | 'brand'
-
-const ATTENTION_TONE: Record<AttentionTone, string> = {
-  danger: 'border-red-200 bg-red-50 hover:border-red-300',
-  warn:   'border-amber-200 bg-amber-50 hover:border-amber-300',
-  brand:  'border-gray-200 bg-white hover:border-brand',
-}
-const ATTENTION_VALUE_TONE: Record<AttentionTone, string> = {
-  danger: 'text-red-700',
-  warn:   'text-amber-700',
-  brand:  'text-ink',
-}
-
-function AttentionCard({ href, label, value, sub, tone }: { href: string; label: string; value: string; sub?: string; tone: AttentionTone }) {
-  return (
-    <Link href={href} className={`group rounded-xl border p-4 shadow-sm transition hover:shadow-md ${ATTENTION_TONE[tone]}`}>
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`mt-1 text-2xl font-extrabold tabular-nums ${ATTENTION_VALUE_TONE[tone]}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
-    </Link>
-  )
-}
+// tone se mapea directo a los tonos de KpiCard (mismo lenguaje visual que
+// /flujo — antes esta página tenía su propia tarjeta con fondo pastel
+// completo en vez de reusar el mismo componente.
+type AttentionTone = 'danger' | 'warn' | 'default'
 
 export default async function DashboardPage({
   searchParams,
@@ -183,6 +165,9 @@ export default async function DashboardPage({
         financialStage: true, commercialStage: true, operationalStage: true, nonBillable: true,
         netAmount: true, purchaseOrder: true, invoiceNumber: true, invoiceDate: true,
         paymentDate: true, executionDate: true, creditDays: true,
+        // Respaldo para trabajos importados con las etapas v2 sin poblar —
+        // ver el comentario en job-presets.ts.
+        status: true, collectionStatus: true,
       },
     }),
     prisma.technicianDocument.findMany({
@@ -275,7 +260,7 @@ export default async function DashboardPage({
     })
   }
   if (pendingCLP > 0) {
-    attentionCards.push({ id: 'por-cobrar', href: '/flujo', label: 'Cuentas por cobrar', value: clp(pendingCLP), tone: 'brand' })
+    attentionCards.push({ id: 'por-cobrar', href: '/flujo', label: 'Cuentas por cobrar', value: clp(pendingCLP), tone: 'default' })
   }
 
   return (
@@ -314,7 +299,7 @@ export default async function DashboardPage({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {attentionCards.map(c => <AttentionCard key={c.id} {...c} />)}
+            {attentionCards.map(c => <KpiCard key={c.id} href={c.href} label={c.label} value={c.value} hint={c.sub} tone={c.tone} />)}
           </div>
         )}
       </div>
