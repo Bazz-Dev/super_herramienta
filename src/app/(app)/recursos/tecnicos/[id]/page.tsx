@@ -425,6 +425,7 @@ export default async function EditTecnicoPage({ params }: { params: Promise<{ id
   const documentos = (
     <DocSection
       technicianId={tech.id}
+      technicianName={tech.name}
       initial={(tech.documents ?? []).map((d) => ({
         ...d,
         expiryDate: d.expiryDate ?? null,

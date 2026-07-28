@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
 import { deleteDocument } from '@/app/(app)/recursos/tecnicos/actions'
 import { Spinner } from '@/components/ui/spinner'
+import { FilePreviewButton } from '@/components/ui/file-preview-modal'
 
 type Doc = {
   id: string
@@ -29,18 +30,12 @@ const EXPIRY_BADGE: Record<string, string> = {
   expired: 'bg-danger-100 text-danger-700',
 }
 
-/** Build the URL to view/download a document through the signed-URL proxy. */
-function fileHref(fileUrl: string) {
-  if (fileUrl.startsWith('/') || fileUrl.startsWith('http')) return fileUrl
-  return `/api/files?key=${encodeURIComponent(fileUrl)}&type=technician`
-}
-
 function formatDate(d: Date | null) {
   if (!d) return ''
   return new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-export function DocSection({ technicianId, initial }: { technicianId: string; initial: Doc[] }) {
+export function DocSection({ technicianId, technicianName, initial }: { technicianId: string; technicianName: string; initial: Doc[] }) {
   const [docs, setDocs] = useState<Doc[]>(initial)
   const [selected, setSelected] = useState<Set<string>>(new Set(initial.map((d) => d.id)))
   const [uploading, setUploading] = useState<string | null>(null) // slot key while uploading, e.g. 'contrato' | 'carnet-Frontal' | 'extra'
@@ -155,6 +150,7 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
       <div className="mb-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
         <FixedSlot
           title="Contrato"
+          technicianName={technicianName}
           doc={contrato}
           selected={contrato ? selected.has(contrato.id) : false}
           onToggle={contrato ? () => toggleSelected(contrato.id) : undefined}
@@ -165,6 +161,7 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
         />
         <FixedSlot
           title="Carnet · Frontal"
+          technicianName={technicianName}
           doc={carnetFrontal}
           selected={carnetFrontal ? selected.has(carnetFrontal.id) : false}
           onToggle={carnetFrontal ? () => toggleSelected(carnetFrontal.id) : undefined}
@@ -175,6 +172,7 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
         />
         <FixedSlot
           title="Carnet · Reverso"
+          technicianName={technicianName}
           doc={carnetReverso}
           selected={carnetReverso ? selected.has(carnetReverso.id) : false}
           onToggle={carnetReverso ? () => toggleSelected(carnetReverso.id) : undefined}
@@ -259,7 +257,18 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <a href={fileHref(d.fileUrl)} target="_blank" rel="noopener noreferrer" className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50">Ver</a>
+                    <FilePreviewButton
+                      fileUrl={d.fileUrl}
+                      type="technician"
+                      name={d.label || DOC_TYPE_LABELS[d.type as DocTypeId] || d.type}
+                      meta={[
+                        { label: 'Categoría', value: DOC_TYPE_LABELS[d.type as DocTypeId] || d.type },
+                        { label: 'Técnico', value: technicianName },
+                        { label: 'Subido', value: formatDate(d.uploadedAt) },
+                        ...(d.expiryDate ? [{ label: 'Vence', value: formatDate(d.expiryDate) }] : []),
+                      ]}
+                      className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                    />
                     <button
                       onClick={() => handleDelete(d.id)}
                       disabled={isPending}
@@ -280,9 +289,10 @@ export function DocSection({ technicianId, initial }: { technicianId: string; in
 }
 
 function FixedSlot({
-  title, doc, selected, onToggle, onDelete, uploading, onUpload, deleting,
+  title, technicianName, doc, selected, onToggle, onDelete, uploading, onUpload, deleting,
 }: {
   title: string
+  technicianName: string
   doc: Doc | null
   selected: boolean
   onToggle?: () => void
@@ -319,7 +329,18 @@ function FixedSlot({
         <span className="text-xs font-semibold text-ok-700">✓ {title}</span>
       </div>
       <div className="flex items-center gap-1.5 text-[11px]">
-        <a href={fileHref(doc.fileUrl)} target="_blank" rel="noopener noreferrer" className="rounded border border-ok-300 bg-white px-1.5 py-0.5 text-ok-700 hover:bg-ok-100">Ver</a>
+        <FilePreviewButton
+          fileUrl={doc.fileUrl}
+          type="technician"
+          name={title}
+          meta={[
+            { label: 'Categoría', value: title },
+            { label: 'Técnico', value: technicianName },
+            { label: 'Subido', value: formatDate(doc.uploadedAt) },
+            ...(doc.expiryDate ? [{ label: 'Vence', value: formatDate(doc.expiryDate) }] : []),
+          ]}
+          className="rounded border border-ok-500/40 bg-white px-1.5 py-0.5 text-ok-700 hover:bg-ok-100"
+        />
         <button onClick={onDelete} disabled={deleting} className="rounded border border-red-200 bg-white px-1.5 py-0.5 text-red-600 hover:bg-red-50 disabled:opacity-60">Eliminar</button>
       </div>
     </div>
