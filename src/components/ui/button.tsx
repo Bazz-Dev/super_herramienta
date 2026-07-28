@@ -26,7 +26,10 @@ const SIZE: Record<ButtonSize, string> = {
 const BASE =
   'interactive inline-flex cursor-pointer items-center justify-center rounded-md font-semibold transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-60'
 
-function buttonClass(variant: ButtonVariant, size: ButtonSize, className?: string) {
+// Exported so non-Button elements that need identical styling (e.g. a real
+// <a download> / <a target="_blank">, which Button's Link-only `href` can't
+// express) can stay visually identical without a second button implementation.
+export function buttonClass(variant: ButtonVariant, size: ButtonSize, className?: string) {
   return cn(BASE, VARIANT[variant], SIZE[size], className)
 }
 

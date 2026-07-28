@@ -33,17 +33,31 @@ const NAV_SECTIONS = [
     ],
   },
   {
-    label: 'RR.HH.',
+    // "Personas" (RR.HH.: contrato/permisos/liquidaciones) y "Técnicos"
+    // (Recursos: vehículo/documentos/acceso) son la misma entidad
+    // (Technician) vista desde dos funciones distintas — antes vivían en
+    // secciones separadas del menú sin relación visible entre sí. Se
+    // mantienen como páginas separadas (cada una tiene lógica real propia,
+    // fusionarlas de código sería un cambio mucho más grande y riesgoso que
+    // el problema de navegación en sí) pero ahora comparten una sola
+    // sección para que la relación sea obvia de un vistazo.
+    label: 'Personal',
     links: [
-      { href: '/rrhh', label: 'Personas', icon: PeopleIcon },
+      { href: '/recursos/tecnicos', label: 'Técnicos', icon: UserCircleIcon },
+      { href: '/rrhh', label: 'Personas (RR.HH.)', icon: PeopleIcon },
       { href: '/rrhh/vacaciones', label: 'Permisos', icon: CalendarCheckIcon },
       { href: '/rrhh/liquidaciones', label: 'Liquidaciones', icon: PayrollIcon },
     ],
   },
   {
+    label: 'Documentación',
+    links: [
+      { href: '/documentacion', label: 'Documentación y acreditación', icon: ShieldCheckIcon },
+    ],
+  },
+  {
     label: 'Recursos',
     links: [
-      { href: '/recursos/tecnicos', label: 'Técnicos', icon: UserCircleIcon },
       { href: '/recursos/clientes', label: 'Clientes', icon: PeopleIcon },
       { href: '/recursos/vehiculos', label: 'Vehículos', icon: VehicleIcon },
       { href: '/recursos/activos', label: 'Herramientas', icon: ToolsIcon },
@@ -335,6 +349,14 @@ function ChartIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M4 20V10M11 20V4M18 20v-7" />
       <path d="M2 20h20" />
+    </svg>
+  )
+}
+function ShieldCheckIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z" />
+      <path d="M9 12l2 2 4-4" />
     </svg>
   )
 }
