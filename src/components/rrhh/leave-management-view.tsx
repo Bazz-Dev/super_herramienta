@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { createLeaveRequest, updateLeaveStatus, deleteLeaveRequest } from '@/lib/rrhh/actions'
 import { LEAVE_TYPE_LABEL, LEAVE_STATUS_BADGE, LEAVE_STATUS_LABEL } from '@/lib/rrhh/labels'
 import { Spinner } from '@/components/ui/spinner'
+import { Button } from '@/components/ui/button'
+import { FilterBar, FilterSelect, FilterPill } from '@/components/ui/filter-bar'
 
 interface LeaveItem {
   id: string
@@ -83,27 +85,22 @@ export function LeaveManagementView({ leaves, technicians, defaultNew, defaultTe
   return (
     <div>
       {/* Filters + new */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select value={techFilter} onChange={e => setTechFilter(e.target.value)} className={inputCls}>
+      <FilterBar
+        className="mb-4"
+        action={<Button onClick={() => setShowForm(v => !v)}>+ Registrar permiso</Button>}
+      >
+        <FilterSelect value={techFilter} onChange={e => setTechFilter(e.target.value)}>
           <option value="">Todos los técnicos</option>
           {technicians.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+        </FilterSelect>
         <div className="flex gap-1">
           {['all', 'pendiente', 'aprobado', 'rechazado'].map(s => (
-            <button key={s} onClick={() => setFilter(s)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${filter === s ? 'bg-brand text-ink' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-            >
+            <FilterPill key={s} active={filter === s} onClick={() => setFilter(s)}>
               {s === 'all' ? 'Todos' : LEAVE_STATUS_LABEL[s]}
-            </button>
+            </FilterPill>
           ))}
         </div>
-        <button
-          onClick={() => setShowForm(v => !v)}
-          className="ml-auto flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-ink hover:bg-brand/90"
-        >
-          + Registrar permiso
-        </button>
-      </div>
+      </FilterBar>
 
       {/* Form */}
       {showForm && (
@@ -137,13 +134,10 @@ export function LeaveManagementView({ leaves, technicians, defaultNew, defaultTe
             </div>
           </div>
           <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setShowForm(false)} className="interactive rounded-lg border border-gray-200 px-4 py-2.5 min-h-11 text-sm font-semibold text-gray-500 hover:bg-gray-50">
-              Cancelar
-            </button>
-            <button onClick={submitForm} disabled={isPending || daysCount() <= 0} className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 py-1.5 text-sm font-semibold text-ink hover:bg-brand/90 disabled:opacity-50">
-              {isPending && <Spinner size={14} />}
+            <Button variant="secondary" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button onClick={submitForm} disabled={isPending || daysCount() <= 0} aria-busy={isPending}>
               {isPending ? 'Guardando…' : 'Guardar solicitud'}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -189,7 +183,18 @@ export function LeaveManagementView({ leaves, technicians, defaultNew, defaultTe
                           <button onClick={() => reject(l.id)} disabled={isPending} className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200">{isPending && <Spinner size={10} />}Rechazar</button>
                         </>
                       )}
-                      <button onClick={() => remove(l.id)} disabled={isPending} className="rounded px-2 py-1 text-[11px] text-gray-400 hover:bg-gray-100">✕</button>
+                      {/* Eliminar es destructivo — antes era un "✕" gris del mismo peso
+                          visual que cualquier otro botón de la fila (remove() ya confirma). */}
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => remove(l.id)}
+                        aria-label="Eliminar solicitud"
+                        title="Eliminar"
+                      >
+                        {isPending ? <Spinner size={10} /> : '✕'}
+                      </Button>
                     </div>
                   </td>
                 </tr>

@@ -7,6 +7,7 @@ import {
   type TicketStatusId, type TicketUrgencyId,
 } from '@/lib/tickets/labels'
 import { now } from '@/lib/now'
+import { FilterBar, FilterSearch, FilterSelect, FilterPill, FilterClear } from '@/components/ui/filter-bar'
 
 // Urgency dot colors — hardcoded, no CSS classes
 const URG_DOT: Record<string, string> = {
@@ -158,60 +159,39 @@ export function TicketListView({ tickets, clients, users, closedTickets = [] }: 
       {tab === 'activos' && (
         <div className="space-y-3">
           {/* ── Filter bar ── */}
-          <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm space-y-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Search */}
-              <div className="relative flex-1 min-w-45 max-w-xs">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.4"/>
-                  <path d="M9 9l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                </svg>
-                <input
-                  value={q}
-                  onChange={e => setQ(e.target.value)}
-                  placeholder="Buscar ID, título, sucursal…"
-                  className="w-full pl-8 pr-3 py-1.5 rounded-md border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 bg-white"
-                />
-              </div>
-
-              <select value={clientId} onChange={e => setCli(e.target.value)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40">
+          <div className="space-y-2.5">
+            <FilterBar>
+              <FilterSearch
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                placeholder="Buscar ID, título, sucursal…"
+              />
+              <FilterSelect value={clientId} onChange={e => setCli(e.target.value)}>
                 <option value="">Todos los clientes</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-
-              <select value={userId} onChange={e => setUser(e.target.value)}
-                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40">
+              </FilterSelect>
+              <FilterSelect value={userId} onChange={e => setUser(e.target.value)}>
                 <option value="">Todos los técnicos</option>
                 {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
-
-              {hasFilters && (
-                <button onClick={clearAll}
-                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-500 transition hover:bg-gray-50">
-                  × Limpiar
-                </button>
-              )}
-            </div>
+              </FilterSelect>
+              {hasFilters && <FilterClear onClick={clearAll} />}
+            </FilterBar>
 
             {/* Status pills */}
             <div className="flex flex-wrap gap-1.5">
-              <button onClick={() => setStatus('')}
-                className={`rounded-full px-3 py-2.5 min-h-11 text-xs font-semibold transition ${!status ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              <FilterPill active={!status} onClick={() => setStatus('')}>
                 Todos <span className="ml-1 opacity-60">{tickets.length}</span>
-              </button>
+              </FilterPill>
               {STATUS_COLS.map(col => (
-                <button key={col.v} onClick={() => setStatus(status === col.v ? '' : col.v)}
-                  className={`rounded-full px-3 py-2.5 min-h-11 text-xs font-semibold transition ${status === col.v ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                <FilterPill key={col.v} active={status === col.v} onClick={() => setStatus(status === col.v ? '' : col.v)}>
                   {col.label}
                   {byStatus[col.v] ? <span className="ml-1 opacity-60">{byStatus[col.v]}</span> : null}
-                </button>
+                </FilterPill>
               ))}
               {unassignedCount > 0 && (
-                <button onClick={() => setUnassignedOnly(v => !v)}
-                  className={`rounded-full px-3 py-2.5 min-h-11 text-xs font-semibold transition ${unassignedOnly ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+                <FilterPill active={unassignedOnly} onClick={() => setUnassignedOnly(v => !v)} tone="warn">
                   ⚠ Sin asignar <span className="ml-1 opacity-70">{unassignedCount}</span>
-                </button>
+                </FilterPill>
               )}
             </div>
           </div>

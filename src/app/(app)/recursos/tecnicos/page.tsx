@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { PlusIcon } from '@/components/quotes/icons'
 import { requireActor } from '@/lib/tenant'
 import { listTechnicians } from '@/lib/resources/technicians'
+import { Button } from '@/components/ui/button'
+import { FilterBar, FilterSearch, FilterSelect, FilterClear } from '@/components/ui/filter-bar'
 import {
   CONTRACT_TYPE_BADGE,
   CONTRACT_TYPE_DOT,
@@ -11,6 +13,15 @@ import {
   mandatoryDocChecklist,
   type ContractTypeId,
 } from '@/lib/resources/labels'
+
+const ESTADO_OPTIONS = ['all', 'active', 'terminated', 'inactive'] as const
+type EstadoFilter = (typeof ESTADO_OPTIONS)[number]
+const ESTADO_LABELS: Record<EstadoFilter, string> = {
+  all: 'Todos los estados',
+  active: 'Solo activos',
+  terminated: 'Solo desvinculados',
+  inactive: 'Solo inactivos',
+}
 
 function calcAge(birthDate: Date | null | undefined): number | null {
   if (!birthDate) return null
@@ -53,15 +64,22 @@ function StatPill({ value, total, label, tone = 'default' }: { value: number; to
 export default async function TecnicosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; estado?: string }>
 }) {
   const actor = await requireActor()
-  const { q } = await searchParams
+  const { q, estado: rawEstado } = await searchParams
+  const estado: EstadoFilter = ESTADO_OPTIONS.includes(rawEstado as EstadoFilter) ? (rawEstado as EstadoFilter) : 'all'
   const technicians = await listTechnicians(actor, q)
 
   const active     = technicians.filter((t) => t.active)
   const terminated = technicians.filter((t) => !t.active && CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as ContractTypeId))
   const inactive   = technicians.filter((t) => !t.active && !CONTRACT_TYPE_TERMINATED.includes((t.contractType ?? '') as ContractTypeId))
+
+  const showActive     = estado === 'all' || estado === 'active'
+  const showTerminated = estado === 'all' || estado === 'terminated'
+  const showInactive   = estado === 'all' || estado === 'inactive'
+  const hasFilters = Boolean(q) || estado !== 'all'
+  const visibleCount = (showActive ? active.length : 0) + (showTerminated ? terminated.length : 0) + (showInactive ? inactive.length : 0)
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -72,21 +90,23 @@ export default async function TecnicosPage({
           </Link>
           <h1 className="text-2xl font-bold">Técnicos</h1>
         </div>
-        <Link
-          href="/recursos/tecnicos/new"
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-brand px-3 py-2 text-sm font-semibold text-ink transition-colors duration-150 hover:bg-brand-600"
-        >
+        <Button href="/recursos/tecnicos/new">
           <PlusIcon /> Nuevo técnico
-        </Link>
+        </Button>
       </div>
 
       <form className="mt-5" action="/recursos/tecnicos" method="get">
-        <input
-          name="q"
-          defaultValue={q ?? ''}
-          placeholder="Buscar por nombre, especialidad o RUT…"
-          className="w-full max-w-sm rounded-md border border-gray-300 px-3 py-2 text-sm outline-none transition-colors focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
-        />
+        <FilterBar action={<Button type="submit" size="sm" variant="secondary">Filtrar</Button>}>
+          <FilterSearch
+            name="q"
+            defaultValue={q ?? ''}
+            placeholder="Buscar por nombre, especialidad o RUT…"
+          />
+          <FilterSelect name="estado" defaultValue={estado}>
+            {ESTADO_OPTIONS.map((e) => <option key={e} value={e}>{ESTADO_LABELS[e]}</option>)}
+          </FilterSelect>
+          {hasFilters && <FilterClear href="/recursos/tecnicos" />}
+        </FilterBar>
       </form>
 
       {/* Legend */}
@@ -111,9 +131,12 @@ export default async function TecnicosPage({
         <p className="mt-8 text-center text-sm text-gray-400">
           {q ? 'Sin resultados.' : 'Aún no hay técnicos. Crea el primero.'}
         </p>
+      ) : visibleCount === 0 ? (
+        <p className="mt-8 text-center text-sm text-gray-400">Sin técnicos para este filtro.</p>
       ) : (
         <>
           {/* Active */}
+          {showActive && active.length > 0 && (
           <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {active.map((t) => {
               const contractType = (t.contractType ?? 'indefinido') as ContractTypeId
@@ -224,9 +247,10 @@ export default async function TecnicosPage({
               )
             })}
           </div>
+          )}
 
           {/* Terminated — no_renovado / despedido */}
-          {terminated.length > 0 && (
+          {showTerminated && terminated.length > 0 && (
             <div className="mt-8">
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Desvinculados ({terminated.length})
@@ -260,7 +284,7 @@ export default async function TecnicosPage({
           )}
 
           {/* Inactive — other reasons */}
-          {inactive.length > 0 && (
+          {showInactive && inactive.length > 0 && (
             <div className="mt-6">
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Inactivos ({inactive.length})

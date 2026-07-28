@@ -5,10 +5,13 @@ import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { listJobs } from '@/lib/cashflow/queries'
 import { computeMetrics, type JobLike } from '@/lib/cashflow/metrics'
+import { isNoPOJob, isOverdueV2 } from '@/lib/cashflow/job-presets'
 import { periodRange, pctDelta } from '@/lib/cashflow/period'
 import { clp } from '@/lib/cashflow/format'
 import { KpiCard } from '@/components/cashflow/kpi-card'
 import { PeriodFilter } from '@/components/cashflow/period-filter'
+import { DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
+import { LEAVE_TYPE_LABEL } from '@/lib/rrhh/labels'
 
 export const metadata = { title: 'Inicio — INGEGAR' }
 
@@ -32,6 +35,12 @@ const EMPRESA = {
 
 const NOVEDADES = [
   {
+    date: 'Jul 2026',
+    type: 'nuevo' as const,
+    title: 'Dashboard enfocado en atención, no en vitrina',
+    desc: 'Rediseño: "¿qué requiere mi atención ahora?" — facturas vencidas, trabajos sin OC, documentos por vencer y permisos pendientes al frente, en vez de KPIs decorativos.',
+  },
+  {
     date: 'Jun 2026',
     type: 'nuevo' as const,
     title: 'Almacenamiento R2 + documentos con acceso seguro',
@@ -46,20 +55,8 @@ const NOVEDADES = [
   {
     date: 'Jun 2026',
     type: 'nuevo' as const,
-    title: 'Módulo Clientes — contadores cross-módulo',
-    desc: 'Perfil de cliente con contadores de trabajos, sucursales, cronograma y tickets. Panel de actividad reciente.',
-  },
-  {
-    date: 'Jun 2026',
-    type: 'nuevo' as const,
     title: 'Portal cliente — PWA + notificaciones push',
     desc: 'Instalable en iPhone y Android. Notificaciones push cuando cambia el estado de un ticket.',
-  },
-  {
-    date: 'Próximo',
-    type: 'pronto' as const,
-    title: 'Pipeline comercial',
-    desc: 'Seguimiento de cotizaciones enviadas, estados y alertas de seguimiento.',
   },
 ]
 
@@ -72,7 +69,7 @@ const TYPE_LABEL = { nuevo: 'Nuevo', mejora: 'Mejora', pronto: 'Próximamente' }
 
 function expiryAlerts(vehicles: { plate: string; id: string; revTecnicaExpiry: Date | null; soapExpiry: Date | null; permisoCirculacionExpiry: Date | null; nextServiceDate: Date | null }[]) {
   const alerts: { vehicleId: string; plate: string; label: string; days: number }[] = []
-  const now = Date.now()
+  const nowMs = Date.now()
   for (const v of vehicles) {
     const checks = [
       { label: 'Rev. técnica', d: v.revTecnicaExpiry },
@@ -82,11 +79,54 @@ function expiryAlerts(vehicles: { plate: string; id: string; revTecnicaExpiry: D
     ]
     for (const { label, d } of checks) {
       if (!d) continue
-      const days = Math.ceil((new Date(d).getTime() - now) / 86400000)
+      const days = Math.ceil((new Date(d).getTime() - nowMs) / 86400000)
       if (days <= 30) alerts.push({ vehicleId: v.id, plate: v.plate, label, days })
     }
   }
   return alerts.sort((a, b) => a.days - b.days)
+}
+
+// Mismo umbral (30 días) que doc-section.tsx (expiryStatus) usa para la
+// ficha de técnico — no se inventa un criterio nuevo para el dashboard.
+function technicianDocAlerts(docs: { type: string; label: string | null; expiryDate: Date | null; technician: { id: string; name: string } }[]) {
+  const alerts: { techId: string; techName: string; label: string; days: number }[] = []
+  const nowMs = Date.now()
+  for (const d of docs) {
+    if (!d.expiryDate) continue
+    const days = Math.ceil((new Date(d.expiryDate).getTime() - nowMs) / 86400000)
+    if (days <= 30) {
+      alerts.push({
+        techId: d.technician.id,
+        techName: d.technician.name,
+        label: d.label ?? DOC_TYPE_LABELS[d.type as DocTypeId] ?? d.type,
+        days,
+      })
+    }
+  }
+  return alerts.sort((a, b) => a.days - b.days)
+}
+
+type AttentionTone = 'danger' | 'warn' | 'brand'
+
+const ATTENTION_TONE: Record<AttentionTone, string> = {
+  danger: 'border-red-200 bg-red-50 hover:border-red-300',
+  warn:   'border-amber-200 bg-amber-50 hover:border-amber-300',
+  brand:  'border-gray-200 bg-white hover:border-brand',
+}
+const ATTENTION_VALUE_TONE: Record<AttentionTone, string> = {
+  danger: 'text-red-700',
+  warn:   'text-amber-700',
+  brand:  'text-ink',
+}
+
+function AttentionCard({ href, label, value, sub, tone }: { href: string; label: string; value: string; sub?: string; tone: AttentionTone }) {
+  return (
+    <Link href={href} className={`group rounded-xl border p-4 shadow-sm transition hover:shadow-md ${ATTENTION_TONE[tone]}`}>
+      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className={`mt-1 text-2xl font-extrabold tabular-nums ${ATTENTION_VALUE_TONE[tone]}`}>{value}</p>
+      {sub && <p className="mt-1 text-xs text-gray-500">{sub}</p>}
+    </Link>
+  )
 }
 
 export default async function DashboardPage({
@@ -102,10 +142,13 @@ export default async function DashboardPage({
   const { periodo } = await searchParams
   const { from, to, prevFrom, prevTo, deltaLabel } = periodRange(periodo)
 
-  const [technicians, vehicles, openTickets, cashflow, expenseStats, periodJobs, prevPeriodJobs, resolvedCount, prevResolvedCount] = await Promise.all([
+  const [
+    technicians, vehicles, openTickets, cashflow, expenseStats, periodJobs, prevPeriodJobs,
+    resolvedCount, prevResolvedCount, attentionJobs, technicianDocs, pendingLeaveRequests,
+  ] = await Promise.all([
     prisma.technician.findMany({
       where: { ...scope, active: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, vehicle: { select: { id: true } } },
     }),
     prisma.vehicle.findMany({
       where: scope,
@@ -119,23 +162,38 @@ export default async function DashboardPage({
       where: { ...scope, collectionStatus: { in: ['pendiente_pago', 'sin_oc'] } },
       _sum: { netAmount: true },
     }),
-    Promise.all([
-      prisma.expense.aggregate({
-        where: { ...scope, status: 'pendiente' },
-        _count: { id: true },
-        _sum: { amount: true },
-      }),
-      prisma.expense.aggregate({
-        where: { ...scope, status: 'aprobado' },
-        _sum: { amount: true },
-      }),
-    ]),
+    prisma.expense.aggregate({
+      where: { ...scope, status: 'pendiente' },
+      _count: { id: true },
+      _sum: { amount: true },
+    }),
     // Resumen del período: facturación + tickets resueltos, comparados contra
     // el período anterior equivalente — no aplica a "total" (from undefined).
     from ? listJobs(actor, { from, to }) : Promise.resolve([]),
     from ? listJobs(actor, { from: prevFrom, to: prevTo }) : Promise.resolve([]),
     from ? prisma.ticket.count({ where: { ...scope, status: 'resuelto', updatedAt: { gte: from, lte: to } } }) : Promise.resolve(0),
     from ? prisma.ticket.count({ where: { ...scope, status: 'resuelto', updatedAt: { gte: prevFrom, lte: prevTo } } }) : Promise.resolve(0),
+    // "Requiere tu atención" — reusa exactamente los predicados de
+    // src/lib/cashflow/job-presets.ts (isNoPOJob/isOverdueV2), no reimplementa
+    // las reglas de negocio. Sin filtro de período: es el backlog real completo,
+    // no una foto del mes.
+    prisma.job.findMany({
+      where: scope,
+      select: {
+        financialStage: true, commercialStage: true, operationalStage: true, nonBillable: true,
+        netAmount: true, purchaseOrder: true, invoiceNumber: true, invoiceDate: true,
+        paymentDate: true, executionDate: true, creditDays: true,
+      },
+    }),
+    prisma.technicianDocument.findMany({
+      where: { technician: { ...scope, active: true }, expiryDate: { not: null } },
+      select: { type: true, label: true, expiryDate: true, technician: { select: { id: true, name: true } } },
+    }),
+    prisma.leaveRequest.findMany({
+      where: { ...scope, status: 'pendiente' },
+      select: { id: true, type: true, startDate: true, technician: { select: { name: true } } },
+      orderBy: { createdAt: 'desc' },
+    }),
   ])
 
   const periodMetrics = from ? computeMetrics(periodJobs as unknown as JobLike[], to ?? new Date()) : null
@@ -156,24 +214,69 @@ export default async function DashboardPage({
   const maxTechCount = techWorkload[0]?.count ?? 1
 
   const vehicleAlerts = expiryAlerts(vehicles)
+  const techDocAlerts = technicianDocAlerts(technicianDocs)
   const unassigned = openTickets.filter(t => !t.assignedToId)
   const emergencias = openTickets.filter(t => t.urgency === 'emergencia')
-  // eslint-disable-next-line react-hooks/purity
-  const nowMs = Date.now()
-  const vehiclesOk = vehicles.filter(v => {
-    const checks = [v.revTecnicaExpiry, v.soapExpiry, v.permisoCirculacionExpiry, v.nextServiceDate]
-    return checks.every(d => !d || Math.ceil((new Date(d).getTime() - nowMs) / 86400000) > 30)
-  })
+  const now = new Date()
+
+  const overdueJobs = attentionJobs.filter(j => isOverdueV2(j, now))
+  const overdueAmount = overdueJobs.reduce((s, j) => s + (j.netAmount ?? 0), 0)
+  const noPOJobs = attentionJobs.filter(isNoPOJob)
+
   const pendingCLP = cashflow._sum.netAmount ?? 0
-  const [pendingExpenses, approvedExpenses] = expenseStats
-  const pendingExpenseCount = pendingExpenses._count.id
-  const pendingExpenseAmount = pendingExpenses._sum.amount ?? 0
-  const approvedExpenseAmount = approvedExpenses._sum.amount ?? 0
+  const pendingExpenseCount = expenseStats._count.id
+  const pendingExpenseAmount = expenseStats._sum.amount ?? 0
 
-  const vehicleAssigned = vehicles.filter(v => v.technicianId).length
+  const vehicleAssigned = technicians.filter(t => t.vehicle).length
 
-  const hour = new Date().getHours()
+  const hour = now.getHours()
   const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches'
+
+  // "¿Qué requiere mi atención ahora?" — solo excepciones reales (count > 0),
+  // nunca tarjetas en cero: una tarjeta "0 facturas vencidas" no es una alerta,
+  // es ruido. Orden = urgencia (vencido > por vencer > pendiente > informativo).
+  const attentionCards: { id: string; href: string; label: string; value: string; sub?: string; tone: AttentionTone }[] = []
+  if (overdueJobs.length > 0) {
+    attentionCards.push({ id: 'overdue', href: '/flujo?estado=overdue', label: 'Facturas vencidas', value: String(overdueJobs.length), sub: clp(overdueAmount), tone: 'danger' })
+  }
+  if (vehicleAlerts.length > 0) {
+    const expired = vehicleAlerts.filter(a => a.days < 0).length
+    attentionCards.push({
+      id: 'veh-docs', href: '/recursos/vehiculos', label: 'Vehículos: documentos por vencer',
+      value: String(vehicleAlerts.length), sub: expired > 0 ? `${expired} vencido(s)` : 'Próximos a vencer (30d)',
+      tone: expired > 0 ? 'danger' : 'warn',
+    })
+  }
+  if (techDocAlerts.length > 0) {
+    const expired = techDocAlerts.filter(a => a.days < 0).length
+    attentionCards.push({
+      id: 'tech-docs', href: '/recursos/tecnicos', label: 'Técnicos: documentos por vencer',
+      value: String(techDocAlerts.length), sub: expired > 0 ? `${expired} vencido(s)` : 'Próximos a vencer (30d)',
+      tone: expired > 0 ? 'danger' : 'warn',
+    })
+  }
+  if (noPOJobs.length > 0) {
+    attentionCards.push({ id: 'no-po', href: '/flujo?estado=no_po', label: 'Trabajos ejecutados sin OC', value: String(noPOJobs.length), tone: 'warn' })
+  }
+  if (unassigned.length > 0) {
+    attentionCards.push({
+      id: 'tickets', href: '/tickets', label: 'Tickets sin asignar', value: String(unassigned.length),
+      sub: emergencias.length > 0 ? `${emergencias.length} emergencia(s)` : undefined,
+      tone: emergencias.length > 0 ? 'danger' : 'warn',
+    })
+  }
+  if (pendingLeaveRequests.length > 0) {
+    attentionCards.push({ id: 'permisos', href: '/rrhh/vacaciones', label: 'Permisos pendientes', value: String(pendingLeaveRequests.length), tone: 'warn' })
+  }
+  if (pendingExpenseCount > 0) {
+    attentionCards.push({
+      id: 'gastos', href: '/gastos', label: 'Gastos pendientes de aprobar', value: String(pendingExpenseCount),
+      sub: pendingExpenseAmount > 0 ? clp(pendingExpenseAmount) : undefined, tone: 'warn',
+    })
+  }
+  if (pendingCLP > 0) {
+    attentionCards.push({ id: 'por-cobrar', href: '/flujo', label: 'Cuentas por cobrar', value: clp(pendingCLP), tone: 'brand' })
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -182,7 +285,15 @@ export default async function DashboardPage({
         <div>
           <h1 className="text-2xl font-bold text-ink">{greeting}, {firstName}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            {now.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+          <p className="mt-2 text-xs text-gray-400">
+            <Link href="/recursos/tecnicos" className="hover:text-gray-600 hover:underline">{technicians.length} técnicos activos</Link>
+            {' · '}
+            <Link href="/recursos/vehiculos" className="hover:text-gray-600 hover:underline">{vehicles.length} vehículos</Link>
+            {' · '}
+            <Link href="/tickets" className="hover:text-gray-600 hover:underline">{openTickets.length} tickets abiertos</Link>
+            {vehicleAssigned > 0 && <span className="text-gray-300"> ({vehicleAssigned} técnicos con camioneta)</span>}
           </p>
         </div>
         <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-mono font-semibold text-gray-400 shadow-sm self-center">
@@ -190,54 +301,22 @@ export default async function DashboardPage({
         </span>
       </div>
 
-      {/* KPI row */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-        <Link href="/recursos/tecnicos" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Técnicos activos</p>
-          <p className="mt-2 text-3xl font-bold text-ink">{technicians.length}</p>
-          <p className="mt-1 text-xs text-gray-500">{vehicleAssigned} con camioneta</p>
-        </Link>
-
-        <Link href="/recursos/vehiculos" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Vehículos</p>
-          <p className="mt-2 text-3xl font-bold text-ink">{vehicles.length}</p>
-          <p className={`mt-1 text-xs font-medium ${vehicleAlerts.length > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-            {vehicleAlerts.length > 0 ? `${vehicleAlerts.length} alerta${vehicleAlerts.length > 1 ? 's' : ''}` : `${vehiclesOk.length} OK`}
-          </p>
-        </Link>
-
-        <Link href="/tickets" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Tickets abiertos</p>
-          <p className="mt-2 text-3xl font-bold text-ink">{openTickets.length}</p>
-          <p className={`mt-1 text-xs font-medium ${unassigned.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
-            {unassigned.length > 0 ? `${unassigned.length} sin asignar` : 'Todos asignados'}
-            {emergencias.length > 0 && <span className="ml-1 text-red-700">· {emergencias.length} urg.</span>}
-          </p>
-        </Link>
-
-        <Link href="/flujo" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Por cobrar</p>
-          <p className="mt-2 text-2xl font-bold text-amber-700 tabular-nums">
-            {pendingCLP > 0 ? `$${(pendingCLP / 1_000_000).toFixed(1)}M` : '—'}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">Flujo pendiente</p>
-        </Link>
-
-        <Link href="/gastos" className={`group rounded-xl border p-4 shadow-sm transition hover:shadow-md ${pendingExpenseCount > 0 ? 'border-amber-300 bg-amber-50 hover:border-amber-400' : 'border-gray-200 bg-white hover:border-brand'}`}>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Gastos pendientes</p>
-          <p className={`mt-2 text-3xl font-bold ${pendingExpenseCount > 0 ? 'text-amber-700' : 'text-ink'}`}>{pendingExpenseCount}</p>
-          <p className="mt-1 text-xs text-gray-500">
-            {pendingExpenseAmount > 0 ? `$${(pendingExpenseAmount / 1000).toFixed(0)}K por aprobar` : 'Sin pendientes'}
-          </p>
-        </Link>
-
-        <Link href="/gastos" className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-brand hover:shadow-md">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Gastos aprobados</p>
-          <p className="mt-2 text-2xl font-bold text-green-700 tabular-nums">
-            {approvedExpenseAmount > 0 ? `$${(approvedExpenseAmount / 1_000_000).toFixed(1)}M` : '—'}
-          </p>
-          <p className="mt-1 text-xs text-gray-500">Mes en curso</p>
-        </Link>
+      {/* Requiere tu atención — el corazón del dashboard: solo excepciones
+          reales, ordenadas por urgencia. Reemplaza la fila de KPIs decorativos
+          (técnicos activos, gastos aprobados del mes, etc.) que no le decían
+          al dueño qué hacer hoy. */}
+      <div>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-400">Requiere tu atención</h2>
+        {attentionCards.length === 0 ? (
+          <div className="rounded-xl border border-green-200 bg-green-50 px-5 py-8 text-center">
+            <p className="text-sm font-semibold text-green-700">Todo al día</p>
+            <p className="mt-1 text-xs text-green-600">Sin facturas vencidas, documentos por vencer, tickets sin asignar ni permisos pendientes.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {attentionCards.map(c => <AttentionCard key={c.id} {...c} />)}
+          </div>
+        )}
       </div>
 
       {/* Resumen del período — no es una foto fija: compara contra el
@@ -284,7 +363,8 @@ export default async function DashboardPage({
         )}
       </div>
 
-      {/* Alerts + Quick access */}
+      {/* Detalle de las excepciones — mismos datos de "Requiere tu atención"
+          pero con el ítem concreto para actuar directo desde acá. */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Vehicle alerts */}
         <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -331,6 +411,60 @@ export default async function DashboardPage({
                     </div>
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${t.urgency === 'emergencia' ? 'bg-red-100 text-red-700' : t.urgency === 'urgencia' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
                       {t.urgency}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Documentos de técnicos */}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
+            <h2 className="text-sm font-semibold text-ink">Documentos de técnicos</h2>
+            <Link href="/recursos/tecnicos" className="inline-flex min-h-11 items-center text-xs text-brand-700 hover:underline font-medium">Ver todos →</Link>
+          </div>
+          {techDocAlerts.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-gray-400">Sin alertas. Documentación al día.</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {techDocAlerts.slice(0, 6).map((a, i) => (
+                <li key={i}>
+                  <Link href={`/recursos/tecnicos/${a.techId}`} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition">
+                    <div>
+                      <span className="text-sm font-semibold text-ink">{a.techName}</span>
+                      <span className="ml-2 text-xs text-gray-500">{a.label}</span>
+                    </div>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${a.days < 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                      {a.days < 0 ? `Vencido ${Math.abs(a.days)}d` : `${a.days}d`}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Permisos pendientes */}
+        <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
+            <h2 className="text-sm font-semibold text-ink">Permisos pendientes</h2>
+            <Link href="/rrhh/vacaciones" className="inline-flex min-h-11 items-center text-xs text-brand-700 hover:underline font-medium">Ver todos →</Link>
+          </div>
+          {pendingLeaveRequests.length === 0 ? (
+            <p className="px-5 py-8 text-center text-sm text-gray-400">Sin solicitudes pendientes.</p>
+          ) : (
+            <ul className="divide-y divide-gray-50">
+              {pendingLeaveRequests.slice(0, 6).map((l) => (
+                <li key={l.id}>
+                  <Link href="/rrhh/vacaciones" className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition">
+                    <div>
+                      <span className="text-sm font-semibold text-ink">{l.technician.name}</span>
+                      <span className="ml-2 text-xs text-gray-500">{LEAVE_TYPE_LABEL[l.type] ?? l.type}</span>
+                    </div>
+                    <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                      {new Date(l.startDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })}
                     </span>
                   </Link>
                 </li>
