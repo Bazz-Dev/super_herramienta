@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation'
 import { JOB_TYPE_LABELS, PROCESS_FLOW_LABELS, FINANCIAL_STAGE_LABELS } from '@/lib/cashflow/labels'
 import { SearchableCombobox } from '@/components/ui/searchable-combobox'
+import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
 
 type Branch = { id: string; name: string }
 type Client = { id: string; name: string }
@@ -10,7 +11,7 @@ type Client = { id: string; name: string }
 export function JobFilters({
   clients,
   branches,
-  basePath = '/flujo/trabajos',
+  basePath = '/flujo/reportes',
 }: {
   clients: Client[]
   branches: Branch[]
@@ -108,23 +109,7 @@ export function JobFilters({
         ))}
       </select>
 
-      <div className="flex items-center gap-1">
-        <input
-          type="date"
-          value={desde}
-          onChange={(e) => set('desde', e.target.value)}
-          className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-          title="Desde"
-        />
-        <span className="text-xs text-gray-400">—</span>
-        <input
-          type="date"
-          value={hasta}
-          onChange={(e) => set('hasta', e.target.value)}
-          className="rounded-md border border-gray-300 px-2.5 py-1.5 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
-          title="Hasta"
-        />
-      </div>
+      <DateRangeFilter basePath={basePath} desde={desde} hasta={hasta} />
 
       <button
         onClick={() => set('sinTecnico', sinTecnico ? '' : '1')}

@@ -5,10 +5,10 @@ import {
   listJobs,
 } from '@/lib/cashflow/queries'
 import { clp } from '@/lib/cashflow/format'
-import { periodRange } from '@/lib/cashflow/period'
+import { dateRange } from '@/lib/cashflow/period'
 import { KpiCard } from '@/components/cashflow/kpi-card'
 import { ClientFilter } from '@/components/cashflow/client-filter'
-import { PeriodFilter } from '@/components/cashflow/period-filter'
+import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
 import { JobAccordion } from '@/components/cashflow/job-accordion'
 import {
   MAIN_STATUS_CHIPS, mainStatusCounts, matchesMainStatus, type MainStatus,
@@ -30,12 +30,12 @@ import { Suspense } from 'react'
 export default async function FlujoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cliente?: string; periodo?: string; estado?: string }>
+  searchParams: Promise<{ cliente?: string; desde?: string; hasta?: string; estado?: string }>
 }) {
   const session = await auth()
   const actor = session!.user
-  const { cliente, periodo, estado } = await searchParams
-  const { from, to } = periodRange(periodo)
+  const { cliente, desde, hasta, estado } = await searchParams
+  const { from, to } = dateRange(desde, hasta)
   const now = new Date()
 
   const [clients, jobs, controlJobs] = await Promise.all([
@@ -71,7 +71,8 @@ export default async function FlujoPage({
   const statusHref = (key: string) => {
     const p = new URLSearchParams()
     if (cliente) p.set('cliente', cliente)
-    if (periodo) p.set('periodo', periodo)
+    if (desde) p.set('desde', desde)
+    if (hasta) p.set('hasta', hasta)
     if (key !== 'all') p.set('estado', key)
     return `/flujo?${p.toString()}`
   }
@@ -87,14 +88,8 @@ export default async function FlujoPage({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Suspense fallback={null}><PeriodFilter active={periodo} /></Suspense>
+          <Suspense fallback={null}><DateRangeFilter basePath="/flujo" desde={desde} hasta={hasta} /></Suspense>
           <ClientFilter clients={clients} />
-          <Link
-            href="/flujo/trabajos"
-            className="rounded-md border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-          >
-            Ver trabajos
-          </Link>
           <Link
             href="/flujo/trabajos/new"
             className="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-ink hover:bg-brand-600"
@@ -146,14 +141,9 @@ export default async function FlujoPage({
       <div className="mt-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-ink">Trabajos</h2>
-          <div className="flex items-center gap-3">
-            <Link href="/flujo/reportes" className="text-xs font-semibold text-brand hover:underline">
-              Reportes →
-            </Link>
-            <Link href="/flujo/trabajos" className="text-xs font-semibold text-brand hover:underline">
-              Ver todos →
-            </Link>
-          </div>
+          <Link href="/flujo/reportes" className="text-xs font-semibold text-brand hover:underline">
+            Reportes →
+          </Link>
         </div>
 
         {/* Status-strip — tarjetas verticales (label chico arriba, número

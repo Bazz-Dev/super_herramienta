@@ -6,10 +6,10 @@ import { tenantScope } from '@/lib/tenant'
 import { listJobs } from '@/lib/cashflow/queries'
 import { computeMetrics, type JobLike } from '@/lib/cashflow/metrics'
 import { isNoPOJob, isOverdueV2 } from '@/lib/cashflow/job-presets'
-import { periodRange, pctDelta } from '@/lib/cashflow/period'
+import { dateRange, pctDelta } from '@/lib/cashflow/period'
 import { clp } from '@/lib/cashflow/format'
 import { KpiCard } from '@/components/cashflow/kpi-card'
-import { PeriodFilter } from '@/components/cashflow/period-filter'
+import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
 import { DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
 import { LEAVE_TYPE_LABEL } from '@/lib/rrhh/labels'
 
@@ -114,15 +114,15 @@ type AttentionTone = 'danger' | 'warn' | 'default'
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ periodo?: string }>
+  searchParams: Promise<{ desde?: string; hasta?: string }>
 }) {
   const session = await auth()
   const user = session!.user
   const actor = { id: user.id, tenantId: user.tenantId, role: user.role }
   const firstName = (user.name ?? 'Usuario').split(' ')[0]
   const scope = tenantScope(actor)
-  const { periodo } = await searchParams
-  const { from, to, prevFrom, prevTo, deltaLabel } = periodRange(periodo)
+  const { desde, hasta } = await searchParams
+  const { from, to, prevFrom, prevTo, deltaLabel } = dateRange(desde, hasta)
 
   const [
     technicians, vehicles, openTickets, cashflow, expenseStats, periodJobs, prevPeriodJobs,
@@ -310,7 +310,7 @@ export default async function DashboardPage({
       <div>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">Resumen del período</h2>
-          <Suspense fallback={null}><PeriodFilter basePath="/dashboard" active={periodo} /></Suspense>
+          <Suspense fallback={null}><DateRangeFilter basePath="/dashboard" desde={desde} hasta={hasta} /></Suspense>
         </div>
         {periodMetrics ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
