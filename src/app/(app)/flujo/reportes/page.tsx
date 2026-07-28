@@ -3,9 +3,12 @@ import { Suspense } from 'react'
 import { requireActor } from '@/lib/tenant'
 import { listJobs, listClientsForCashflow, listBranchesForClient } from '@/lib/cashflow/queries'
 import { clp } from '@/lib/cashflow/format'
-import { jobTotal } from '@/lib/cashflow/metrics'
+import { jobTotal, computeMetrics, computeClientBreakdown, computeMonthlyTrend, type JobLike } from '@/lib/cashflow/metrics'
+import { JOB_TYPE_LABELS } from '@/lib/cashflow/labels'
 import { JobFilters } from '@/components/cashflow/job-filters'
 import { JobRow } from '@/components/cashflow/job-row'
+import { RevenueByClient } from '@/components/cashflow/revenue-by-client'
+import { MonthlyTrend } from '@/components/cashflow/monthly-trend'
 import { REPORT_PRESETS, reportPresetCounts, matchesReportPreset, isPendingPaymentJob, isOverdueV2, type ReportPreset } from '@/lib/cashflow/job-presets'
 
 // Destino propio de "Reportes" (antes vivía como estado escondido dentro de
@@ -54,6 +57,14 @@ export default async function ReportesPage({
   const totalConIva = jobs.reduce((s, j) => s + jobTotal(j), 0)
   const pendiente = jobs.filter((j) => isPendingPaymentJob(j)).reduce((s, j) => s + jobTotal(j), 0)
   const vencido = jobs.filter((j) => isOverdueV2(j, now)).reduce((s, j) => s + jobTotal(j), 0)
+
+  // Análisis (margen/aging/mix/tendencia/por cliente) — se movieron acá desde
+  // /flujo, que ahora solo muestra los indicadores de decisión diaria. Se
+  // calculan sobre `jobs` (respetando los filtros/preset activos), no sobre
+  // el total sin filtrar.
+  const m = computeMetrics(jobs as unknown as JobLike[], now)
+  const clientBreakdown = computeClientBreakdown(jobs as unknown as Parameters<typeof computeClientBreakdown>[0])
+  const monthlyTrend = computeMonthlyTrend(jobs)
 
   const exportParams = new URLSearchParams()
   if (cliente) exportParams.set('cliente', cliente)
@@ -165,6 +176,73 @@ export default async function ReportesPage({
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      {/* Análisis — margen, aging, mix y tendencia del mismo conjunto
+          filtrado de arriba. Sección secundaria, no indicadores de
+          operación diaria (esos viven en /flujo). */}
+      <div className="mt-8">
+        <h2 className="mb-3 text-sm font-semibold text-ink">Análisis</h2>
+
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Margen total</p>
+            <p className={`mt-1 text-lg font-bold tabular-nums ${m.marginTotal != null && m.marginTotal < 0 ? 'text-red-600' : 'text-ink'}`}>
+              {m.marginTotal != null ? clp(m.marginTotal) : '—'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Cobro promedio</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink">{m.avgCollectionDays != null ? `${m.avgCollectionDays} días` : '—'}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Lag facturación</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink">{m.avgBillingLagDays != null ? `${m.avgBillingLagDays} días` : '—'}</p>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">Ticket promedio</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-ink">{jobs.length > 0 ? clp(Math.round(totalNeto / jobs.length)) : '—'}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section className="rounded-xl border border-gray-200 p-4">
+            <h3 className="mb-3 text-sm font-semibold text-ink">Cuentas por cobrar (aging)</h3>
+            <ul className="space-y-1.5 text-sm">
+              {m.aging.map((a) => (
+                <li key={a.bucket} className="flex justify-between">
+                  <span className="text-gray-500">{a.bucket} días</span>
+                  <span className="tabular-nums">{clp(a.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="rounded-xl border border-gray-200 p-4">
+            <h3 className="mb-3 text-sm font-semibold text-ink">Mix por tipo</h3>
+            <ul className="space-y-1.5 text-sm">
+              {m.mix.map((x) => (
+                <li key={x.type} className="flex justify-between">
+                  <span className="text-gray-500">
+                    {JOB_TYPE_LABELS[x.type] ?? x.type} ({x.count})
+                  </span>
+                  <span className="tabular-nums">{clp(x.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+
+        {!cliente && clientBreakdown.length > 1 && (
+          <div className="mt-6">
+            <RevenueByClient breakdown={clientBreakdown} />
+          </div>
+        )}
+
+        {monthlyTrend.length > 1 && (
+          <div className="mt-6">
+            <MonthlyTrend buckets={monthlyTrend} />
+          </div>
         )}
       </div>
     </div>

@@ -1,17 +1,11 @@
 import Link from 'next/link'
 import { auth } from '@/auth'
-import { prisma } from '@/lib/prisma'
-import { tenantScope } from '@/lib/tenant'
 import {
   listClientsForCashflow,
   listJobs,
-  getClientSummaries,
-  getMonthlySummary,
 } from '@/lib/cashflow/queries'
 import {
   computeMetrics,
-  computeClientBreakdown,
-  computeMonthlyTrend,
   type JobLike,
 } from '@/lib/cashflow/metrics'
 import { clp } from '@/lib/cashflow/format'
@@ -19,13 +13,21 @@ import { periodRange, pctDelta } from '@/lib/cashflow/period'
 import { KpiCard } from '@/components/cashflow/kpi-card'
 import { ClientFilter } from '@/components/cashflow/client-filter'
 import { PeriodFilter } from '@/components/cashflow/period-filter'
-import { RevenueByClient } from '@/components/cashflow/revenue-by-client'
-import { MonthlyTrend } from '@/components/cashflow/monthly-trend'
 import { JobAccordion } from '@/components/cashflow/job-accordion'
-import { JOB_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '@/lib/cashflow/labels'
 import { MAIN_STATUS_CHIPS, mainStatusCounts, matchesMainStatus, type MainStatus } from '@/lib/cashflow/job-presets'
 import { Suspense } from 'react'
 
+// Rediseño de densidad (owner: "el objetivo no es mostrar muchos KPIs, es
+// entender qué trabajos existen y en qué etapa están"). Antes esta página
+// tenía ~21 indicadores numéricos compitiendo (3 filas de KPI + 5 chips +
+// 3 tarjetas de recordatorio que duplicaban los chips + 4 KPIs de gastos)
+// antes de siquiera llegar a la lista de trabajos, que es el contenido
+// real. Ahora: 4 KPIs de decisión + los chips (que ya filtran la lista,
+// no hacen falta como bloque aparte) + la lista. Márgen/aging/mix/tendencia
+// mensual/desglose por cliente se movieron a /flujo/reportes (métricas de
+// análisis, no de operación diaria). Gastos operacionales tiene su propia
+// página (/gastos) hace tiempo — tenerlo repetido acá era la misma
+// información dos veces, no información nueva.
 export default async function FlujoPage({
   searchParams,
 }: {
@@ -36,36 +38,15 @@ export default async function FlujoPage({
   const { cliente, periodo, estado } = await searchParams
   const { from, to, prevFrom, prevTo, deltaLabel } = periodRange(periodo)
 
-  const [clients, jobs, allJobs, monthlyJobs, expensesByCategory, expensesPending, prevJobs] = await Promise.all([
+  const [clients, jobs, prevJobs] = await Promise.all([
     listClientsForCashflow(actor),
     listJobs(actor, { clientId: cliente, from, to }),
-    cliente ? Promise.resolve([]) : getClientSummaries(actor, from, to),
-    cliente ? Promise.resolve([]) : getMonthlySummary(actor, 12, from, to),
-    // Gastos aprobados agrupados por categoría
-    prisma.expense.groupBy({
-      by: ['category'],
-      where: { ...tenantScope(actor), status: 'aprobado' },
-      _sum: { amount: true },
-      _count: { id: true },
-    }),
-    // Gastos pendientes de aprobación
-    prisma.expense.aggregate({
-      where: { ...tenantScope(actor), status: 'pendiente' },
-      _count: { id: true },
-      _sum: { amount: true },
-    }),
     // Período anterior equivalente, para el delta de los KPI — no aplica a
     // "total" (no hay "anterior" de "todo").
     from ? listJobs(actor, { clientId: cliente, from: prevFrom, to: prevTo }) : Promise.resolve([]),
   ])
 
   const m = computeMetrics(jobs as unknown as JobLike[], new Date())
-  // Double-cast: Prisma enum types aren't directly assignable to the string-literal
-  // unions in JobLike, but values are runtime-compatible.
-  type ClientInput = Parameters<typeof computeClientBreakdown>[0]
-  type TrendInput  = Parameters<typeof computeMonthlyTrend>[0]
-  const clientBreakdown = cliente ? [] : computeClientBreakdown(allJobs as unknown as ClientInput)
-  const monthlyTrend    = cliente ? [] : computeMonthlyTrend(monthlyJobs as unknown as TrendInput)
 
   const prevM = from ? computeMetrics(prevJobs as unknown as JobLike[], prevTo ?? new Date()) : null
   const delta = (curr: number, prev: number | undefined) =>
@@ -73,17 +54,11 @@ export default async function FlujoPage({
       ? (() => { const pct = pctDelta(curr, prev); return pct != null ? { pct, label: deltaLabel } : undefined })()
       : undefined
 
-  const cobradoPct =
-    m.facturado > 0 ? Math.round((m.cobrado / m.facturado) * 100) : null
-  const avgTicket =
-    jobs.length > 0
-      ? Math.round((m.facturado + m.sinOcBacklog) / jobs.length)
-      : null
-
-  // Status-strip + reminder-bar del prototipo (renderDashboard final) — 5
-  // chips (Todos/Pagadas/Pendientes de pago/Ejecutadas sin OC/No aprobadas)
-  // + 3 atajos (Vencidas/Vencen en 7 días/Ejecutadas sin OC), todos filtran
-  // la lista de trabajos de abajo. Ver src/lib/cashflow/job-presets.ts.
+  // Status-strip del prototipo (renderDashboard final) — 5 chips
+  // (Todos/Pagadas/Pendientes de pago/Ejecutadas sin OC/No aprobadas),
+  // filtran la lista de trabajos de abajo. Ver src/lib/cashflow/job-presets.ts.
+  // El antiguo "reminder-bar" (Vencidas/Vencen en 7 días/Sin OC) se quitó —
+  // era la misma información que estos chips, presentada dos veces.
   const jobsTyped = jobs as unknown as Parameters<typeof mainStatusCounts>[0]
   const statusCounts = mainStatusCounts(jobsTyped)
   const activeStatus: MainStatus | 'overdue' = (['all', 'paid', 'pending', 'no_po', 'rejected', 'overdue'] as const).includes(estado as never)
@@ -98,11 +73,6 @@ export default async function FlujoPage({
     if (key !== 'all') p.set('estado', key)
     return `/flujo?${p.toString()}`
   }
-
-  const totalExpensesApproved = expensesByCategory.reduce((s, e) => s + (e._sum.amount ?? 0), 0)
-  const pendingExpenseCount = expensesPending._count.id
-  const pendingExpenseAmount = expensesPending._sum.amount ?? 0
-  const netMarginWithExpenses = m.cobrado > 0 ? m.cobrado - totalExpensesApproved : null
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -132,63 +102,25 @@ export default async function FlujoPage({
         </div>
       </div>
 
-      {/* A. Cobranza */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* 5 indicadores de decisión — todo lo demás (margen, aging, mix,
+          tendencia, desglose por cliente) vive en /flujo/reportes. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <KpiCard label="Facturado" value={clp(m.facturado)} delta={delta(m.facturado, prevM?.facturado)} />
         <KpiCard label="Por cobrar" value={clp(m.porCobrar)} tone="warn" />
-        <KpiCard label="Cobrado" value={clp(m.cobrado)} tone="good" delta={delta(m.cobrado, prevM?.cobrado)} />
         <KpiCard
           label="Vencido"
           value={clp(m.vencido)}
           tone="danger"
-          hint={
-            m.avgCollectionDays != null
-              ? `Cobro prom. ${m.avgCollectionDays} días`
-              : undefined
-          }
+          hint={m.avgCollectionDays != null ? `Cobro prom. ${m.avgCollectionDays} días` : undefined}
         />
-      </div>
-
-      {/* B. Palancas de control */}
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Cobrado" value={clp(m.cobrado)} tone="good" delta={delta(m.cobrado, prevM?.cobrado)} />
         <KpiCard
-          label="Sin facturar (SIN OC)"
+          label="Ejecutado sin OC"
           value={clp(m.sinOcBacklog)}
-          tone="danger"
+          tone={m.sinOcBacklog > 0 ? 'danger' : undefined}
           hint={`${m.sinOcCount} trabajos en riesgo`}
         />
-        <KpiCard
-          label="Lag facturación"
-          value={
-            m.avgBillingLagDays != null ? `${m.avgBillingLagDays} días` : '—'
-          }
-          hint="ejecución → factura"
-        />
-        <KpiCard
-          label="% Cobrado"
-          value={cobradoPct != null ? `${cobradoPct}%` : '—'}
-          tone={
-            cobradoPct == null ? undefined : cobradoPct >= 80 ? 'good' : 'warn'
-          }
-          hint="sobre lo facturado"
-        />
-        <KpiCard
-          label="Ticket promedio"
-          value={avgTicket != null ? clp(avgTicket) : '—'}
-          hint={`${jobs.length} trabajos`}
-        />
       </div>
-
-      {/* C. Margen */}
-      {m.marginTotal != null && (
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            label="Margen total"
-            value={clp(m.marginTotal)}
-            delta={prevM?.marginTotal != null ? delta(m.marginTotal, prevM.marginTotal) : undefined}
-          />
-        </div>
-      )}
 
       {/* Trabajos, agrupados por cliente → período */}
       <div className="mt-6">
@@ -222,114 +154,18 @@ export default async function FlujoPage({
           ))}
         </div>
 
-        {/* Reminder-bar: 3 atajos con foco en urgencia */}
-        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Link href={statusHref('overdue')} className={`rounded-lg border px-3 py-2 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${activeStatus === 'overdue' ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-            <p className="text-xs text-gray-500">Facturas vencidas</p>
-            <p className="text-2xl font-extrabold tabular-nums text-red-700">{statusCounts.overdue}</p>
-          </Link>
-          <Link href={statusHref('pending')} className={`rounded-lg border px-3 py-2 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${activeStatus === 'pending' ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-            <p className="text-xs text-gray-500">Vencen en 7 días</p>
-            <p className="text-2xl font-extrabold tabular-nums text-amber-700">{statusCounts.due7}</p>
-          </Link>
-          <Link href={statusHref('no_po')} className={`rounded-lg border px-3 py-2 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${activeStatus === 'no_po' ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
-            <p className="text-xs text-gray-500">Ejecutadas sin OC</p>
-            <p className="text-2xl font-extrabold tabular-nums text-yellow-700">{statusCounts.no_po}</p>
-          </Link>
-        </div>
-
         <JobAccordion jobs={visibleJobs as unknown as Parameters<typeof JobAccordion>[0]['jobs']} />
       </div>
 
-      {/* D. Por cliente (solo cuando no hay filtro activo y hay >1 cliente) */}
-      {!cliente && clientBreakdown.length > 1 && (
-        <div className="mt-6">
-          <RevenueByClient breakdown={clientBreakdown} />
-        </div>
-      )}
-
-      {/* E. Aging + Mix */}
-      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-gray-200 p-4">
-          <h2 className="mb-3 text-sm font-semibold text-ink">
-            Cuentas por cobrar (aging)
-          </h2>
-          <ul className="space-y-1.5 text-sm">
-            {m.aging.map((a) => (
-              <li key={a.bucket} className="flex justify-between">
-                <span className="text-gray-500">{a.bucket} días</span>
-                <span className="tabular-nums">{clp(a.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className="rounded-xl border border-gray-200 p-4">
-          <h2 className="mb-3 text-sm font-semibold text-ink">Mix por tipo</h2>
-          <ul className="space-y-1.5 text-sm">
-            {m.mix.map((x) => (
-              <li key={x.type} className="flex justify-between">
-                <span className="text-gray-500">
-                  {JOB_TYPE_LABELS[x.type] ?? x.type} ({x.count})
-                </span>
-                <span className="tabular-nums">{clp(x.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-
-      {/* F. Tendencia mensual (solo sin filtro de cliente) */}
-      {!cliente && monthlyTrend.length > 1 && (
-        <div className="mt-6">
-          <MonthlyTrend buckets={monthlyTrend} />
-        </div>
-      )}
-
-      {/* G. Gastos operacionales */}
-      <div className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">Gastos operacionales</h2>
-          <Link href="/gastos" className="text-xs text-brand hover:underline font-medium">
-            Administrar gastos →
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard label="Gastos aprobados" value={clp(totalExpensesApproved)} />
-          <KpiCard
-            label="Resultado neto"
-            value={netMarginWithExpenses != null ? clp(netMarginWithExpenses) : '—'}
-            tone={netMarginWithExpenses != null ? (netMarginWithExpenses > 0 ? 'good' : 'danger') : undefined}
-            hint="cobrado − gastos aprobados"
-          />
-          <KpiCard
-            label="Gastos pendientes"
-            value={pendingExpenseCount > 0 ? `${pendingExpenseCount} (${clp(pendingExpenseAmount)})` : '—'}
-            tone={pendingExpenseCount > 0 ? 'warn' : undefined}
-            hint="por aprobar"
-          />
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-400 mb-2">Por categoría</p>
-            <ul className="space-y-1">
-              {expensesByCategory.length === 0 ? (
-                <li className="text-xs text-gray-400">Sin gastos registrados</li>
-              ) : expensesByCategory.map((e) => (
-                <li key={e.category} className="flex justify-between text-xs">
-                  <span className="text-gray-500">{EXPENSE_CATEGORY_LABELS[e.category] ?? e.category} ({e._count.id})</span>
-                  <span className="tabular-nums font-medium">{clp(e._sum.amount ?? 0)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* H. Quick links */}
-      <div className="mt-6 flex gap-4 border-t border-gray-100 pt-4 text-sm text-gray-400">
+      {/* Quick links — análisis (margen/aging/mix/tendencia/por cliente),
+          gastos operacionales y sucursales viven en sus propias páginas,
+          no repetidos acá. */}
+      <div className="mt-6 flex flex-wrap gap-4 border-t border-gray-100 pt-4 text-sm text-gray-400">
+        <Link href="/flujo/reportes" className="hover:text-ink hover:underline">
+          Ver análisis y reportes →
+        </Link>
         <Link href="/flujo/sucursales" className="hover:text-ink hover:underline">
           Administrar sucursales →
-        </Link>
-        <Link href="/flujo/trabajos" className="hover:text-ink hover:underline">
-          Ver todos los trabajos →
         </Link>
         <Link href="/gastos" className="hover:text-ink hover:underline">
           Gastos operacionales →
