@@ -62,8 +62,8 @@ export default async function NewTrabajoPage({
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link href="/flujo/trabajos" className="text-xs text-gray-400 hover:text-gray-600">
-        ← Trabajos
+      <Link href="/flujo" className="text-xs text-gray-400 hover:text-gray-600">
+        ← Flujo
       </Link>
       <h1 className="mb-6 text-2xl font-bold">Nuevo trabajo</h1>
 

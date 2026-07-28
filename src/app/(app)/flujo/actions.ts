@@ -138,14 +138,14 @@ export async function updateJob(id: string, _prev: FormState, form: FormData): P
   }
   await prisma.job.updateMany({ where: { id, ...tenantScope(u) }, data: jobData(parsed.data) })
   revalidatePath('/flujo')
-  redirect('/flujo/trabajos')
+  redirect('/flujo')
 }
 
 export async function deleteJob(id: string) {
   const u = await requireActor(['super', 'supervisor'])
   await prisma.job.deleteMany({ where: { id, ...tenantScope(u) } })
   revalidatePath('/flujo')
-  redirect('/flujo/trabajos')
+  redirect('/flujo')
 }
 
 export async function addCost(form: FormData) {

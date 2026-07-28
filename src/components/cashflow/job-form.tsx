@@ -388,7 +388,7 @@ export function JobForm({
         <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending ? 'Guardando…' : 'Guardar trabajo'}
         </Button>
-        <Link href="/flujo/trabajos" className="text-sm text-gray-500 hover:text-gray-700">
+        <Link href="/flujo" className="text-sm text-gray-500 hover:text-gray-700">
           Cancelar
         </Link>
       </div>

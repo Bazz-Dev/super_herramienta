@@ -130,7 +130,7 @@ export default async function EditClientePage({
 
           <div className="mt-3 flex gap-3 border-t border-gray-100 pt-3">
             <Link
-              href={`/flujo/trabajos?cliente=${client.id}`}
+              href={`/flujo/reportes?cliente=${client.id}`}
               className="text-xs text-gray-500 hover:text-ink hover:underline"
             >
               Ver todos los trabajos →

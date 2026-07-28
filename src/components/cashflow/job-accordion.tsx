@@ -50,9 +50,15 @@ function matchesSearch(job: Job, q: string): boolean {
 // Lista acordeón cliente → período, la vista principal de /flujo (reemplaza
 // la tabla plana). Cada trabajo se expande in-line a edición rápida sin
 // navegar — ver docs/superpowers/specs/2026-07-24-flujo-caja-views-design.md.
+// El toggle Lista/Calendario retoma el concepto real de la referencia (ver
+// flujo de caja produccion/*.html) — un calendario mensual de densidad de
+// trabajos por estado, útil para detectar patrones/huecos por día que la
+// lista agrupada no muestra. No se fusiona con /cronograma: ese es
+// asignación de técnicos a visitas, esto es estado financiero por día.
 export function JobAccordion({ jobs }: { jobs: Job[] }) {
   const [period, setPeriod] = useState<GroupPeriod>('month')
   const [q, setQ] = useState('')
+  const [view, setView] = useState<'list' | 'calendar'>('list')
   const filtered = useMemo(() => (q.trim() ? jobs.filter((j) => matchesSearch(j, q)) : jobs), [jobs, q])
   const groups = useMemo(() => groupByClientPeriod(filtered, period), [filtered, period])
 
@@ -71,25 +77,33 @@ export function JobAccordion({ jobs }: { jobs: Job[] }) {
             className="w-full rounded-md border border-gray-300 py-2 pl-8 pr-3 text-sm outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Agrupar</span>
-          <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
-            {PERIODS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setPeriod(p.id)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
-                  period === p.id ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+        {view === 'list' && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Agrupar</span>
+            <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+              {PERIODS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setPeriod(p.id)}
+                  className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                    period === p.id ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
+        )}
+        <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+          <button onClick={() => setView('list')} className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${view === 'list' ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>☰ Lista</button>
+          <button onClick={() => setView('calendar')} className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${view === 'calendar' ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>▦ Calendario</button>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {view === 'calendar' ? (
+        <MonthCalendar jobs={filtered} />
+      ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
           <p className="text-sm font-semibold text-ink">No encontramos trabajos con estos filtros</p>
           <p className="mt-1 text-xs text-gray-400">Pruebe otro período, cliente, estado o término de búsqueda.</p>
@@ -120,6 +134,120 @@ export function JobAccordion({ jobs }: { jobs: Job[] }) {
           </div>
         </section>
       ))}
+    </div>
+  )
+}
+
+const DOT_BY_STATUS: Record<string, string> = {
+  paid: 'bg-green-500',
+  pending: 'bg-amber-400',
+  no_po: 'bg-orange-500',
+  rejected: 'bg-red-500',
+  other: 'bg-gray-300',
+}
+const STATUS_LEGEND: { key: string; label: string }[] = [
+  { key: 'paid', label: 'Pagada' },
+  { key: 'pending', label: 'Con OC pendiente' },
+  { key: 'no_po', label: 'Ejecutada sin OC' },
+  { key: 'rejected', label: 'No aprobada' },
+  { key: 'other', label: 'Otro estado' },
+]
+const WEEKDAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+function dayKey(d: Date) {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+function MonthCalendar({ jobs }: { jobs: Job[] }) {
+  const [cursor, setCursor] = useState(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), 1)) })
+  const [selectedDay, setSelectedDay] = useState<string | null>(null)
+
+  const byDay = useMemo(() => {
+    const map = new Map<string, Job[]>()
+    for (const j of jobs) {
+      const k = dayKey(recordDate(j))
+      map.set(k, [...(map.get(k) ?? []), j])
+    }
+    return map
+  }, [jobs])
+
+  const year = cursor.getUTCFullYear(), month = cursor.getUTCMonth()
+  const firstOfMonth = new Date(Date.UTC(year, month, 1))
+  const startWeekday = (firstOfMonth.getUTCDay() + 6) % 7 // lunes = 0
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  const cells: (Date | null)[] = [...Array(startWeekday).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => new Date(Date.UTC(year, month, i + 1)))]
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  const monthJobCount = [...byDay.entries()].filter(([k]) => k.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`)).reduce((s, [, v]) => s + v.length, 0)
+  const selectedJobs = selectedDay ? byDay.get(selectedDay) ?? [] : []
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">
+              {firstOfMonth.toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' })}
+            </h3>
+            <p className="text-xs text-gray-400">{monthJobCount} trabajo{monthJobCount === 1 ? '' : 's'} visible{monthJobCount === 1 ? '' : 's'} con los filtros actuales</p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => setCursor(new Date(Date.UTC(year, month - 1, 1)))} className="rounded-md border border-gray-300 px-2.5 py-1 text-sm text-gray-600 hover:bg-gray-50">‹</button>
+            <button onClick={() => { const n = new Date(); setCursor(new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), 1))) }} className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50">Hoy</button>
+            <button onClick={() => setCursor(new Date(Date.UTC(year, month + 1, 1)))} className="rounded-md border border-gray-300 px-2.5 py-1 text-sm text-gray-600 hover:bg-gray-50">›</button>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 border-b border-gray-100 px-4 py-2">
+          {STATUS_LEGEND.map((s) => (
+            <span key={s.key} className="flex items-center gap-1.5 text-[11px] text-gray-500">
+              <span className={`h-2 w-2 rounded-full ${DOT_BY_STATUS[s.key]}`} />{s.label}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 border-b border-gray-100 text-center text-[10px] font-bold uppercase tracking-wide text-gray-400">
+          {WEEKDAYS.map((w) => <div key={w} className="py-2">{w}</div>)}
+        </div>
+        <div className="grid grid-cols-7">
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} className="min-h-[76px] border-b border-r border-gray-100 bg-gray-50/40" />
+            const k = dayKey(d)
+            const dayJobs = byDay.get(k) ?? []
+            const isSelected = selectedDay === k
+            const isToday = k === dayKey(new Date())
+            return (
+              <button
+                key={i}
+                onClick={() => setSelectedDay(isSelected ? null : k)}
+                disabled={dayJobs.length === 0}
+                className={`min-h-[76px] border-b border-r border-gray-100 p-1.5 text-left align-top transition-colors ${
+                  isSelected ? 'bg-brand/10' : dayJobs.length > 0 ? 'hover:bg-gray-50' : ''
+                }`}
+              >
+                <span className={`text-xs ${isToday ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand font-bold text-ink' : 'text-gray-500'}`}>{d.getUTCDate()}</span>
+                {dayJobs.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {dayJobs.slice(0, 6).map((j) => <span key={j.id} className={`h-2 w-2 rounded-full ${DOT_BY_STATUS[simpleStatus(j)]}`} title={j.description} />)}
+                    {dayJobs.length > 6 && <span className="text-[9px] font-semibold text-gray-400">+{dayJobs.length - 6}</span>}
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      {selectedDay && (
+        <div className="rounded-xl border border-brand/30 bg-brand/5 p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+            {new Date(selectedDay + 'T00:00:00Z').toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })} · {selectedJobs.length} trabajo{selectedJobs.length === 1 ? '' : 's'}
+          </p>
+          <div className="flex flex-col gap-2">
+            {selectedJobs.map((j) => <JobCard key={j.id} job={j} />)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

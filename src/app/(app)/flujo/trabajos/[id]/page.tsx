@@ -77,8 +77,8 @@ export default async function TrabajoDetailPage({
   return (
     <div className="mx-auto max-w-4xl">
       {/* Back link */}
-      <Link href="/flujo/trabajos" className="text-xs text-gray-400 hover:text-gray-600">
-        ← Trabajos
+      <Link href="/flujo" className="text-xs text-gray-400 hover:text-gray-600">
+        ← Flujo
       </Link>
 
       {/* Origin ticket banner */}
