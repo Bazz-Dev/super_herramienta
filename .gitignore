@@ -18,6 +18,10 @@ next-env.d.ts
 
 # env
 .env
+
+# local backups (real prod data dumps — never committed)
+/backups/
+/justburger-ingegar/
 .env*.local
 
 # playwright
