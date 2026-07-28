@@ -29,6 +29,7 @@ const NAV_SECTIONS = [
       { href: '/pipeline', label: 'Pipeline', icon: PipelineIcon },
       { href: '/flujo', label: 'Flujo de Caja', icon: CashIcon },
       { href: '/flujo/reportes', label: 'Reportes', icon: ChartIcon },
+      { href: '/conciliacion', label: 'Conciliación', icon: LinkIcon },
     ],
   },
   {
@@ -334,6 +335,14 @@ function ChartIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M4 20V10M11 20V4M18 20v-7" />
       <path d="M2 20h20" />
+    </svg>
+  )
+}
+function LinkIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 15L15 9" />
+      <path d="M11 6l1-1a4 4 0 015.5 5.5l-1 1M13 18l-1 1a4 4 0 01-5.5-5.5l1-1" />
     </svg>
   )
 }

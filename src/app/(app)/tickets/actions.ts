@@ -291,3 +291,16 @@ export async function deleteTicket(ticketId: string) {
   revalidatePath('/tickets')
   return { success: true }
 }
+
+// Vincula un Job de Flujo de Caja sin Ticket al ticket recién creado desde
+// /conciliacion (flujo "SIN TICKET -> Crear ticket"). originTicketId es el
+// mismo mecanismo que ya usa /tickets/[id] para mostrar los trabajos de un
+// ticket — no un campo nuevo.
+export async function linkJobToNewTicket(jobId: string, ticketId: string) {
+  const actor = await requireActor(['super', 'supervisor'])
+  await prisma.job.updateMany({
+    where: { id: jobId, tenantId: actor.tenantId, originTicketId: null },
+    data: { originTicketId: ticketId },
+  })
+  revalidatePath('/conciliacion')
+}

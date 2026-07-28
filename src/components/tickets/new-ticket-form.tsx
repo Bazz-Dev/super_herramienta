@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createTicket } from '@/app/(app)/tickets/actions'
+import { createTicket, linkJobToNewTicket } from '@/app/(app)/tickets/actions'
 import { URGENCY_LABEL, type TicketUrgencyId } from '@/lib/tickets/labels'
 import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 import { Spinner } from '@/components/ui/spinner'
@@ -15,19 +15,23 @@ interface Props {
   clients: Client[]
   users: { id: string; name: string; role: string }[]
   createdById: string
+  /** Precarga desde un Job de Flujo de Caja sin ticket (vista Conciliación). */
+  defaults?: { clientId?: string; branchId?: string; title?: string; description?: string }
+  /** Si viene de Conciliación, vincula el ticket recién creado a este Job al guardar. */
+  linkJobId?: string
 }
 
-export function NewTicketForm({ clients, users, createdById }: Props) {
+export function NewTicketForm({ clients, users, createdById, defaults, linkJobId }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  const [clientId, setClientId] = useState(clients[0]?.id ?? '')
-  const [branchId, setBranchId] = useState('')
+  const [clientId, setClientId] = useState(defaults?.clientId ?? clients[0]?.id ?? '')
+  const [branchId, setBranchId] = useState(defaults?.branchId ?? '')
   const [urgency, setUrgency] = useState<TicketUrgencyId>('no_urgente')
   const [category, setCategory] = useState('')
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
+  const [title, setTitle] = useState(defaults?.title ?? '')
+  const [description, setDescription] = useState(defaults?.description ?? '')
   const [assignedToId, setAssignedToId] = useState('')
   const [internalNotes, setInternalNotes] = useState('')
   const [otNumber, setOtNumber] = useState('')
@@ -73,6 +77,7 @@ export function NewTicketForm({ clients, users, createdById }: Props) {
     startTransition(async () => {
       const result = await createTicket(null, fd)
       if (result?.success && result.id) {
+        if (linkJobId) await linkJobToNewTicket(linkJobId, result.id)
         router.push(`/tickets/${result.id}`)
       } else {
         setError('Error al crear el ticket')
