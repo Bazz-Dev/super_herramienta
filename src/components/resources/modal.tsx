@@ -3,16 +3,25 @@
 import { useEffect, type ReactNode } from 'react'
 import { XIcon } from '@/components/quotes/icons'
 
+const SIZE = {
+  md: 'max-w-2xl',
+  lg: 'max-w-4xl',
+  xl: 'max-w-6xl',
+} as const
+
 export function Modal({
   open,
   onClose,
   title,
   children,
+  size = 'md',
 }: {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
+  /** md (default, unchanged) for forms/confirms; lg/xl for document/image previews that want more room. */
+  size?: keyof typeof SIZE
 }) {
   useEffect(() => {
     if (!open) return
@@ -36,7 +45,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative z-10 w-full max-w-2xl rounded-xl bg-white p-5 shadow-xl"
+        className={`relative z-10 w-full ${SIZE[size]} rounded-xl bg-white p-5 shadow-xl`}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink">{title}</h2>

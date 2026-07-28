@@ -1,12 +1,37 @@
 @import 'tailwindcss';
 
+/* ── Design tokens ──────────────────────────────────────────────────────────
+ * Full rationale + usage guide: docs/superpowers/specs/2026-07-24-design-system-foundation.md
+ *
+ * This app deliberately does NOT redefine spacing, radius, shadow or type
+ * scale here — Tailwind's defaults already match what the app has organically
+ * converged on (rounded-md for inputs/small controls, rounded-lg for tab
+ * pills/secondary CTAs, rounded-xl for cards/modals, rounded-full for
+ * pills/dots/avatars; shadow-sm at rest → shadow-md on hover for cards;
+ * text-xs/sm/2xl for meta/body/page-title). Re-declaring a second scale on
+ * top of one that's already consistent would just be a second thing to keep
+ * in sync — the actual gap was color tokens (defined below, barely adopted)
+ * and shared components (see src/components/ui/), not the numeric scales.
+ * ────────────────────────────────────────────────────────────────────────── */
 @theme {
-  /* Brand */
+  /* Brand — the one color that means "this platform", not an outcome. */
   --color-brand:     #f5b100;
   --color-brand-600: #d99e00;
-  --color-ink:       #111111;
+  --color-ink:       #111111; /* primary text / headings — NOT pure #000 */
 
-  /* Semantic status palette */
+  /* Semantic status palette — reserved for OUTCOME meaning (success/warning/
+   * error/informational), never for arbitrary category color (kanban stage,
+   * contract type, ticket urgency tier — those are legitimately categorical,
+   * not semantic, and should keep using Tailwind's raw palette directly, e.g.
+   * bg-purple-100 for a 6th kanban column that isn't good/bad/pending/info).
+   * Scale: -50/-100 = badge/chip background, -500 = dot/icon/border accent,
+   * -700 = badge/chip text (passes contrast on the -100 background).
+   * Adoption note (2026-07-24 audit): these existed before this pass but were
+   * used in ~5 files — everywhere else hardcoded bg-green-100/text-green-700
+   * etc. directly. Both read identically today (the values below ARE
+   * Tailwind's green/amber/red/blue-500/700), so migrating is a pure
+   * behind-the-scenes consistency win, not a visual one — do it opportunistically
+   * when touching a file, not as its own sweep. */
   --color-ok-50:  #f0fdf4;
   --color-ok-100: #dcfce7;
   --color-ok-500: #22c55e;
@@ -27,9 +52,14 @@
   --color-info-500: #3b82f6;
   --color-info-700: #1d4ed8;
 
-  /* Surface / neutral */
+  /* Surface / neutral. Everything else gray uses Tailwind's default gray-*
+   * scale directly (gray-400 = disabled/placeholder/meta text, gray-500 =
+   * secondary text/labels, gray-600 = tertiary interactive text/icons,
+   * gray-700 = emphasized body text on white, gray-200/100 = borders/dividers,
+   * gray-50 = subtle section background) — that scale is already consistent
+   * app-wide, it's just never been written down before now. */
   --color-surface: #ffffff;
-  --color-muted:   #6b7280;
+  --color-muted:   #6b7280; /* == gray-500, kept as an alias for older call sites */
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }

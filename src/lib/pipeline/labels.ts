@@ -1,4 +1,5 @@
 import type { ProposalStatus } from '@/generated/prisma/enums'
+import type { BadgeTone } from '@/components/ui/badge'
 
 export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
   borrador:  'Borrador',
@@ -21,6 +22,32 @@ export const PROPOSAL_STATUS_COLORS: Record<ProposalStatus, { bg: string; text: 
 export const PROPOSAL_STATUS_ORDER: ProposalStatus[] = [
   'borrador', 'enviada', 'vista', 'aceptada', 'rechazada', 'perdida',
 ]
+
+// Tailwind-classed equivalent of PROPOSAL_STATUS_COLORS, for consumers using
+// the <Badge> primitive (design-system foundation pass) instead of raw
+// style={{background: hex}} — kept PROPOSAL_STATUS_COLORS above untouched
+// since documents-view.tsx reads its exact {bg,text,border} hex shape.
+// "vista" has no ok/warn/danger/info equivalent (it's not an outcome, it's a
+// pipeline stage) — categorical purple via className, same rule as any other
+// non-semantic status color in the app (kanban columns, contract types).
+export const PROPOSAL_STATUS_BADGE: Record<ProposalStatus, { tone?: BadgeTone; className?: string }> = {
+  borrador:  { tone: 'neutral' },
+  enviada:   { tone: 'info' },
+  vista:     { className: 'bg-purple-100 text-purple-700' },
+  aceptada:  { tone: 'ok' },
+  rechazada: { tone: 'danger' },
+  perdida:   { tone: 'neutral' },
+}
+
+// Card accent (top stripe) per status, for the <Card accent> prop — same
+// semantic mapping as PROPOSAL_STATUS_BADGE. "vista"/"perdida"/"borrador"
+// have no accent (Card's 5 tones don't include a neutral/purple option;
+// forcing one would misrepresent the status, so those render with no stripe).
+export const PROPOSAL_STATUS_ACCENT: Partial<Record<ProposalStatus, 'ok' | 'warn' | 'danger' | 'info'>> = {
+  enviada:   'info',
+  aceptada:  'ok',
+  rechazada: 'danger',
+}
 
 export function formatCLP(amount: number): string {
   return amount.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 })

@@ -5,30 +5,24 @@ import { useRouter } from 'next/navigation'
 import type { PipelineDoc } from '@/lib/pipeline/queries'
 import {
   PROPOSAL_STATUS_LABELS,
-  PROPOSAL_STATUS_COLORS,
+  PROPOSAL_STATUS_BADGE,
   PROPOSAL_STATUS_ORDER,
+  PROPOSAL_STATUS_ACCENT,
   formatCLP,
   daysSince,
 } from '@/lib/pipeline/labels'
 import {
   updatePipelineStatus,
   updatePipelineAmount,
-  updateFollowUp,
   removeFromPipeline,
 } from '@/lib/pipeline/actions'
 import type { ProposalStatus } from '@/generated/prisma/enums'
-
-// ---------------------------------------------------------------------------
-// Pill badge
-// ---------------------------------------------------------------------------
-function StatusBadge({ status }: { status: ProposalStatus }) {
-  const c = PROPOSAL_STATUS_COLORS[status]
-  return (
-    <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px', background: c.bg, color: c.text, border: `1px solid ${c.border}`, whiteSpace: 'nowrap' }}>
-      {PROPOSAL_STATUS_LABELS[status]}
-    </span>
-  )
-}
+import { cn } from '@/lib/cn'
+import { Card } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { TextInput, TextArea } from '@/components/quotes/ui'
 
 // ---------------------------------------------------------------------------
 // Pipeline card (expandable)
@@ -43,7 +37,7 @@ function PipelineCard({ doc }: { doc: PipelineDoc }) {
   const router = useRouter()
 
   const status = doc.proposalStatus
-  const colors = PROPOSAL_STATUS_COLORS[status]
+  const badge = PROPOSAL_STATUS_BADGE[status]
 
   // Urgency: enviada/vista > 7 days without response
   const refDate = doc.viewedAt ?? doc.sentAt
@@ -51,6 +45,7 @@ function PipelineCard({ doc }: { doc: PipelineDoc }) {
 
   // Follow-up: overdue
   const followupOverdue = doc.followUpAt && new Date(doc.followUpAt) < new Date() && !['aceptada', 'rechazada', 'perdida'].includes(status)
+  const needsAttention = stale || followupOverdue
 
   function changeStatus(newStatus: ProposalStatus) {
     startTransition(async () => {
@@ -86,134 +81,130 @@ function PipelineCard({ doc }: { doc: PipelineDoc }) {
   }
 
   return (
-    <div style={{
-      background: '#fff',
-      border: `1.5px solid ${stale || followupOverdue ? '#fcd34d' : colors.border}`,
-      borderRadius: '10px',
-      padding: '12px 14px',
-      opacity: isPending ? 0.6 : 1,
-      transition: 'opacity 0.15s',
-      cursor: 'pointer',
-    }}
-      onClick={() => setExpanded(e => !e)}
+    <Card
+      onClick={() => setExpanded((e) => !e)}
+      accent={needsAttention ? 'warn' : PROPOSAL_STATUS_ACCENT[status]}
+      className={cn(
+        'cursor-pointer p-3.5 transition-opacity',
+        isPending && 'opacity-60',
+      )}
     >
       {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', justifyContent: 'space-between' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</p>
-          <p style={{ fontSize: '11px', color: '#6b7280', margin: '2px 0 0' }}>{doc.client.name}</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold text-ink">{doc.title}</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">{doc.client.name}</p>
         </div>
-        <StatusBadge status={status} />
+        <Badge tone={badge.tone} className={badge.className}>{PROPOSAL_STATUS_LABELS[status]}</Badge>
       </div>
 
-      {/* Amount + days */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-        {doc.proposalAmount
-          ? <span style={{ fontSize: '13px', fontWeight: '700', color: '#111' }}>{formatCLP(doc.proposalAmount)}</span>
-          : <span style={{ fontSize: '12px', color: '#9ca3af', fontStyle: 'italic' }}>Sin monto</span>
-        }
-        {stale && (
-          <span style={{ fontSize: '11px', background: '#fef3c7', color: '#92400e', padding: '1px 7px', borderRadius: '10px', fontWeight: '600' }}>
-            {daysSince(refDate!)}d sin respuesta
-          </span>
+      {/* Amount + flags */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {doc.proposalAmount ? (
+          <span className="text-[13px] font-bold text-ink">{formatCLP(doc.proposalAmount)}</span>
+        ) : (
+          <span className="text-xs italic text-gray-400">Sin monto</span>
         )}
-        {followupOverdue && (
-          <span style={{ fontSize: '11px', background: '#fef2f2', color: '#b91c1c', padding: '1px 7px', borderRadius: '10px', fontWeight: '600' }}>
-            Seguimiento vencido
-          </span>
-        )}
+        {stale && <Badge tone="warn">{daysSince(refDate!)}d sin respuesta</Badge>}
+        {followupOverdue && <Badge tone="danger">Seguimiento vencido</Badge>}
       </div>
 
       {/* Expanded panel */}
       {expanded && (
-        <div onClick={e => e.stopPropagation()} style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
+        <div onClick={(e) => e.stopPropagation()} className="mt-3 flex cursor-default flex-col gap-3 border-t border-gray-100 pt-3">
           {/* Status change */}
           <div>
-            <p style={{ fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Cambiar estado</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-              {PROPOSAL_STATUS_ORDER.map(s => (
-                <button key={s} onClick={() => changeStatus(s)}
-                  disabled={s === status || isPending}
-                  style={{
-                    padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '600',
-                    cursor: s === status ? 'default' : 'pointer', border: 'none',
-                    background: s === status ? PROPOSAL_STATUS_COLORS[s].bg : '#f1f5f9',
-                    color: s === status ? PROPOSAL_STATUS_COLORS[s].text : '#374151',
-                    outline: s === status ? `1.5px solid ${PROPOSAL_STATUS_COLORS[s].border}` : 'none',
-                  }}>
-                  {PROPOSAL_STATUS_LABELS[s]}
-                </button>
-              ))}
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Cambiar estado</p>
+            <div className="flex flex-wrap gap-1.5">
+              {PROPOSAL_STATUS_ORDER.map((s) => {
+                const sBadge = PROPOSAL_STATUS_BADGE[s]
+                const active = s === status
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => changeStatus(s)}
+                    disabled={active || isPending}
+                    className={cn(
+                      'interactive rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+                      active ? 'cursor-default' : 'cursor-pointer hover:opacity-70 disabled:cursor-not-allowed',
+                    )}
+                  >
+                    <Badge tone={sBadge.tone} className={cn(sBadge.className, active && 'ring-1 ring-inset ring-current')}>
+                      {PROPOSAL_STATUS_LABELS[s]}
+                    </Badge>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
           {/* Amount edit */}
           <div>
-            <p style={{ fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Monto (CLP)</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Monto (CLP)</p>
             {editAmount ? (
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                <input value={amountInput} onChange={e => setAmountInput(e.target.value)}
-                  style={{ padding: '5px 9px', borderRadius: '7px', border: '1.5px solid #d1d5db', fontSize: '13px', width: '120px' }}
-                  onKeyDown={e => { if (e.key === 'Enter') saveAmount(); if (e.key === 'Escape') setEditAmount(false) }}
-                  autoFocus />
-                <button onClick={saveAmount} style={{ padding: '5px 10px', background: '#111', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>Guardar</button>
-                <button onClick={() => setEditAmount(false)} style={{ padding: '5px 10px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: '7px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+              <div className="flex items-center gap-1.5">
+                <TextInput
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveAmount(); if (e.key === 'Escape') setEditAmount(false) }}
+                  className="w-32"
+                  autoFocus
+                />
+                <Button size="sm" onClick={saveAmount}>Guardar</Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditAmount(false)}>✕</Button>
               </div>
             ) : (
-              <button onClick={() => setEditAmount(true)}
-                style={{ fontSize: '13px', color: '#111', background: '#f1f5f9', border: 'none', borderRadius: '7px', padding: '5px 10px', cursor: 'pointer', fontWeight: doc.proposalAmount ? '700' : '400' }}>
+              <Button size="sm" variant="secondary" onClick={() => setEditAmount(true)}>
                 {doc.proposalAmount ? formatCLP(doc.proposalAmount) : 'Añadir monto →'}
-              </button>
+              </Button>
             )}
           </div>
 
           {/* Notes */}
           <div>
-            <p style={{ fontSize: '11px', fontWeight: '600', color: '#6b7280', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Notas comerciales</p>
-            <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Notas comerciales</p>
+            <TextArea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={2}
               placeholder="Contexto, objeciones, próximos pasos…"
-              style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '12px', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+            />
             {note !== (doc.proposalNote ?? '') && (
-              <button onClick={saveNote} disabled={savingNote}
-                style={{ marginTop: '5px', padding: '5px 12px', background: '#111', color: '#fff', border: 'none', borderRadius: '7px', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>
+              <Button size="sm" className="mt-1.5" onClick={saveNote} aria-busy={savingNote}>
                 {savingNote ? 'Guardando…' : 'Guardar nota'}
-              </button>
+              </Button>
             )}
           </div>
 
           {/* Meta */}
-          <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-            {doc.sentAt && <span style={{ fontSize: '11px', color: '#9ca3af' }}>Enviada: {new Date(doc.sentAt).toLocaleDateString('es-CL')}</span>}
-            {doc.viewedAt && <span style={{ fontSize: '11px', color: '#9ca3af' }}>Vista: {new Date(doc.viewedAt).toLocaleDateString('es-CL')}</span>}
-            {doc.responseAt && <span style={{ fontSize: '11px', color: '#9ca3af' }}>Respuesta: {new Date(doc.responseAt).toLocaleDateString('es-CL')}</span>}
-            <span style={{ fontSize: '11px', color: '#9ca3af' }}>Actualizado: {new Date(doc.updatedAt).toLocaleDateString('es-CL')}</span>
+          <div className="flex flex-wrap gap-3 text-[11px] text-gray-400">
+            {doc.sentAt && <span>Enviada: {new Date(doc.sentAt).toLocaleDateString('es-CL')}</span>}
+            {doc.viewedAt && <span>Vista: {new Date(doc.viewedAt).toLocaleDateString('es-CL')}</span>}
+            {doc.responseAt && <span>Respuesta: {new Date(doc.responseAt).toLocaleDateString('es-CL')}</span>}
+            <span>Actualizado: {new Date(doc.updatedAt).toLocaleDateString('es-CL')}</span>
           </div>
 
           {/* Actions */}
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '4px', flexWrap: 'wrap' }}>
-            <a href={`/cotizador?docId=${doc.id}`}
-              style={{ fontSize: '12px', fontWeight: '600', color: '#1d4ed8', textDecoration: 'none', padding: '5px 10px', background: '#eff6ff', borderRadius: '7px' }}>
-              Editar →
-            </a>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button size="sm" variant="secondary" href={`/cotizador?docId=${doc.id}`}>Editar →</Button>
             {status === 'aceptada' && (() => {
               const params = new URLSearchParams({ cliente: doc.client.id, desc: doc.title, proposalId: doc.id })
               if (doc.proposalAmount) params.set('netAmount', String(doc.proposalAmount))
               return (
-                <a href={`/flujo/trabajos/new?${params}`}
-                  style={{ fontSize: '12px', fontWeight: '600', color: '#15803d', textDecoration: 'none', padding: '5px 10px', background: '#f0fdf4', borderRadius: '7px', border: '1px solid #bbf7d0' }}>
+                <a
+                  href={`/flujo/trabajos/new?${params}`}
+                  className="inline-flex min-h-9 items-center rounded-md border border-ok-100 bg-ok-50 px-2.5 py-1.5 text-xs font-semibold text-ok-700 transition-colors hover:bg-ok-100"
+                >
                   {doc.jobCount > 0 ? `Crear otro trabajo (ya hay ${doc.jobCount}) →` : 'Crear trabajo en Flujo →'}
                 </a>
               )
             })()}
-            <button onClick={remove}
-              style={{ fontSize: '12px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '5px' }}>
-              Quitar del pipeline
-            </button>
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={remove}>Quitar del pipeline</Button>
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -222,10 +213,10 @@ function PipelineCard({ doc }: { doc: PipelineDoc }) {
 // ---------------------------------------------------------------------------
 function KpiTile({ label, value, sub, warn }: { label: string; value: string; sub?: string; warn?: boolean }) {
   return (
-    <div style={{ background: '#fff', border: `1.5px solid ${warn ? '#fcd34d' : '#e5e7eb'}`, borderRadius: '12px', padding: '16px 20px', minWidth: '140px' }}>
-      <p style={{ fontSize: '12px', color: '#6b7280', margin: 0, fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</p>
-      <p style={{ fontSize: '22px', fontWeight: '800', color: warn ? '#92400e' : '#111', margin: '4px 0 0' }}>{value}</p>
-      {sub && <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 0' }}>{sub}</p>}
+    <div className={cn('min-w-[140px] rounded-xl border bg-white p-4 shadow-sm', warn ? 'border-warn-500/60' : 'border-gray-200')}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className={cn('mt-1 text-2xl font-bold', warn ? 'text-warn-700' : 'text-ink')}>{value}</p>
+      {sub && <p className="mt-0.5 text-[11px] text-gray-400">{sub}</p>}
     </div>
   )
 }
@@ -238,8 +229,6 @@ interface Props {
   kpis: { total: number; enJuego: number; tasaCierre: number; porVencer: number }
 }
 
-type ColumnId = ProposalStatus | 'abierto' | 'cerrado'
-
 const COLUMNS: { id: ProposalStatus; statuses: ProposalStatus[] }[] = [
   { id: 'borrador',  statuses: ['borrador'] },
   { id: 'enviada',   statuses: ['enviada'] },
@@ -248,65 +237,76 @@ const COLUMNS: { id: ProposalStatus; statuses: ProposalStatus[] }[] = [
   { id: 'rechazada', statuses: ['rechazada', 'perdida'] },
 ]
 
+const FILTERS = [
+  { id: 'activo' as const,  label: 'Activos' },
+  { id: 'cerrado' as const, label: 'Cerrados' },
+  { id: 'todo' as const,    label: 'Todos' },
+]
+
 export function PipelineBoard({ docs, kpis }: Props) {
   const [filter, setFilter] = useState<'activo' | 'cerrado' | 'todo'>('activo')
 
-  const visible = docs.filter(d => {
+  const visible = docs.filter((d) => {
     if (filter === 'activo') return ['borrador', 'enviada', 'vista'].includes(d.proposalStatus)
     if (filter === 'cerrado') return ['aceptada', 'rechazada', 'perdida'].includes(d.proposalStatus)
     return true
   })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
+    <div className="flex flex-col gap-6">
       {/* KPIs */}
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap gap-3">
         <KpiTile label="En pipeline" value={String(kpis.total)} />
         <KpiTile label="Monto en juego" value={kpis.enJuego > 0 ? formatCLP(kpis.enJuego) : '—'} sub="enviada + vista" />
         <KpiTile label="Tasa de cierre" value={`${kpis.tasaCierre}%`} sub="aceptadas / cerradas" />
         <KpiTile label="Por vencer" value={String(kpis.porVencer)} sub="+7 días sin respuesta" warn={kpis.porVencer > 0} />
       </div>
 
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: '6px', background: '#f1f5f9', padding: '4px', borderRadius: '10px', width: 'fit-content' }}>
-        {(['activo', 'cerrado', 'todo'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{ padding: '6px 14px', borderRadius: '7px', border: 'none', fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit',
-              background: filter === f ? '#fff' : 'transparent',
-              color: filter === f ? '#111' : '#6b7280',
-              boxShadow: filter === f ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-            }}>
-            {f === 'activo' ? 'Activos' : f === 'cerrado' ? 'Cerrados' : 'Todos'}
+      {/* Filter tabs — same segmented-control convention as TechnicianProfileShell's tab bar */}
+      <div className="flex w-fit gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
+        {FILTERS.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setFilter(f.id)}
+            className={cn(
+              'interactive min-h-9 rounded-lg px-3.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+              filter === f.id ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700',
+            )}
+          >
+            {f.label}
           </button>
         ))}
       </div>
 
       {/* Columns */}
       {visible.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af' }}>
-          <p style={{ fontSize: '16px', fontWeight: '700' }}>Sin propuestas en pipeline</p>
-          <p style={{ fontSize: '13px', margin: '6px 0 0' }}>Ve a <a href="/documentos" style={{ color: '#1d4ed8' }}>Carpetas</a> y agrega propuestas al pipeline.</p>
-        </div>
+        <EmptyState
+          title="Sin propuestas en pipeline"
+          description="Ve a Carpetas de clientes y agrega propuestas al pipeline para hacerles seguimiento aquí."
+          action={<Button href="/documentos" variant="secondary" size="sm">Ir a carpetas →</Button>}
+        />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px', alignItems: 'start' }}>
-          {COLUMNS.map(col => {
-            const colDocs = visible.filter(d => col.statuses.includes(d.proposalStatus))
+        <div className="grid items-start gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+          {COLUMNS.map((col) => {
+            const colDocs = visible.filter((d) => col.statuses.includes(d.proposalStatus))
             if (colDocs.length === 0 && filter !== 'todo') return null
-            const colColors = PROPOSAL_STATUS_COLORS[col.id]
+            const badge = PROPOSAL_STATUS_BADGE[col.id]
             const colAmount = colDocs.reduce((s, d) => s + (d.proposalAmount ?? 0), 0)
             return (
-              <div key={col.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div key={col.id} className="flex flex-col gap-2">
                 {/* Column header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: colColors.bg, borderRadius: '8px', border: `1px solid ${colColors.border}` }}>
-                  <span style={{ fontSize: '12px', fontWeight: '700', color: colColors.text }}>
-                    {col.id === 'rechazada' ? 'Rechazada / Perdida' : PROPOSAL_STATUS_LABELS[col.id]}
-                    <span style={{ marginLeft: '6px', opacity: 0.7 }}>({colDocs.length})</span>
-                  </span>
-                  {colAmount > 0 && <span style={{ fontSize: '11px', fontWeight: '700', color: colColors.text }}>{formatCLP(colAmount)}</span>}
+                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Badge tone={badge.tone} className={badge.className}>
+                      {col.id === 'rechazada' ? 'Rechazada / Perdida' : PROPOSAL_STATUS_LABELS[col.id]}
+                    </Badge>
+                    <span className="text-[11px] font-medium text-gray-400">({colDocs.length})</span>
+                  </div>
+                  {colAmount > 0 && <span className="text-[11px] font-bold text-ink">{formatCLP(colAmount)}</span>}
                 </div>
                 {/* Cards */}
-                {colDocs.map(doc => <PipelineCard key={doc.id} doc={doc} />)}
+                {colDocs.map((doc) => <PipelineCard key={doc.id} doc={doc} />)}
               </div>
             )
           })}

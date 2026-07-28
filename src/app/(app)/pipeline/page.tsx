@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { requireActor } from '@/lib/tenant'
 import { getPipelineDocs, computeKPIs } from '@/lib/pipeline/queries'
 import { PipelineBoard } from '@/components/pipeline/pipeline-board'
@@ -11,16 +12,22 @@ export default async function PipelinePage() {
   const kpis = computeKPIs(docs)
 
   return (
-    <div style={{ padding: '28px 24px', maxWidth: '1400px' }}>
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#111', margin: 0 }}>Pipeline comercial</h1>
-        <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0' }}>
-          Seguimiento de propuestas enviadas a clientes.{' '}
-          <a href="/documentos" style={{ color: '#1d4ed8', textDecoration: 'none' }}>Ir a carpetas →</a>
-        </p>
+    <div className="mx-auto max-w-7xl">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600">
+            ← Dashboard
+          </Link>
+          <h1 className="text-2xl font-bold text-ink">Pipeline comercial</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Seguimiento de propuestas enviadas a clientes. <Link href="/documentos" className="text-brand-600 hover:underline">Ir a carpetas →</Link>
+          </p>
+        </div>
       </div>
 
-      <PipelineBoard docs={docs} kpis={kpis} />
+      <div className="mt-6">
+        <PipelineBoard docs={docs} kpis={kpis} />
+      </div>
     </div>
   )
 }
