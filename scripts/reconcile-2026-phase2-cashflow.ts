@@ -78,6 +78,15 @@ function money(v: string): number | null {
   if (!v || !v.trim()) return null
   return parseMoneyCLP(v)
 }
+// nro_trabajo es un entero simple para casi todos los clientes, pero para
+// Tarragona es un código de incidente tipo "INC 2026-009239" — jobNumber es
+// Int en el schema, así que solo se guarda cuando es puramente numérico; el
+// texto no numérico se deja fuera en vez de forzarlo a NaN.
+function parseJobNumber(v: string): number | null {
+  const s = v?.trim()
+  if (!s || !/^\d+$/.test(s)) return null
+  return Number(s)
+}
 function isoDate(v: string): string | null {
   if (!v) return null
   const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -142,7 +151,12 @@ async function main() {
   const relevantClientIds = [...clientCache.values()].map((c) => c.id)
   const existingJobs = await prisma.job.findMany({
     where: { tenantId: tenant.id, clientId: { in: relevantClientIds } },
-    select: { id: true, importRef: true, costCenter: true, invoiceNumber: true, clientId: true, netAmount: true, executionDate: true, code: true, branch: { select: { name: true } }, client: { select: { name: true } } },
+    select: {
+      id: true, importRef: true, costCenter: true, invoiceNumber: true, clientId: true, netAmount: true, executionDate: true, code: true,
+      jobNumber: true, quoteRef: true, taxAmount: true, purchaseOrder: true, purchaseOrderDate: true, invoiceDate: true, creditDays: true, paymentDate: true,
+      financialStage: true, nonBillable: true, docReport: true,
+      branch: { select: { name: true } }, client: { select: { name: true } },
+    },
   })
   const byImportRef = new Map(existingJobs.filter((j) => j.importRef).map((j) => [j.importRef!, j]))
   const byCostCenter = new Map<string, typeof existingJobs>()
@@ -230,25 +244,29 @@ async function main() {
     if (match) {
       const changed: string[] = []
       const setData: Record<string, unknown> = {}
+      const sameValue = (a: unknown, b: unknown) => {
+        if (a instanceof Date || b instanceof Date) return a instanceof Date && b instanceof Date && a.getTime() === b.getTime()
+        return a === b
+      }
       const maybe = (field: string, val: unknown, current: unknown) => {
         if (val == null || val === '') return
-        if (val === current) return
+        if (sameValue(val, current)) return
         setData[field] = val; changed.push(field)
       }
       maybe('costCenter', costCenter, match.costCenter)
-      maybe('jobNumber', r[col.nroTrabajo] ? Number(r[col.nroTrabajo]) : null, undefined)
-      maybe('quoteRef', r[col.presupuesto]?.trim() || null, undefined)
+      maybe('jobNumber', parseJobNumber(r[col.nroTrabajo]), match.jobNumber)
+      maybe('quoteRef', r[col.presupuesto]?.trim() || null, match.quoteRef)
       maybe('netAmount', netAmount, match.netAmount)
-      maybe('taxAmount', money(r[col.iva]), undefined)
-      maybe('purchaseOrder', r[col.oc]?.trim() || null, undefined)
-      maybe('purchaseOrderDate', parseIsoDate(isoDate(r[col.fechaOc])), undefined)
+      maybe('taxAmount', money(r[col.iva]), match.taxAmount)
+      maybe('purchaseOrder', r[col.oc]?.trim() || null, match.purchaseOrder)
+      maybe('purchaseOrderDate', parseIsoDate(isoDate(r[col.fechaOc])), match.purchaseOrderDate)
       maybe('invoiceNumber', invoiceNumber, match.invoiceNumber)
-      maybe('invoiceDate', parseIsoDate(isoDate(r[col.fechaFactura])), undefined)
-      maybe('creditDays', parseCreditDays(r[col.metodoPago]), undefined)
-      maybe('paymentDate', parseIsoDate(isoDate(r[col.fechaPago])), undefined)
-      if (financialStage) setData.financialStage = financialStage
-      if (nonBillable) setData.nonBillable = true
-      if (docReport) setData.docReport = true
+      maybe('invoiceDate', parseIsoDate(isoDate(r[col.fechaFactura])), match.invoiceDate)
+      maybe('creditDays', parseCreditDays(r[col.metodoPago]), match.creditDays)
+      maybe('paymentDate', parseIsoDate(isoDate(r[col.fechaPago])), match.paymentDate)
+      if (financialStage) maybe('financialStage', financialStage, match.financialStage)
+      if (nonBillable) maybe('nonBillable', true, match.nonBillable)
+      if (docReport) maybe('docReport', true, match.docReport)
       if (!match.code) setData.code = await generateJobCode(clientCodeFrom(client.name), JOB_TYPE_CODE[type] ?? 'OT', execDate, seqCache)
 
       if (Object.keys(setData).length > 0) {
@@ -281,7 +299,7 @@ async function main() {
             tenantId: tenant.id, clientId: client.id, branchId,
             description: r[col.descripcion]?.trim() || '(sin descripción)',
             type, code, importRef: sourceRef,
-            costCenter, jobNumber: r[col.nroTrabajo] ? Number(r[col.nroTrabajo]) : null,
+            costCenter, jobNumber: parseJobNumber(r[col.nroTrabajo]),
             quoteRef: r[col.presupuesto]?.trim() || null,
             executionDate: parseIsoDate(execDate),
             netAmount, taxAmount: money(r[col.iva]),

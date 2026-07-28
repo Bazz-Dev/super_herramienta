@@ -170,9 +170,13 @@ async function main() {
     if (existing) {
       const changed: string[] = []
       const data: Record<string, unknown> = {}
+      const sameValue = (a: unknown, b: unknown) => {
+        if (a instanceof Date || b instanceof Date) return a instanceof Date && b instanceof Date && a.getTime() === b.getTime()
+        return a === b
+      }
       const maybeSet = (field: string, excelVal: unknown, currentVal: unknown) => {
         if (excelVal == null) return
-        if (excelVal === currentVal) return
+        if (sameValue(excelVal, currentVal)) return
         data[field] = excelVal
         changed.push(field)
       }
