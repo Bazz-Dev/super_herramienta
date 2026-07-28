@@ -30,7 +30,7 @@ export function JobRow({ job, showClient }: { job: Job; showClient: boolean }) {
     <>
       <tr
         className={`border-b border-gray-100 transition-colors last:border-0 ${
-          open ? 'bg-amber-50/30' : 'hover:bg-gray-50/60'
+          open ? 'bg-amber-50/30' : 'hover:bg-brand/[0.04]'
         }`}
       >
         <td className="px-4 py-2.5 text-gray-500">

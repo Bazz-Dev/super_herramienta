@@ -33,7 +33,7 @@ export function FilePreviewButton({
       <button type="button" onClick={() => setOpen(true)} className={className ?? 'text-xs font-semibold text-brand hover:underline'}>
         {label}
       </button>
-      <Modal open={open} onClose={() => setOpen(false)} title={name}>
+      <Modal open={open} onClose={() => setOpen(false)} title={name} size="lg">
         {kind === 'pdf' && <iframe src={src} title={name} className="h-[75vh] w-full rounded-md border border-gray-200" />}
         {kind === 'image' && (
           // eslint-disable-next-line @next/next/no-img-element -- URL firmada de R2, no un asset local optimizable

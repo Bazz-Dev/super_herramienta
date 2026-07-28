@@ -194,42 +194,47 @@ export default async function FlujoPage({
       <div className="mt-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-ink">Trabajos</h2>
-          <Link href="/flujo/trabajos" className="text-xs font-semibold text-brand hover:underline">
-            Ver todos / reportes →
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/flujo/reportes" className="text-xs font-semibold text-brand hover:underline">
+              Reportes →
+            </Link>
+            <Link href="/flujo/trabajos" className="text-xs font-semibold text-brand hover:underline">
+              Ver todos →
+            </Link>
+          </div>
         </div>
 
-        {/* Status-strip */}
-        <div className="mb-2 flex flex-wrap gap-2">
+        {/* Status-strip — tarjetas verticales (label chico arriba, número
+            grande abajo), igual al status-chip real del prototipo, no pills
+            horizontales pequeñas. */}
+        <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {MAIN_STATUS_CHIPS.map((c) => (
             <Link
               key={c.key}
               href={statusHref(c.key)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                activeStatus === c.key ? 'border-brand bg-brand/15 text-ink' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              className={`flex min-h-[66px] flex-col justify-center rounded-xl border px-3 py-2.5 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${
+                activeStatus === c.key ? 'border-ink shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
-              {c.label}
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeStatus === c.key ? 'bg-brand text-ink' : 'bg-gray-100 text-gray-500'}`}>
-                {statusCounts[c.key]}
-              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{c.label}</span>
+              <strong className="mt-1 text-xl font-extrabold tabular-nums text-ink">{statusCounts[c.key]}</strong>
             </Link>
           ))}
         </div>
 
         {/* Reminder-bar: 3 atajos con foco en urgencia */}
         <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Link href={statusHref('overdue')} className={`rounded-lg border px-3 py-2 text-left transition-colors ${activeStatus === 'overdue' ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+          <Link href={statusHref('overdue')} className={`rounded-lg border px-3 py-2 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${activeStatus === 'overdue' ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
             <p className="text-xs text-gray-500">Facturas vencidas</p>
-            <p className="text-lg font-bold text-red-700">{statusCounts.overdue}</p>
+            <p className="text-2xl font-extrabold tabular-nums text-red-700">{statusCounts.overdue}</p>
           </Link>
-          <Link href={statusHref('pending')} className={`rounded-lg border px-3 py-2 text-left transition-colors ${activeStatus === 'pending' ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+          <Link href={statusHref('pending')} className={`rounded-lg border px-3 py-2 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${activeStatus === 'pending' ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
             <p className="text-xs text-gray-500">Vencen en 7 días</p>
-            <p className="text-lg font-bold text-amber-700">{statusCounts.due7}</p>
+            <p className="text-2xl font-extrabold tabular-nums text-amber-700">{statusCounts.due7}</p>
           </Link>
-          <Link href={statusHref('no_po')} className={`rounded-lg border px-3 py-2 text-left transition-colors ${activeStatus === 'no_po' ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+          <Link href={statusHref('no_po')} className={`rounded-lg border px-3 py-2 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${activeStatus === 'no_po' ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
             <p className="text-xs text-gray-500">Ejecutadas sin OC</p>
-            <p className="text-lg font-bold text-yellow-700">{statusCounts.no_po}</p>
+            <p className="text-2xl font-extrabold tabular-nums text-yellow-700">{statusCounts.no_po}</p>
           </Link>
         </div>
 

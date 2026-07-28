@@ -10,6 +10,7 @@ import { JOB_TYPE_LABELS } from '@/lib/cashflow/labels'
 import { ProcessFlowChip, FinancialStageChip } from '@/components/cashflow/job-status-chips'
 import { quickUpdateJob, markJobPaid, markJobPending } from '@/app/(app)/flujo/actions'
 import { Modal } from '@/components/resources/modal'
+import { AutoFilledBadge } from '@/components/ui/auto-filled-badge'
 
 type Job = JobLike & {
   id: string
@@ -42,8 +43,9 @@ export function JobAccordion({ jobs }: { jobs: Job[] }) {
 
   if (jobs.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center text-sm text-gray-400">
-        Sin trabajos con este filtro.
+      <div className="rounded-xl border border-dashed border-gray-200 py-12 text-center">
+        <p className="text-sm font-semibold text-ink">No encontramos trabajos con estos filtros</p>
+        <p className="mt-1 text-xs text-gray-400">Pruebe otro período, cliente o estado.</p>
       </div>
     )
   }
@@ -69,7 +71,7 @@ export function JobAccordion({ jobs }: { jobs: Job[] }) {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3">
             <h3 className="text-sm font-semibold text-ink">{g.clientName}</h3>
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-gray-500">Pendiente: <strong className="font-semibold text-ink">{clp(g.pending)}</strong></span>
+              <span className="text-gray-500">Pendiente: <strong className="font-extrabold text-ink">{clp(g.pending)}</strong></span>
               {g.overdueCount > 0 && (
                 <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">{g.overdueCount} vencido{g.overdueCount === 1 ? '' : 's'}</span>
               )}
@@ -111,11 +113,11 @@ function JobCard({ job }: { job: Job }) {
   }
 
   return (
-    <div className={`rounded-lg border border-gray-200 transition-opacity ${isPending ? 'opacity-60' : ''}`}>
-      <div className="flex cursor-pointer flex-wrap items-center gap-3 px-3 py-2.5" onClick={() => setExpanded((v) => !v)}>
+    <div className={`group rounded-lg border border-gray-200 transition-all duration-150 hover:border-amber-300 hover:shadow-sm ${isPending ? 'opacity-60' : ''} ${expanded ? 'border-amber-300' : ''}`}>
+      <div className="flex cursor-pointer flex-wrap items-center gap-3 px-3.5 py-3" onClick={() => setExpanded((v) => !v)}>
         <div className="w-16 shrink-0 text-center">
-          <div className="text-sm font-bold leading-none text-ink">{job.executionDate ? new Date(job.executionDate).getUTCDate() : '—'}</div>
-          <div className="text-[10px] uppercase text-gray-400">{job.executionDate ? new Date(job.executionDate).toLocaleDateString('es-CL', { month: 'short' }) : ''}</div>
+          <div className="text-xl font-bold leading-none text-ink">{job.executionDate ? new Date(job.executionDate).getUTCDate() : '—'}</div>
+          <div className="mt-0.5 text-[10px] uppercase text-gray-400">{job.executionDate ? new Date(job.executionDate).toLocaleDateString('es-CL', { month: 'short' }) : ''}</div>
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{job.branch?.name ?? 'Sin sucursal'}</p>
@@ -129,16 +131,16 @@ function JobCard({ job }: { job: Job }) {
           <button
             onClick={openConfirm}
             disabled={isPending}
-            className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
+            className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition-transform hover:-translate-y-px ${isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}
           >
             {isPaid ? 'PAGADA' : 'NO PAGADA'}
           </button>
-          <span className="text-sm font-bold tabular-nums text-ink">{clp(jobTotal(job))}</span>
+          <span className="text-base font-extrabold tabular-nums text-ink">{clp(jobTotal(job))}</span>
         </div>
       </div>
 
       {expanded && (
-        <div className="border-t border-gray-100 bg-gray-50/60 px-3 py-3" onClick={(e) => e.stopPropagation()}>
+        <div className="border-t border-gray-100 bg-gray-50/60 px-3.5 py-3" onClick={(e) => e.stopPropagation()}>
           <div className="mb-2 flex items-center justify-between">
             <FinancialStageChip value={job.financialStage} />
             <Link href={`/flujo/trabajos/${job.id}`} className="text-xs font-semibold text-brand hover:underline">
@@ -228,7 +230,7 @@ function QuickEditForm({ job }: { job: Job }) {
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <div><label className={labelCls}>Presupuesto</label><input name="quoteRef" defaultValue={job.quoteRef ?? ''} className={inputCls} /></div>
-      <div><label className={labelCls}>Código</label><input name="code" defaultValue={job.code ?? ''} className={inputCls} /></div>
+      <div><label className={labelCls}>Código{job.code && <AutoFilledBadge reason="Generado automáticamente al crear el trabajo — se puede corregir a mano" />}</label><input name="code" defaultValue={job.code ?? ''} className={inputCls} /></div>
       <div><label className={labelCls}>OC</label><input name="purchaseOrder" defaultValue={job.purchaseOrder ?? ''} className={inputCls} /></div>
       <div><label className={labelCls}>Factura</label><input name="invoiceNumber" defaultValue={job.invoiceNumber ?? ''} className={inputCls} /></div>
       <div><label className={labelCls}>Fecha factura</label><input name="invoiceDate" type="date" defaultValue={toDateInput(job.invoiceDate)} className={inputCls} /></div>

@@ -12,6 +12,7 @@ import { CollectionChip } from '@/components/cashflow/collection-chip'
 import { JobForm } from '@/components/cashflow/job-form'
 import { CostList } from '@/components/cashflow/cost-list'
 import { DeleteButton } from '@/components/resources/delete-button'
+import { AutoFilledBadge } from '@/components/ui/auto-filled-badge'
 import { updateJob, deleteJob } from '../../actions'
 
 const DOC_TYPE: Record<string, { label: string; badge: string }> = {
@@ -20,10 +21,13 @@ const DOC_TYPE: Record<string, { label: string; badge: string }> = {
   otro:      { label: 'Otro',      badge: 'bg-gray-100 text-gray-600 border-gray-200' },
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, autoFilled }: { label: string; value: string; autoFilled?: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-xs font-medium text-gray-500">{label}</span>
+      <span className="text-xs font-medium text-gray-500">
+        {label}
+        {autoFilled && <AutoFilledBadge reason={autoFilled} />}
+      </span>
       <span className="text-sm text-ink">{value || '—'}</span>
     </div>
   )
@@ -93,8 +97,21 @@ export default async function TrabajoDetailPage({
         </div>
       </div>
 
+      {/* Origen: registro importado desde el Excel histórico de reconciliación */}
+      {job.importRef && (
+        <div className="mt-2 flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-xs text-gray-500">
+          <AutoFilledBadge reason={`Origen del registro: ${job.importRef}`} />
+          Este trabajo se cargó desde la importación histórica, no fue creado a mano — algunos datos pueden venir tal cual del Excel original.
+        </div>
+      )}
+
       {/* Info grid */}
       <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:grid-cols-3 lg:grid-cols-4">
+        <InfoRow
+          label="Código"
+          value={job.code ?? ''}
+          autoFilled={job.code ? 'Generado automáticamente (YYMMDD-CLIENTE-TIPO-N°)' : undefined}
+        />
         <InfoRow label="N° trabajo" value={job.jobNumber?.toString() ?? ''} />
         <InfoRow label="Centro de costo" value={job.costCenter ?? ''} />
         <InfoRow label="Ref. cotización" value={job.quoteRef ?? ''} />
@@ -106,7 +123,11 @@ export default async function TrabajoDetailPage({
         <InfoRow label="Fecha pago" value={toDateInput(job.paymentDate)} />
         <InfoRow label="Días crédito" value={job.creditDays?.toString() ?? ''} />
         <InfoRow label="Forma de pago" value={job.paymentMethodRaw ?? ''} />
-        <InfoRow label="Total (neto + IVA)" value={clp(total)} />
+        <InfoRow
+          label="Total (neto + IVA)"
+          value={clp(total)}
+          autoFilled={job.taxAmount == null ? 'IVA calculado automáticamente como 19% del neto (no se ingresó un monto de IVA manual)' : undefined}
+        />
       </div>
 
       {/* Edit form */}
