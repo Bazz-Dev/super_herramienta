@@ -218,21 +218,23 @@ export default async function RRHHPage() {
                   )}
                 </div>
 
-                {/* Bottom row — solo si hay algo que decir además de lo ya
-                    resumido arriba (el badge "Sin fecha ingreso" ya cubre
-                    ese caso, repetirlo acá era puro ruido). */}
-                {(t.hireDate || t.baseSalary) && (
-                  <div className="flex items-center justify-between border-t border-gray-50 pt-2">
-                    <p className="text-[11px] text-gray-400">
-                      {t.hireDate ? `Desde ${fDate(t.hireDate)}` : ''}
+                {/* Siempre se renderiza (aunque quede vacía) para que la
+                    altura de la tarjeta sea consistente entre pares en la
+                    misma fila del grid — antes, un técnico sin hireDate NI
+                    baseSalary omitía esta fila entera y quedaba más bajo
+                    que sus vecinos. El texto en sí sigue condicional (el
+                    badge "Sin fecha ingreso" ya cubre ese caso arriba, no
+                    se repite acá). */}
+                <div className="flex items-center justify-between border-t border-gray-50 pt-2">
+                  <p className="text-[11px] text-gray-400">
+                    {t.hireDate ? `Desde ${fDate(t.hireDate)}` : ''}
+                  </p>
+                  {t.baseSalary ? (
+                    <p className="text-[11px] font-semibold text-gray-500 tabular-nums">
+                      {formatClp(t.baseSalary)}
                     </p>
-                    {t.baseSalary ? (
-                      <p className="text-[11px] font-semibold text-gray-500 tabular-nums">
-                        {formatClp(t.baseSalary)}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
+                  ) : null}
+                </div>
               </Link>
             )
           })}
