@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from 'react'
 import { updateExpenseStatus, deleteExpense } from '@/app/(app)/gastos/actions'
+import { Modal } from '@/components/resources/modal'
+import { EmptyState } from '@/components/ui/empty-state'
 
 const CATEGORY_LABELS: Record<string, string> = {
   combustible: 'Combustible',
@@ -103,43 +105,34 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
   }
 
   if (expenses.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed border-gray-300 p-10 text-center text-sm text-gray-400">
-        No hay gastos que mostrar.
-      </div>
-    )
+    return <EmptyState title="No hay gastos que mostrar." />
   }
 
   return (
     <>
-      {rejectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-base font-semibold text-ink mb-3">Motivo del rechazo</h3>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              placeholder="Opcional: explica el motivo…"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50"
-            />
-            <div className="mt-4 flex gap-2 justify-end">
-              <button
-                onClick={() => setRejectModal(null)}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmReject}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 cursor-pointer"
-              >
-                Rechazar
-              </button>
-            </div>
-          </div>
+      <Modal open={!!rejectModal} onClose={() => setRejectModal(null)} title="Motivo del rechazo">
+        <textarea
+          value={rejectReason}
+          onChange={(e) => setRejectReason(e.target.value)}
+          rows={3}
+          placeholder="Opcional: explica el motivo…"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50"
+        />
+        <div className="mt-4 flex gap-2 justify-end">
+          <button
+            onClick={() => setRejectModal(null)}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={confirmReject}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 cursor-pointer"
+          >
+            Rechazar
+          </button>
         </div>
-      )}
+      </Modal>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
