@@ -454,6 +454,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
                       {['Código', 'Título', 'Cliente', 'Sucursal', 'Estado', 'Técnico', 'Docs', 'Cierre'].map(h => (
                         <th key={h} className="px-4 py-2.5 text-left whitespace-nowrap">{h}</th>
                       ))}
+                      {canDelete && <th className="px-3 py-2.5" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -487,6 +488,18 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
                         <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-400">
                           {t.closedDate ? new Date(t.closedDate).toLocaleDateString('es-CL') : '—'}
                         </td>
+                        {canDelete && (
+                          <td className="whitespace-nowrap px-3 py-2.5">
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget({ id: t.id, code: t.ticketCode, title: t.title })}
+                              aria-label={`Eliminar ${t.ticketCode}`}
+                              className="interactive inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-danger-50 hover:text-danger-700"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
