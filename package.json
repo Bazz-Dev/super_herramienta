@@ -25,6 +25,7 @@
     "db:migrate:prod": "npx tsx --env-file=.env.production.local scripts/turso-migrate.ts",
     "db:migrate:bootstrap": "npx tsx --env-file=.env.production.local scripts/turso-migrate-bootstrap.ts",
     "db:seed:prod": "npx tsx --env-file=.env.production.local scripts/seed-prod.ts",
+    "db:pull-prod": "npx tsx --env-file=.env.production.local scripts/pull-prod-to-local.ts",
     "users:tecnico:prod": "npx tsx --env-file=.env.production.local scripts/create-technician-users.ts",
     "users:fix:prod": "npx tsx --env-file=.env.production.local scripts/fix-user-accounts.ts",
     "users:list:prod": "npx tsx --env-file=.env.production.local scripts/_list-users.ts",
