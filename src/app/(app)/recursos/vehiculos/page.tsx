@@ -90,9 +90,14 @@ export default async function VehiculosPage({ searchParams }: { searchParams: Pr
               { label: 'Permiso circ.', d: v.permisoCirculacionExpiry },
               { label: 'Mantención', d: v.nextServiceDate },
             ]
+            // "Urgente" y "vencido" deben ser mutuamente excluyentes — con
+            // <= 30 sin piso, un documento vencido (días negativos) caía en
+            // ambos arreglos: se listaba dos veces en la tarjeta y se restaba
+            // dos veces de okDocsCount (visto en vivo: "-4/4 Docs. al día").
             const urgentDocs = docs.filter(({ d }) => {
               if (!d) return false
-              return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000) <= 30
+              const days = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000)
+              return days >= 0 && days <= 30
             })
             const expiredDocs = docs.filter(({ d }) => {
               if (!d) return false
