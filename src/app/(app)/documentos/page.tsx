@@ -13,6 +13,7 @@ export default async function DocumentosPage() {
       include: {
         client: { select: { id: true, name: true } },
         createdBy: { select: { name: true } },
+        ticket: { select: { id: true, ticketCode: true } },
       },
       omit: { dataJson: true },  // don't send large JSON to client — fetched on demand
     }),
@@ -38,6 +39,8 @@ export default async function DocumentosPage() {
     proposalStatus: d.proposalStatus ?? null,
     proposalAmount: d.proposalAmount ?? null,
     source: 'client_document' as const,
+    ticketId: d.ticket?.id,
+    ticketCode: d.ticket?.ticketCode,
   }))
 
   const otDocs = otTickets.map((t) => ({

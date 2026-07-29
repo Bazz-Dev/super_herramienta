@@ -20,6 +20,7 @@ interface Doc {
   proposalAmount: number | null
   source: 'client_document' | 'ticket'
   ticketId?: string
+  ticketCode?: string
 }
 
 interface ClientFolder {
@@ -254,6 +255,16 @@ function DocCard({
         {doc.createdBy && (
           <p className="text-[11px] text-gray-400 truncate">{doc.createdBy.name}</p>
         )}
+        {doc.source === 'client_document' && doc.ticketId && doc.ticketCode && (
+          <a
+            href={`/tickets/${doc.ticketId}`}
+            onClick={e => e.stopPropagation()}
+            className="w-fit truncate text-[11px] font-medium text-brand-700 hover:underline"
+            title={`Ver ticket ${doc.ticketCode}`}
+          >
+            🔗 {doc.ticketCode}
+          </a>
+        )}
       </div>
 
       {/* Hover action overlay */}
@@ -427,18 +438,18 @@ function DocSection({
 }) {
   if (docs.length === 0) return null
   return (
-    <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
+    <details open>
+      <summary className="mb-3 flex cursor-pointer select-none items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
         <FolderIcon size={14} />
         {title}
         <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">{docs.length}</span>
-      </h2>
+      </summary>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {docs.map(doc => (
           <DocCard key={doc.id} doc={doc} onPreview={onPreview} onDeleted={onDeleted} />
         ))}
       </div>
-    </section>
+    </details>
   )
 }
 
