@@ -9,6 +9,7 @@ import {
 import { now } from '@/lib/now'
 import { FilterBar, FilterSearch, FilterSelect, FilterPill, FilterClear } from '@/components/ui/filter-bar'
 import { Button } from '@/components/ui/button'
+import { TrashIcon } from '@/components/quotes/icons'
 import { Modal } from '@/components/resources/modal'
 import { deleteTicket } from '@/app/(app)/tickets/actions'
 
@@ -386,13 +387,18 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
 
                             {canDelete && (
                               <td className="whitespace-nowrap px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                                <Button
-                                  variant="danger" size="sm"
+                                {/* Ícono solo, gris por defecto — eliminar es una acción rara y
+                                    destructiva, no debería competir visualmente con abrir el
+                                    ticket en cada fila de una lista densa. Sigue pasando por el
+                                    mismo modal de confirmación de siempre. */}
+                                <button
+                                  type="button"
                                   onClick={() => setDeleteTarget({ id: ticket.id, code: ticket.ticketCode, title: ticket.title })}
                                   aria-label={`Eliminar ${ticket.ticketCode}`}
+                                  className="interactive inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-danger-50 hover:text-danger-700"
                                 >
-                                  Eliminar
-                                </Button>
+                                  <TrashIcon className="h-4 w-4" />
+                                </button>
                               </td>
                             )}
                           </tr>
