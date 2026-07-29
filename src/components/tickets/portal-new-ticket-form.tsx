@@ -110,12 +110,21 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
         }
         setUploadStatus('')
       }
-      const res = await createPortalTicket(fd)
-      if (!res.success) { setError('Error al crear la solicitud. Inténtalo nuevamente.'); return }
-      if (isStaff) {
-        router.push(`/tickets/${res.id}`)
-      } else {
-        router.push(`/portal/${slug}/tickets/${res.id}`)
+      try {
+        const res = await createPortalTicket(fd)
+        if (!res.success) { setError('Error al crear la solicitud. Inténtalo nuevamente.'); return }
+        // revalidatePath del server action solo invalida el cache de servidor —
+        // sin esto, volver a /tickets o al portal vía un <Link> muestra el
+        // Router Cache del cliente, que todavía no tiene la solicitud nueva
+        // (mismo gap ya corregido en new-ticket-form.tsx).
+        router.refresh()
+        if (isStaff) {
+          router.push(`/tickets/${res.id}`)
+        } else {
+          router.push(`/portal/${slug}/tickets/${res.id}`)
+        }
+      } catch {
+        setError('Error al crear la solicitud. Inténtalo nuevamente.')
       }
     })
   }
