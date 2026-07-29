@@ -76,11 +76,20 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
     }
 
     startTransition(async () => {
-      const result = await createTicket(null, fd)
-      if (result?.success && result.id) {
-        if (linkJobId) await linkJobToNewTicket(linkJobId, result.id)
-        router.push(`/tickets/${result.id}`)
-      } else {
+      try {
+        const result = await createTicket(null, fd)
+        if (result?.success && result.id) {
+          if (linkJobId) await linkJobToNewTicket(linkJobId, result.id)
+          // El ticket ya se creó en el servidor (revalidatePath solo invalida
+          // el cache de servidor) — sin esto, volver a /tickets vía un <Link>
+          // dentro de los ~30s siguientes muestra el Router Cache del
+          // cliente, que todavía no tiene el ticket nuevo.
+          router.refresh()
+          router.push(`/tickets/${result.id}`)
+        } else {
+          setError('Error al crear el ticket')
+        }
+      } catch {
         setError('Error al crear el ticket')
       }
     })
