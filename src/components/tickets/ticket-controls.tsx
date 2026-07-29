@@ -300,7 +300,10 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             onUpload={async (file) => {
               const fd = new FormData(); fd.append('file', file)
               const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
-              if (!res.ok) { const j = await res.json(); throw new Error(j.error ?? 'Error al subir') }
+              // .catch: un 413 de Vercel (archivo > límite de la plataforma) responde
+              // texto plano, no JSON — res.json() sin esto tiraba "Unexpected token"
+              // en vez de un mensaje entendible (visto en vivo en un ticket real).
+              if (!res.ok) { const j = await res.json().catch(() => ({}) as { error?: string }); throw new Error(j.error ?? `Error al subir (${res.status})`) }
               const newDoc: Doc = await res.json()
               setDocs(prev => [...prev, newDoc])
               return { id: newDoc.id, name: newDoc.name, url: resolveUrl(newDoc.fileUrl), mimeType: newDoc.mimeType }

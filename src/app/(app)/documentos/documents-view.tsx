@@ -407,7 +407,7 @@ function UploadDropzone({ clientId, onUploaded }: { clientId: string; onUploaded
             <path d="M8 2v8M4.5 6.5L8 3l3.5 3.5M2.5 11v1.5a1 1 0 001 1h9a1 1 0 001-1V11"/>
           </svg>
           <span className="font-semibold">Arrastra archivos aquí</span>
-          <span className="text-gray-400">o haz clic para subir — informes, órdenes de trabajo, evidencia previa</span>
+          <span className="text-gray-400">o haz clic para subir contratos u otros documentos del cliente</span>
         </>
       )}
       {error && <span className="text-red-500">{error}</span>}
