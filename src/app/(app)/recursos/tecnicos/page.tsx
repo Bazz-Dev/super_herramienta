@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { PlusIcon } from '@/components/quotes/icons'
+import { PlusIcon, DownloadIcon } from '@/components/quotes/icons'
 import { requireActor } from '@/lib/tenant'
 import { listTechnicians } from '@/lib/resources/technicians'
 import { Button } from '@/components/ui/button'
@@ -230,10 +230,11 @@ export default async function TecnicosPage({
                   <div className="flex items-center justify-end gap-2 border-t border-gray-100 pt-3">
                     <a
                       href={`/api/technicians/${t.id}/documents/zip`}
+                      aria-label={`Descargar documentos de ${t.name} (ZIP)`}
                       title={`Descargar documentos de ${t.name} (ZIP)`}
-                      className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                      className="interactive inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                     >
-                      ZIP
+                      <DownloadIcon className="h-4 w-4" />
                     </a>
                     <Link
                       href={`/recursos/tecnicos/${t.id}`}
