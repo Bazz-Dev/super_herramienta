@@ -13,9 +13,11 @@ import { ExternalLinkIcon, ImageIcon, PlusIcon, TrashIcon, ZoomInIcon, ZoomOutIc
 import { Field, IconButton, SectionCard, TextArea, TextInput } from '@/components/quotes/ui'
 
 interface ClientOption { id: string; name: string }
+interface TicketPhoto { id: string; name: string }
 interface TicketOption {
   id: string; ticketCode: string; title: string
   otNumber: string | null; otFileUrl: string | null; clientId: string; clientName: string; branchName: string
+  photos: TicketPhoto[]
 }
 
 export function ReportEditor({ initial, clients = [], tickets = [], docId, ticketId }: { initial: ReportData; clients?: ClientOption[]; tickets?: TicketOption[]; docId?: string; ticketId?: string }) {
@@ -106,12 +108,41 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
     }
   }
 
+  // Fotos ya subidas al ticket (cliente al crear + técnico al ejecutar) — se
+  // importan una sola vez por documento (Set de ids ya importados) para que
+  // re-seleccionar el mismo ticket en el dropdown no las duplique.
+  const [importedPhotoIds, setImportedPhotoIds] = useState<Set<string>>(new Set())
+  const [photosImporting, setPhotosImporting] = useState(false)
+
+  async function loadTicketPhotos(ticket: TicketOption | undefined) {
+    const toImport = ticket?.photos.filter((p) => !importedPhotoIds.has(p.id)) ?? []
+    if (toImport.length === 0 || !ticket) return
+    setImportedPhotoIds((prev) => new Set([...prev, ...toImport.map((p) => p.id)]))
+    setPhotosImporting(true)
+    const imported = await Promise.all(toImport.map(async (p) => {
+      try {
+        // Bytes server-side directos (no redirect a R2) — un fetch() a un
+        // redirect cross-origin necesita CORS en el bucket; esta ruta lo evita.
+        const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${p.id}`)
+        if (!res.ok) return null
+        const blob = await res.blob()
+        const file = new File([blob], p.name, { type: blob.type || 'image/jpeg' })
+        return { url: await fileToDataUrl(file), caption: p.name }
+      } catch {
+        return null
+      }
+    }))
+    setPhotosImporting(false)
+    const valid = imported.filter((p): p is { url: string; caption: string } => p !== null)
+    if (valid.length > 0) setData((d) => ({ ...d, photos: [...d.photos, ...valid] }))
+  }
+
   // Carga la foto de la OT desde el ticket vinculado (fetch a R2 vía la API) — external-system
   // read, igual categoría que portal-login-form.tsx (localStorage) y portal-ticket-list.tsx
   // (matchMedia): debe ejecutarse post-mount, no se puede resolver en el useState inicial.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- external-system read (fetch a R2), ver comentario arriba
-    if (initialTicket) loadTicketOT(initialTicket)
+    if (initialTicket) { loadTicketOT(initialTicket); loadTicketPhotos(initialTicket) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -154,6 +185,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
                     subject: t.title,
                   })
                   loadTicketOT(t)
+                  loadTicketPhotos(t)
                 }}
                 className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
               >
@@ -243,7 +275,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
           <SectionsEditor sections={data.sections} onChange={(sections) => set({ sections })} />
         </SectionCard>
 
-        <SectionCard title="Registro fotográfico" description="Fotos del trabajo en terreno" icon={<ImageIcon />}>
+        <SectionCard title="Registro fotográfico" description={photosImporting ? 'Importando fotos ya subidas al ticket…' : 'Fotos del trabajo en terreno'} icon={<ImageIcon />}>
           <ReportPhotosEditor photos={data.photos} onChange={(photos) => set({ photos })} />
         </SectionCard>
 

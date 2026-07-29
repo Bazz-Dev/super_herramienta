@@ -459,13 +459,16 @@ enum FinancialStage {
 }
 
 model Branch {
-  id        String   @id @default(cuid())
-  tenantId  String
-  clientId  String
-  client    Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  name      String
-  city      String?
-  active    Boolean  @default(true)
+  id           String   @id @default(cuid())
+  tenantId     String
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  name         String
+  city         String?
+  address      String? // dirección operativa de esta sucursal — una sola, no del cliente (Client no tiene dirección propia hoy)
+  contactName  String? // responsable/contacto en terreno de esta sucursal específica
+  contactPhone String?
+  active       Boolean  @default(true)
   jobs      Job[]
   tickets   Ticket[]
   createdAt DateTime @default(now())

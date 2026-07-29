@@ -19,7 +19,11 @@ export function Tooltip({
   const id = useId()
   return (
     <span className={cn('group relative inline-flex', className)}>
-      <span aria-describedby={id} tabIndex={0} className="inline-flex focus-visible:outline-none">
+      {/* Padding invisible + margen negativo igual: el ícono visual (a
+          menudo un badge de ~14px) queda igual de chico, pero el área que
+          realmente responde a hover/foco/tap crece — sin esto era casi
+          imposible acertarle con el mouse o el dedo. */}
+      <span aria-describedby={id} tabIndex={0} className="-m-1.5 inline-flex p-1.5 focus-visible:outline-none">
         {children}
       </span>
       <span

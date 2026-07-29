@@ -199,7 +199,7 @@ export default async function RRHHPage() {
                     </span>
                   ) : (
                     <span className="rounded-md bg-gray-50 px-2 py-0.5 text-[11px] text-gray-400">
-                      Sin fecha ingreso
+                      Sin fecha de ingreso
                     </span>
                   )}
 
@@ -218,17 +218,21 @@ export default async function RRHHPage() {
                   )}
                 </div>
 
-                {/* Bottom row */}
-                <div className="flex items-center justify-between border-t border-gray-50 pt-2">
-                  <p className="text-[11px] text-gray-400">
-                    {t.hireDate ? `Desde ${fDate(t.hireDate)}` : 'Sin fecha de ingreso'}
-                  </p>
-                  {t.baseSalary ? (
-                    <p className="text-[11px] font-semibold text-gray-500 tabular-nums">
-                      {formatClp(t.baseSalary)}
+                {/* Bottom row — solo si hay algo que decir además de lo ya
+                    resumido arriba (el badge "Sin fecha ingreso" ya cubre
+                    ese caso, repetirlo acá era puro ruido). */}
+                {(t.hireDate || t.baseSalary) && (
+                  <div className="flex items-center justify-between border-t border-gray-50 pt-2">
+                    <p className="text-[11px] text-gray-400">
+                      {t.hireDate ? `Desde ${fDate(t.hireDate)}` : ''}
                     </p>
-                  ) : null}
-                </div>
+                    {t.baseSalary ? (
+                      <p className="text-[11px] font-semibold text-gray-500 tabular-nums">
+                        {formatClp(t.baseSalary)}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
               </Link>
             )
           })}

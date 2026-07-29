@@ -6,15 +6,26 @@ import { DocumentsView } from './documents-view'
 export default async function DocumentosPage() {
   const actor = await requireActor()
 
-  const docs = await prisma.clientDocument.findMany({
-    where: { ...tenantScope(actor) },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      client: { select: { id: true, name: true } },
-      createdBy: { select: { name: true } },
-    },
-    omit: { dataJson: true },  // don't send large JSON to client — fetched on demand
-  })
+  const [docs, otTickets] = await Promise.all([
+    prisma.clientDocument.findMany({
+      where: { ...tenantScope(actor) },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        client: { select: { id: true, name: true } },
+        createdBy: { select: { name: true } },
+      },
+      omit: { dataJson: true },  // don't send large JSON to client — fetched on demand
+    }),
+    // OT (orden de trabajo) vive en Ticket.otFileUrl, no en ClientDocument —
+    // se surface acá como un documento más de la carpeta del cliente (antes
+    // esta vista solo mostraba informes/propuestas, la OT quedaba invisible
+    // salvo entrando al ticket directamente).
+    prisma.ticket.findMany({
+      where: { ...tenantScope(actor), otFileUrl: { not: null } },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, ticketCode: true, title: true, otFileUrl: true, updatedAt: true, client: { select: { id: true, name: true } } },
+    }),
+  ])
 
   const serialized = docs.map((d) => ({
     id: d.id,
@@ -26,11 +37,28 @@ export default async function DocumentosPage() {
     client: d.client,
     proposalStatus: d.proposalStatus ?? null,
     proposalAmount: d.proposalAmount ?? null,
+    source: 'client_document' as const,
   }))
 
+  const otDocs = otTickets.map((t) => ({
+    id: t.id,
+    title: `OT — ${t.ticketCode} · ${t.title}`,
+    type: 'ot',
+    fileKey: t.otFileUrl!,
+    createdAt: t.updatedAt.toISOString(),
+    createdBy: null,
+    client: t.client,
+    proposalStatus: null,
+    proposalAmount: null,
+    source: 'ticket' as const,
+    ticketId: t.id,
+  }))
+
+  const allDocs = [...serialized, ...otDocs]
+
   // Group by client
-  const byClient = new Map<string, { id: string; name: string; docs: typeof serialized }>()
-  for (const doc of serialized) {
+  const byClient = new Map<string, { id: string; name: string; docs: typeof allDocs }>()
+  for (const doc of allDocs) {
     const key = doc.client.id
     if (!byClient.has(key)) byClient.set(key, { id: key, name: doc.client.name, docs: [] })
     byClient.get(key)!.docs.push(doc)
@@ -43,14 +71,14 @@ export default async function DocumentosPage() {
         <div>
           <h1 className="text-2xl font-bold">Carpetas de clientes</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Propuestas comerciales e informes técnicos — editables online, descarga PDF cuando necesites.
+            Propuestas comerciales, informes técnicos y órdenes de trabajo — editables online, descarga PDF cuando necesites.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M2 3.5h5l1.5 1.5H13a.5.5 0 01.5.5v6.5a.5.5 0 01-.5.5H2a.5.5 0 01-.5-.5V4a.5.5 0 01.5-.5z"/>
           </svg>
-          {docs.length} documentos en {clientFolders.length} carpetas
+          {allDocs.length} documentos en {clientFolders.length} carpetas
         </div>
       </div>
 

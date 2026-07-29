@@ -16,6 +16,8 @@ interface Props {
   onDelete?: (id: string) => Promise<void>
   uploadLabel?: string
   emptyLabel?: string
+  /** Tipos aceptados por el input nativo — MIME/extensión por defecto solo imagen+video. */
+  accept?: string
 }
 
 const isImg = (m: string | null) => !!m?.startsWith('image/')
@@ -100,6 +102,7 @@ export function PhotoGallery({
   onDelete,
   uploadLabel = 'Agregar foto o video',
   emptyLabel  = 'Sin fotos ni videos aún.',
+  accept = 'image/*,video/*',
 }: Props) {
   const [lb,   setLb]   = useState<number | null>(null)
   const [dels, setDels] = useState<Set<string>>(new Set())
@@ -135,14 +138,22 @@ export function PhotoGallery({
   }, [lb])
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !onUpload) return
+    const files = e.target.files ? Array.from(e.target.files) : []
+    if (files.length === 0 || !onUpload) return
     setUpl(true); setUplErr('')
-    try {
-      await onUpload(file)
-    } catch (err) {
-      setUplErr(err instanceof Error ? err.message : 'Error al subir')
-    } finally { setUpl(false); e.target.value = '' }
+    // Secuencial, no Promise.all — un archivo fallido no aborta a los demás,
+    // y evita saturar la subida a R2 si se seleccionan muchas fotos a la vez.
+    const failed: string[] = []
+    for (const file of files) {
+      try {
+        await onUpload(file)
+      } catch (err) {
+        failed.push(`${file.name}: ${err instanceof Error ? err.message : 'error al subir'}`)
+      }
+    }
+    if (failed.length > 0) setUplErr(failed.join(' · '))
+    setUpl(false)
+    e.target.value = ''
   }
 
   function handleDeleteClick(id: string) {
@@ -229,7 +240,7 @@ export function PhotoGallery({
                 {uploadLabel}
               </>
             )}
-            <input type="file" style={{ display: 'none' }} accept="image/*,video/*" disabled={upl} onChange={handleUpload} />
+            <input type="file" style={{ display: 'none' }} accept={accept} multiple disabled={upl} onChange={handleUpload} />
           </label>
         )}
 

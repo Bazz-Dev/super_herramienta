@@ -7,6 +7,7 @@ import { createTicket, linkJobToNewTicket } from '@/app/(app)/tickets/actions'
 import { URGENCY_LABEL, type TicketUrgencyId } from '@/lib/tickets/labels'
 import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 import { Spinner } from '@/components/ui/spinner'
+import { BranchSelect } from '@/components/resources/branch-select'
 
 type Branch = { id: string; name: string }
 type Client = { id: string; name: string; portalSlug: string | null; branches: Branch[] }
@@ -101,10 +102,20 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
         </div>
         <div>
           <label className={labelCls}>Sucursal</label>
-          <select value={branchId} onChange={e => setBranchId(e.target.value)} className={inputCls}>
-            <option value="">Sin sucursal específica</option>
-            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
+          {clientId ? (
+            <BranchSelect
+              key={clientId}
+              clientId={clientId}
+              branches={branches}
+              value={branchId}
+              onChange={setBranchId}
+              className={inputCls}
+            />
+          ) : (
+            <select disabled className={inputCls}>
+              <option>Seleccione un cliente primero</option>
+            </select>
+          )}
         </div>
       </div>
 

@@ -51,22 +51,23 @@ export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }:
     })
   }
 
-  async function upload(file: File) {
+  async function upload(files: File[]) {
     setUploading(true)
     setError('')
-    try {
+    // Secuencial: una foto que falla no bloquea el resto de la selección.
+    const failed: string[] = []
+    for (const file of files) {
       const fd = new FormData()
       fd.set('file', file)
       const res = await fetch(`/api/tickets/${ticketId}/documents`, { method: 'POST', body: fd })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        setError(body.error ?? `Error ${res.status} al subir el archivo.`)
-      } else {
-        router.refresh()
+        failed.push(`${file.name}: ${body.error ?? `error ${res.status}`}`)
       }
-    } finally {
-      setUploading(false)
     }
+    setError(failed.length > 0 ? failed.join(' · ') : '')
+    setUploading(false)
+    router.refresh()
   }
 
   async function uploadOT(file: File) {
@@ -171,7 +172,8 @@ export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }:
             type="file"
             accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
             className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }}
+            multiple
+            onChange={e => { const files = e.target.files ? Array.from(e.target.files) : []; if (files.length) upload(files); e.target.value = '' }}
           />
         </label>
         {documents.length > 0 && (

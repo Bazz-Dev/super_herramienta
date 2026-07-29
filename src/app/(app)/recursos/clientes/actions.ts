@@ -10,7 +10,7 @@ import { clientInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
 import { generatePassword } from '@/lib/password'
 
-export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
+export type FormState = { error?: string; fieldErrors?: Record<string, string[]>; branch?: { id: string; name: string } }
 
 function parse(formData: FormData) {
   let ruts: { rut: string; label?: string }[] = []
@@ -93,13 +93,36 @@ export async function createBranch(clientId: string, _prev: FormState, formData:
   if (!existing || !canAccessTenant(actor, existing.tenantId)) return { error: 'No encontrado o sin permiso.' }
   const name = (formData.get('name') as string)?.trim()
   const city = (formData.get('city') as string)?.trim() || null
+  const address = (formData.get('address') as string)?.trim() || null
+  const contactName = (formData.get('contactName') as string)?.trim() || null
+  const contactPhone = (formData.get('contactPhone') as string)?.trim() || null
   if (!name) return { error: 'El nombre de la sucursal es obligatorio.' }
+  let created
   try {
-    await prisma.branch.create({ data: { tenantId: existing.tenantId, clientId, name, city: city ?? undefined } })
+    created = await prisma.branch.create({
+      data: { tenantId: existing.tenantId, clientId, name, city: city ?? undefined, address: address ?? undefined, contactName: contactName ?? undefined, contactPhone: contactPhone ?? undefined },
+    })
   } catch {
     return { error: 'Ya existe una sucursal con ese nombre para este cliente.' }
   }
   revalidatePath(`/recursos/clientes/${clientId}`)
+  return { branch: { id: created.id, name: created.name } }
+}
+
+// Datos operativos editables tras la creación (city/address/contacto) — el
+// nombre no se edita acá: @@unique([clientId, name]) y el código de ticket
+// derivan de él, cambiarlo es una operación distinta y más riesgosa que
+// completar datos de contacto.
+export async function updateBranch(branchId: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  const actor = await requireActor(['super', 'supervisor'])
+  const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { tenantId: true, clientId: true } })
+  if (!branch || !canAccessTenant(actor, branch.tenantId)) return { error: 'No encontrado o sin permiso.' }
+  const city = (formData.get('city') as string)?.trim() || null
+  const address = (formData.get('address') as string)?.trim() || null
+  const contactName = (formData.get('contactName') as string)?.trim() || null
+  const contactPhone = (formData.get('contactPhone') as string)?.trim() || null
+  await prisma.branch.update({ where: { id: branchId }, data: { city, address, contactName, contactPhone } })
+  revalidatePath(`/recursos/clientes/${branch.clientId}`)
   return {}
 }
 

@@ -18,6 +18,8 @@ interface Doc {
   createdBy: { name: string } | null
   proposalStatus: ProposalStatus | null
   proposalAmount: number | null
+  source: 'client_document' | 'ticket'
+  ticketId?: string
 }
 
 interface ClientFolder {
@@ -40,6 +42,12 @@ const TYPE_CFG: Record<string, { label: string; bg: string; icon: string; badge:
     bg: 'bg-amber-50',
     icon: '#f59e0b',
     badge: 'bg-amber-50 text-amber-700 border border-amber-200',
+  },
+  ot: {
+    label: 'Orden de trabajo',
+    bg: 'bg-emerald-50',
+    icon: '#10b981',
+    badge: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
   },
   otro: {
     label: 'Otro',
@@ -184,7 +192,7 @@ function DocCard({
   onDeleted,
 }: {
   doc: Doc
-  onPreview: (id: string, title: string, type: string, isFile: boolean) => void
+  onPreview: (doc: Doc) => void
   onDeleted: (id: string) => void
 }) {
   const [hovering, setHovering] = useState(false)
@@ -214,13 +222,14 @@ function DocCard({
   const pStatus = doc.proposalStatus
   const pColors = pStatus ? PROPOSAL_STATUS_COLORS[pStatus] : null
   const isFile = doc.fileKey !== 'inline'
+  const isTicketDoc = doc.source === 'ticket'
 
   return (
     <div
       className="group relative flex flex-col rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      onClick={() => onPreview(doc.id, doc.title, doc.type, isFile)}
+      onClick={() => onPreview(doc)}
     >
       {/* Card header — colored by type */}
       <div className={`flex items-center justify-center py-7 ${c.bg}`}>
@@ -266,7 +275,7 @@ function DocCard({
             </a>
           )}
           <button
-            onClick={e => { e.stopPropagation(); onPreview(doc.id, doc.title, doc.type, isFile) }}
+            onClick={e => { e.stopPropagation(); onPreview(doc) }}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -291,24 +300,37 @@ function DocCard({
               Ver en pipeline →
             </a>
           )}
+          {/* OT: documento propio del ticket — no se sube/borra desde acá,
+              solo se enlaza. Reemplazar/quitar se hace en el ticket. */}
+          {isTicketDoc && (
+            <a
+              href={`/tickets/${doc.ticketId}`}
+              onClick={e => e.stopPropagation()}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-white/90 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
+            >
+              Ver ticket →
+            </a>
+          )}
           <div className="flex w-full gap-2">
             {!isFile && (
               <div className="flex-1">
                 <DownloadPdfButton docId={doc.id} docType={doc.type} title={doc.title} />
               </div>
             )}
-            <button
-              onClick={doDelete}
-              disabled={delPending}
-              className="flex min-h-9 items-center justify-center rounded-lg border border-transparent px-2.5 py-1.5 text-xs text-gray-400 bg-white/80 hover:border-red-300 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
-              title="Eliminar"
-            >
-              {delPending ? <Spinner size={11} /> : (
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M1.5 3h9M4 3V2h4v1M5 5v4M7 5v4M2 3l.75 7h6.5L10 3"/>
-                </svg>
-              )}
-            </button>
+            {!isTicketDoc && (
+              <button
+                onClick={doDelete}
+                disabled={delPending}
+                className="flex min-h-9 items-center justify-center rounded-lg border border-transparent px-2.5 py-1.5 text-xs text-gray-400 bg-white/80 hover:border-red-300 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+                title="Eliminar"
+              >
+                {delPending ? <Spinner size={11} /> : (
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M1.5 3h9M4 3V2h4v1M5 5v4M7 5v4M2 3l.75 7h6.5L10 3"/>
+                  </svg>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -335,7 +357,7 @@ async function uploadOne(clientId: string, file: File): Promise<Doc> {
   if (!create.ok) throw new Error(`Error al registrar ${file.name}`)
   const { id } = await create.json()
 
-  return { id, title, type: 'otro', fileKey: key, createdAt: new Date().toISOString(), createdBy: null, proposalStatus: null, proposalAmount: null }
+  return { id, title, type: 'otro', fileKey: key, createdAt: new Date().toISOString(), createdBy: null, proposalStatus: null, proposalAmount: null, source: 'client_document' as const }
 }
 
 function UploadDropzone({ clientId, onUploaded }: { clientId: string; onUploaded: (doc: Doc) => void }) {
@@ -400,7 +422,7 @@ function DocSection({
 }: {
   title: string
   docs: Doc[]
-  onPreview: (id: string, title: string, type: string, isFile: boolean) => void
+  onPreview: (doc: Doc) => void
   onDeleted: (id: string) => void
 }) {
   if (docs.length === 0) return null
@@ -439,7 +461,18 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
     return () => document.removeEventListener('keydown', h)
   }, [preview])
 
-  const handlePreview = useCallback(async (docId: string, docTitle: string, docType: string, isFile: boolean) => {
+  const handlePreview = useCallback(async (doc: Doc) => {
+    const { id: docId, title: docTitle, type: docType, source } = doc
+    const isFile = doc.fileKey !== 'inline'
+
+    // OT: no es un ClientDocument, es Ticket.otFileUrl — la ruta de OT ya
+    // redirige directo a la URL firmada, sin necesidad de pasar por
+    // /api/client-documents (que no sabe nada de este documento).
+    if (source === 'ticket') {
+      setPreview({ url: `/api/tickets/${doc.ticketId}/ot-photo`, title: docTitle })
+      return
+    }
+
     setPreviewLoading(true)
     setPreviewError('')
     try {
@@ -492,7 +525,8 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
   })
   const informes = visibleDocs.filter(d => d.type === 'informe')
   const propuestas = visibleDocs.filter(d => d.type === 'propuesta')
-  const otros = visibleDocs.filter(d => d.type !== 'informe' && d.type !== 'propuesta')
+  const ordenesTrabajo = visibleDocs.filter(d => d.type === 'ot')
+  const otros = visibleDocs.filter(d => d.type !== 'informe' && d.type !== 'propuesta' && d.type !== 'ot')
 
   if (folders.length === 0) {
     return (
@@ -597,6 +631,7 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             </div>
           ) : (
             <div className="flex flex-col gap-8">
+              <DocSection title="Órdenes de trabajo" docs={ordenesTrabajo} onPreview={handlePreview} onDeleted={removeDoc} />
               <DocSection title="Informes técnicos" docs={informes} onPreview={handlePreview} onDeleted={removeDoc} />
               <DocSection title="Propuestas comerciales" docs={propuestas} onPreview={handlePreview} onDeleted={removeDoc} />
               <DocSection title="Otros documentos" docs={otros} onPreview={handlePreview} onDeleted={removeDoc} />

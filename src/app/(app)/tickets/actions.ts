@@ -82,7 +82,12 @@ export async function createTicket(_: unknown, fd: FormData) {
       assignedToId: assignedToId ?? null,
       internalNotes: internalNotes ?? null,
       otNumber: otNumber ?? null,
-      estimatedDate: fromDateInput(estimatedDate),
+      // estimatedDate acá ya viene "YYYY-MM-DDTHH:MM:00" (fecha+hora
+      // combinadas por new-ticket-form.tsx) — fromDateInput() es solo para
+      // fechas puras (le agrega T00:00:00.000Z, lo que rompía este string ya
+      // compuesto y dejaba la fecha en null siempre). Ancla a UTC igual que
+      // fromDateInput, solo que sin duplicar la parte de hora.
+      estimatedDate: estimatedDate ? new Date(`${estimatedDate}Z`) : null,
       tenantId: actor.tenantId,
       createdById: actor.id,
       status: initialStatus,

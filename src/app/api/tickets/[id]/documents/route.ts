@@ -2,12 +2,38 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { uploadToR2, deleteFromR2, isR2Key } from '@/lib/r2'
+import { uploadToR2, deleteFromR2, getObjectBuffer, isR2Key } from '@/lib/r2'
 
 export const runtime = 'nodejs'
 
 const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'zip']
 const MAX_BYTES = 10 * 1024 * 1024
+
+/**
+ * GET /api/tickets/[id]/documents?docId=xxx — bytes crudos del documento.
+ * A diferencia de /api/files (redirect 307 a una URL firmada de R2, pensado
+ * para <img src>/<a href>), acá se bajan los bytes server-side y se
+ * devuelven directo: el informe técnico arma sus fotos con fetch().blob()
+ * client-side, y un fetch a una URL cross-origin (el bucket R2) tras el
+ * redirect requiere CORS en el bucket — server-to-R2 no tiene esa restricción.
+ */
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth()
+  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { id: ticketId } = await params
+  const docId = new URL(req.url).searchParams.get('docId')
+  if (!docId) return NextResponse.json({ error: 'Missing docId' }, { status: 400 })
+
+  const doc = await prisma.ticketDocument.findFirst({
+    where: { id: docId, ticketId, ticket: { tenantId: session.user.tenantId } },
+    select: { fileUrl: true, mimeType: true },
+  })
+  if (!doc || !isR2Key(doc.fileUrl)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  const buf = await getObjectBuffer(doc.fileUrl)
+  return new NextResponse(new Uint8Array(buf), { headers: { 'Content-Type': doc.mimeType ?? 'application/octet-stream' } })
+}
 
 /** POST /api/tickets/[id]/documents */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -42,10 +68,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   await uploadToR2(key, buf, file.type || 'application/octet-stream')
 
   const doc = await prisma.ticketDocument.create({
-    data: { ticketId, name: file.name, fileUrl: key, uploadedById: session.user.id },
+    data: { ticketId, name: file.name, fileUrl: key, mimeType: file.type || null, uploadedById: session.user.id },
   })
 
-  return NextResponse.json({ id: doc.id, name: doc.name, fileUrl: doc.fileUrl })
+  return NextResponse.json({ id: doc.id, name: doc.name, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadedAt: doc.uploadedAt })
 }
 
 /** DELETE /api/tickets/[id]/documents?docId=xxx */

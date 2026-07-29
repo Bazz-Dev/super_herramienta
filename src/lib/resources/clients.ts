@@ -34,7 +34,7 @@ export async function getClientWithStats(actor: TenantActor, id: string) {
     where: { id, ...tenantScope(actor) },
     include: {
       _count: { select: { jobs: true, branches: true, assignments: true } },
-      branches: { orderBy: { name: 'asc' }, select: { id: true, name: true, city: true, active: true } },
+      branches: { orderBy: { name: 'asc' }, select: { id: true, name: true, city: true, address: true, contactName: true, contactPhone: true, active: true } },
       ruts: { orderBy: { createdAt: 'asc' } },
     },
   })

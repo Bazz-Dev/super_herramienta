@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { updateTicketFields, updateTicketStatus, addTicketComment } from '@/app/(app)/tickets/actions'
 import { ALL_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
@@ -54,6 +55,7 @@ function fileIcon(mimeType: string | null, name: string): string {
 }
 
 export function TicketControls({ ticket, staffUsers, technicians, linkedInformes = [] }: Props) {
+  const router = useRouter()
   // G24: transiciones separadas — un guardado en curso no bloquea las otras
   // acciones ni deja todo el panel en "Guardando…".
   const [fieldsPending, startFields] = useTransition()
@@ -62,14 +64,49 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   const [comment, setComment] = useState('')
   const [isInternal, setIsInternal] = useState(false)
   const [docs, setDocs] = useState<Doc[]>(ticket.documents)
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState('')
   const [otNumber, setOtNumber] = useState(ticket.otNumber ?? '')
   const [assignedToId, setAssignedToId] = useState(ticket.assignedToId ?? '')
   const [estimatedDate, setEstimatedDate] = useState(ticket.estimatedDate ?? '')
   const [workSummary, setWorkSummary] = useState(ticket.workSummary ?? '')
   const [showToClient, setShowToClient] = useState(ticket.showToClient)
   const [saved, setSaved] = useState(false)
+
+  // "Asignación y control" vive en estado local hasta apretar "Guardar
+  // cambios" — si el usuario cambia el técnico y sale de la página por
+  // cualquier otra vía (link del sidebar, "Volver a tickets", cerrar la
+  // pestaña) sin guardar, el cambio se pierde en silencio y parece que la
+  // asignación "no quedó". El snapshot se actualiza tras cada guardado
+  // exitoso para que dirty vuelva a false sin necesitar un reload.
+  const [lastSaved, setLastSaved] = useState({ otNumber: ticket.otNumber ?? '', assignedToId: ticket.assignedToId ?? '', estimatedDate: ticket.estimatedDate ?? '', workSummary: ticket.workSummary ?? '', showToClient: ticket.showToClient })
+  const dirty = otNumber !== lastSaved.otNumber
+    || assignedToId !== lastSaved.assignedToId
+    || estimatedDate !== lastSaved.estimatedDate
+    || workSummary !== lastSaved.workSummary
+    || showToClient !== lastSaved.showToClient
+
+  useEffect(() => {
+    if (!dirty) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [dirty])
+
+  useEffect(() => {
+    if (!dirty) return
+    // Next.js App Router no tiene un hook de "confirmar antes de navegar" para
+    // <Link>/router.push — se intercepta el click en captura, igual patrón
+    // que usan otras apps sin acceso a un blocker nativo.
+    function onClickCapture(e: MouseEvent) {
+      const link = (e.target as HTMLElement)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!link || link.target === '_blank') return
+      if (!confirm('Tenés cambios sin guardar en Asignación y control. ¿Salir igual y perderlos?')) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+    document.addEventListener('click', onClickCapture, true)
+    return () => document.removeEventListener('click', onClickCapture, true)
+  }, [dirty])
 
   function handleSaveFields() {
     startFields(async () => {
@@ -80,8 +117,26 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         workSummary: workSummary || undefined,
         showToClient,
       })
+      setLastSaved({ otNumber, assignedToId, estimatedDate, workSummary, showToClient })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  // El N° OT (y demás campos de "Asignación y control") vive en estado local
+  // hasta que se aprieta "Guardar cambios" — navegar directo a /informe sin
+  // guardar primero dejaba el informe leyendo el otNumber viejo desde la DB.
+  function goToNewInforme() {
+    startFields(async () => {
+      await updateTicketFields(ticket.id, {
+        otNumber: otNumber || undefined,
+        assignedToId: assignedToId || null,
+        estimatedDate: estimatedDate || undefined,
+        workSummary: workSummary || undefined,
+        showToClient,
+      })
+      setLastSaved({ otNumber, assignedToId, estimatedDate, workSummary, showToClient })
+      router.push(`/informe?ticketId=${ticket.id}`)
     })
   }
 
@@ -215,17 +270,20 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         </div>
       )}
 
-      {/* ── DOCUMENTOS ── 3 secciones separadas ──────────────────────────── */}
+      {/* ── DOCUMENTOS ── */}
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
 
-        {/* ── 1. Multimedia (fotos y videos) ── */}
+        {/* ── 1. Adjuntos — fotos/videos como galería, el resto como lista;
+               una sola sección y un solo botón de subida (acepta cualquier
+               tipo permitido, selección múltiple) en vez de dos mecanismos
+               separados que obligaban a adivinar cuál usar. ── */}
         <div className="p-4 border-b border-gray-100">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="14" height="10" rx="1.5"/><path d="M6 6.5l4 2.5-4 2.5V6.5z" fill="currentColor" stroke="none"/></svg>
-            Fotos y videos
-            {docs.filter(d => isMedia(d.mimeType)).length > 0 && (
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3"/></svg>
+            Adjuntos
+            {docs.length > 0 && (
               <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">
-                {docs.filter(d => isMedia(d.mimeType)).length}
+                {docs.length}
               </span>
             )}
           </h3>
@@ -237,6 +295,8 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
               mimeType: doc.mimeType,
             }))}
             accent="#f5b100"
+            uploadLabel="Agregar archivo"
+            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
             onUpload={async (file) => {
               const fd = new FormData(); fd.append('file', file)
               const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
@@ -251,45 +311,9 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
               setDocs(prev => prev.filter(d => d.id !== id))
             }}
           />
-        </div>
 
-        {/* ── 2. Archivos adjuntos (docs/pdfs/etc.) ── */}
-        <div className="p-4 border-b border-gray-100">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3"/></svg>
-              Archivos adjuntos
-              {docs.filter(d => !isMedia(d.mimeType)).length > 0 && (
-                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">
-                  {docs.filter(d => !isMedia(d.mimeType)).length}
-                </span>
-              )}
-            </h3>
-            <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100 ${uploading ? 'opacity-40 pointer-events-none' : ''}`}>
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-              {uploading ? 'Subiendo…' : 'Adjuntar'}
-              <input type="file" className="sr-only" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar" disabled={uploading}
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]; if (!file) return
-                  setUploading(true); setUploadError('')
-                  const fd = new FormData(); fd.append('file', file)
-                  try {
-                    const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
-                    if (!res.ok) { const j = await res.json(); setUploadError(j.error ?? 'Error al subir'); return }
-                    const newDoc: Doc = await res.json()
-                    setDocs(prev => [...prev, newDoc])
-                  } catch { setUploadError('Error de red') }
-                  finally { setUploading(false); e.target.value = '' }
-                }}
-              />
-            </label>
-          </div>
-
-          {uploadError && <p className="mb-2 text-xs text-red-600">{uploadError}</p>}
-          {docs.filter(d => !isMedia(d.mimeType)).length === 0 ? (
-            <p className="text-xs text-gray-400">Sin archivos adjuntos.</p>
-          ) : (
-            <ul className="divide-y divide-gray-50">
+          {docs.filter(d => !isMedia(d.mimeType)).length > 0 && (
+            <ul className="mt-3 divide-y divide-gray-50 border-t border-gray-100">
               {docs.filter(d => !isMedia(d.mimeType)).map(doc => (
                 <li key={doc.id} className="flex items-center gap-2 py-2">
                   <span className="text-base shrink-0">{fileIcon(doc.mimeType, doc.name)}</span>
@@ -310,7 +334,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
           )}
         </div>
 
-        {/* ── 3. Documentos de trabajo (generados) ── */}
+        {/* ── 2. Documentos de trabajo (generados) ── */}
         <div className="p-4 bg-gray-50/60">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h4"/><circle cx="12" cy="12" r="3.5" fill="#f5b100" stroke="none"/><path d="M12 10.5v3M10.5 12h3" stroke="#111" strokeWidth="1.2" strokeLinecap="round"/></svg>
@@ -356,14 +380,17 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             </ul>
           )}
 
-          {/* Acción: nuevo informe */}
-          <Link
-            href={`/informe?ticketId=${ticket.id}`}
-            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:border-brand hover:text-brand hover:bg-brand/5"
+          {/* Acción: nuevo informe — guarda los cambios pendientes (N° OT, etc.)
+              antes de navegar, para que /informe autocomplete con datos frescos */}
+          <button
+            type="button"
+            onClick={goToNewInforme}
+            disabled={fieldsPending}
+            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:border-brand hover:text-brand hover:bg-brand/5 disabled:opacity-50"
           >
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-            Nuevo informe técnico
-          </Link>
+            {fieldsPending ? 'Guardando…' : 'Nuevo informe técnico'}
+          </button>
         </div>
       </div>
 

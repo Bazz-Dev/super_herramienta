@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { Button, Field, TextInput, Select, TextArea } from '@/components/quotes/ui'
 import { CollapsibleSection } from '@/components/ui/collapsible-section'
+import { BranchSelect } from '@/components/resources/branch-select'
 import {
   JOB_TYPE_LABELS,
   PROCESS_FLOW_LABELS,
@@ -99,7 +100,8 @@ export function JobForm({
   const [state, formAction, pending] = useActionState(action, {})
   const err = (f: string) => state.fieldErrors?.[f]?.[0]
 
-  const branchName = branches.find((b) => b.id === initial?.branchId)?.name
+  const [branchId, setBranchId] = useState(initial?.branchId ?? '')
+  const [branchName, setBranchName] = useState(branches.find((b) => b.id === initial?.branchId)?.name)
   const technicianName = technicians.find((t) => t.id === initial?.technicianId)?.name
   // Trabajo nuevo (sin id todavía): no hay nada que "reducir" — colapsar
   // Cobros/Estados por defecto en /flujo/trabajos/new solo escondía el
@@ -134,14 +136,16 @@ export function JobForm({
           )}
 
           <Field label="Sucursal *" hint={err('branchId')}>
-            <Select name="branchId" defaultValue={initial?.branchId ?? ''} required>
-              <option value="">Seleccionar sucursal…</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </Select>
+            <BranchSelect
+              formName="branchId"
+              required
+              clientId={clientId}
+              branches={branches}
+              value={branchId}
+              onChange={(id, branch) => { setBranchId(id); setBranchName(branch?.name ?? branches.find((b) => b.id === id)?.name) }}
+              placeholder="Seleccionar sucursal…"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-ink focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+            />
           </Field>
 
           <Field label="Descripción *" hint={err('description')}>

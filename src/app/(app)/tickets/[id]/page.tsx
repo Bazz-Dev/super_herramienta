@@ -153,7 +153,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           <div>
             <p className="text-gray-400">Fecha estimada</p>
             <p className="font-medium text-gray-700">
-              {ticket.estimatedDate ? new Date(ticket.estimatedDate).toLocaleDateString('es-CL') : '—'}
+              {ticket.estimatedDate ? new Date(ticket.estimatedDate).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '—'}
             </p>
           </div>
           <div>
@@ -309,7 +309,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                   <div className="min-w-0">
                     <p className="font-medium text-gray-800">{CAT[e.category] ?? e.category}</p>
                     <p className="text-xs text-gray-400">
-                      {e.technician.name} · {new Date(e.date).toLocaleDateString('es-CL')}
+                      {e.technician.name} · {new Date(e.date).toLocaleDateString('es-CL', { timeZone: 'UTC' })}
                       {e.description && ` · ${e.description}`}
                     </p>
                   </div>

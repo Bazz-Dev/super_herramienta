@@ -25,6 +25,13 @@ export default async function InformePage({ searchParams }: Props) {
         id: true, ticketCode: true, title: true, otNumber: true, otFileUrl: true,
         client: { select: { id: true, name: true } },
         branch: { select: { name: true } },
+        // Fotos ya subidas al ticket (cliente al crearlo + técnico al ejecutar) —
+        // se re-usan acá para no obligar a subirlas dos veces al armar el informe.
+        documents: {
+          where: { mimeType: { startsWith: 'image/' } },
+          select: { id: true, name: true },
+          orderBy: { uploadedAt: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
       take: 150,
@@ -49,6 +56,7 @@ export default async function InformePage({ searchParams }: Props) {
     clientId: t.client.id,
     clientName: t.client.name,
     branchName: t.branch?.name ?? '',
+    photos: t.documents,
   }))
 
   return (

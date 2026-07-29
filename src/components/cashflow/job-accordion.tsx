@@ -435,7 +435,13 @@ function JobCard({ job, branches, technicians }: { job: Job; branches: BranchOpt
             )}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-5 sm:gap-x-5">
+        {/* Ancho fijo (no dependiente del contenido de esta fila) — cada
+            tarjeta es su propio grid independiente, así que sin un ancho
+            compartido las columnas Presupuesto/OC/Factura/Código/Documentos
+            no se alinean entre filas y la tarjeta completa "respira" de
+            ancho según cuánto texto tenga cada trabajo. MetaField ya trunca
+            valores largos, así que un ancho fijo no rompe con datos reales. */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:w-96 sm:flex-none sm:grid-cols-5 sm:gap-x-5">
           <MetaField label="Presupuesto" value={job.quoteRef ?? ''} />
           <MetaField label="OC" value={job.purchaseOrder ?? ''} dot={DOC_STATE_DOT[ocState]} dotTitle={DOC_STATE_LABELS[ocState]} />
           <MetaField label="Factura" value={job.invoiceNumber ?? ''} dot={DOC_STATE_DOT[facturaState]} dotTitle={DOC_STATE_LABELS[facturaState]} />
