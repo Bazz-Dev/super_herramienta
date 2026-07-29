@@ -115,11 +115,11 @@ export function DocumentacionView({
   return (
     <div>
       {incompleteTechnicians.length > 0 && (
-        <div className="mb-5 rounded-xl border border-warn-100 bg-warn-50 p-4">
-          <p className="mb-2 text-xs font-semibold text-warn-700">
+        <details className="mb-5 rounded-xl border border-warn-100 bg-warn-50 p-4">
+          <summary className="cursor-pointer select-none text-xs font-semibold text-warn-700">
             {incompleteTechnicians.length} técnico{incompleteTechnicians.length > 1 ? 's' : ''} con documentación incompleta
-          </p>
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          </summary>
+          <ul className="mt-2 space-y-1 text-xs">
             {incompleteTechnicians.map((t) => (
               <li key={t.id}>
                 <Link href={`/recursos/tecnicos/${t.id}`} className="font-medium text-warn-700 hover:underline">{t.name}</Link>
@@ -127,7 +127,7 @@ export function DocumentacionView({
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
