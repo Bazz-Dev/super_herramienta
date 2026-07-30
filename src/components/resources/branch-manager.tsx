@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useActionState, useState } from 'react'
 import { createBranch, toggleBranch, updateBranch } from '@/app/(app)/recursos/clientes/actions'
 
@@ -60,14 +61,14 @@ export function BranchManager({ clientId, branches }: { clientId: string; branch
         <p className="text-xs text-gray-400 italic">Sin sucursales. Agrega la primera.</p>
       ) : (
         <div className="space-y-1">
-          {branches.map((b) => <BranchRow key={b.id} branch={b} />)}
+          {branches.map((b) => <BranchRow key={b.id} branch={b} clientId={clientId} />)}
         </div>
       )}
     </div>
   )
 }
 
-function BranchRow({ branch: b }: { branch: Branch }) {
+function BranchRow({ branch: b, clientId }: { branch: Branch; clientId: string }) {
   const [editing, setEditing] = useState(false)
   const action = updateBranch.bind(null, b.id)
   const [state, dispatch, pending] = useActionState(action, {})
@@ -81,6 +82,12 @@ function BranchRow({ branch: b }: { branch: Branch }) {
           {b.city && <span className="ml-2 text-xs text-gray-400">{b.city}</span>}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/recursos/clientes/${clientId}/sucursales/${b.id}`}
+            className="text-[11px] font-medium text-gray-500 hover:text-ink hover:underline"
+          >
+            Ver ficha →
+          </Link>
           <button
             type="button"
             onClick={() => setEditing(v => !v)}

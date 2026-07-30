@@ -74,7 +74,12 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
   const isStaff = isStaffViewing(session)
-  const tickets = await getClientTickets(client.id)
+  const isClientAdmin = session?.user?.isClientAdmin ?? false
+  const userBranchId = session?.user?.branchId ?? null
+  // Mismo criterio que /tickets: usuario de sucursal no-admin solo ve lo suyo.
+  // Sin esto el panel filtraba /tickets pero exponía las demás sucursales acá.
+  const branchFilter = (!isStaff && !isClientAdmin && userBranchId) ? userBranchId : null
+  const tickets = await getClientTickets(client.id, branchFilter)
   const theme   = resolvePortalTheme(client.portalTheme)
   const acc = theme.primary
 

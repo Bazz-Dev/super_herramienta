@@ -58,7 +58,11 @@ export default async function PortalReportesPage({
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
   const isStaff = isStaffViewing(session)
-  const allTickets: Ticket[] = await getClientTickets(client.id)
+  const isClientAdmin = session?.user?.isClientAdmin ?? false
+  const userBranchId = session?.user?.branchId ?? null
+  // Mismo criterio que /tickets: usuario de sucursal no-admin solo ve lo suyo.
+  const branchFilter = (!isStaff && !isClientAdmin && userBranchId) ? userBranchId : null
+  const allTickets: Ticket[] = await getClientTickets(client.id, branchFilter)
   const from = periodFrom(periodo)
   const tickets = from ? allTickets.filter(t => new Date(t.createdAt) >= from) : allTickets
   const theme = resolvePortalTheme(client.portalTheme)

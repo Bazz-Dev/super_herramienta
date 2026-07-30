@@ -123,6 +123,7 @@ export async function updateBranch(branchId: string, _prev: FormState, formData:
   const contactPhone = (formData.get('contactPhone') as string)?.trim() || null
   await prisma.branch.update({ where: { id: branchId }, data: { city, address, contactName, contactPhone } })
   revalidatePath(`/recursos/clientes/${branch.clientId}`)
+  revalidatePath(`/recursos/clientes/${branch.clientId}/sucursales/${branchId}`)
   return {}
 }
 
@@ -132,6 +133,7 @@ export async function toggleBranch(branchId: string, active: boolean): Promise<v
   if (!branch || !canAccessTenant(actor, branch.tenantId)) return
   await prisma.branch.update({ where: { id: branchId }, data: { active } })
   revalidatePath(`/recursos/clientes/${branch.clientId}`)
+  revalidatePath(`/recursos/clientes/${branch.clientId}/sucursales/${branchId}`)
 }
 
 export async function saveClientLogo(id: string, dataUrl: string | null): Promise<{ error?: string }> {
