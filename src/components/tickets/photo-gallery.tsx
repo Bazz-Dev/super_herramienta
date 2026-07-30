@@ -97,7 +97,7 @@ function MoreOverlay({ n }: { n: number }) {
 
 export function PhotoGallery({
   items,
-  accent = '#f5b100',
+  accent = 'var(--color-brand)',
   onUpload,
   onDelete,
   uploadLabel = 'Agregar foto o video',

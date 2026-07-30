@@ -29,14 +29,14 @@ export function BranchProfileEdit({ branch }: { branch: Branch }) {
           <button
             type="button"
             onClick={() => setEditing((v) => !v)}
-            className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
+            className="inline-flex min-h-9 items-center rounded-md border border-gray-300 px-2.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50"
           >
             {editing ? 'Cerrar' : 'Editar'}
           </button>
           <button
             type="button"
             onClick={() => toggleBranch(branch.id, !branch.active)}
-            className={`rounded-full px-2.5 py-1 text-xs font-semibold transition hover:opacity-80 ${branch.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
+            className={`inline-flex min-h-9 items-center rounded-full px-2.5 text-xs font-semibold transition hover:opacity-80 ${branch.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
           >
             {branch.active ? 'Activa' : 'Inactiva'}
           </button>
@@ -55,7 +55,7 @@ export function BranchProfileEdit({ branch }: { branch: Branch }) {
           <button
             type="submit"
             disabled={pending}
-            className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink transition hover:opacity-90 disabled:opacity-50"
+            className="inline-flex min-h-9 items-center rounded-md bg-brand px-3 text-xs font-semibold text-ink transition hover:opacity-90 disabled:opacity-50"
           >
             {pending ? 'Guardando…' : 'Guardar'}
           </button>

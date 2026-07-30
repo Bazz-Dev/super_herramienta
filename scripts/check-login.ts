@@ -1,13 +1,17 @@
-// Checks the admin credential directly against the configured DB (Turso).
-//   npx tsx scripts/check-login.ts
+// Checks a credential directly against the configured DB (Turso).
+//   npx tsx scripts/check-login.ts <email> <password>
 import { config } from 'dotenv'
 config({ path: '.env.production.local' })
 
 import { createClient } from '@libsql/client'
 import bcrypt from 'bcryptjs'
 
-const EMAIL = 'admin@ingegarchile.cl'
-const PASSWORD = 'ingegar123'
+const EMAIL = process.argv[2]
+const PASSWORD = process.argv[3]
+if (!EMAIL || !PASSWORD) {
+  console.error('Uso: npx tsx scripts/check-login.ts <email> <password>')
+  process.exit(1)
+}
 
 const client = createClient({
   url: process.env.DATABASE_URL!,

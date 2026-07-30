@@ -7,20 +7,23 @@
  *             (requiere .env.production.local con DATABASE_URL + TURSO_AUTH_TOKEN)
  */
 import { prisma } from '../src/lib/prisma.js'
+import { generatePassword } from '../src/lib/password.js'
 import bcrypt from 'bcryptjs'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lista de técnicos a provisionar.
 // "search" es una cadena que debe estar contenida (case-insensitive) en el
-// nombre del técnico tal como está guardado en la DB.
+// nombre del técnico tal como está guardado en la DB. La contraseña inicial
+// se genera al azar (generatePassword()) en vez de hardcodearse acá — un
+// valor fijo en este archivo queda expuesto en git para siempre, incluso
+// después de rotarlo en la DB real (hallazgo de auditoría 2026-07-30).
 // ─────────────────────────────────────────────────────────────────────────────
 const TO_PROVISION: Array<{
   search: string       // fragmento del nombre para buscar en DB
   username: string     // nick de login
-  password: string     // contraseña inicial
 }> = [
-  { search: 'diaz',      username: 'jdiaz',      password: 'Tecnico@2026' },
-  { search: 'gonzal',    username: 'jgonzales',  password: 'Ingegar2024!' },
+  { search: 'diaz',      username: 'jdiaz' },
+  { search: 'gonzal',    username: 'jgonzales' },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,7 +70,8 @@ for (const spec of TO_PROVISION) {
   const username = taken ? `${spec.username}2` : spec.username
   const email = `${username}@ingegarchile.cl`
 
-  const passwordHash = await bcrypt.hash(spec.password, 12)
+  const password = generatePassword()
+  const passwordHash = await bcrypt.hash(password, 12)
   const user = await prisma.user.create({
     data: {
       name: tech.name,
@@ -84,7 +88,7 @@ for (const spec of TO_PROVISION) {
   console.log(`✅  ${tech.name}`)
   console.log(`    nick:       ${username}`)
   console.log(`    email:      ${email}`)
-  console.log(`    contraseña: ${spec.password}`)
+  console.log(`    contraseña: ${password}`)
   console.log(`    userId:     ${user.id}\n`)
 }
 

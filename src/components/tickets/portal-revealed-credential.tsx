@@ -50,14 +50,14 @@ export function PortalRevealedCredential({ email, username, password, onDismiss 
         <button
           type="button"
           onClick={copy}
-          style={{ borderRadius: 7, background: '#d97706', padding: '7px 14px', fontSize: 12, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer' }}
+          style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, borderRadius: 7, background: '#d97706', padding: '0 14px', fontSize: 12, fontWeight: 700, color: '#fff', border: 'none', cursor: 'pointer' }}
         >
           {copied ? '✓ Copiado' : 'Copiar credenciales'}
         </button>
         <button
           type="button"
           onClick={onDismiss}
-          style={{ borderRadius: 7, border: '1.5px solid #fcd34d', background: 'transparent', padding: '7px 14px', fontSize: 12, fontWeight: 600, color: '#92400e', cursor: 'pointer' }}
+          style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, borderRadius: 7, border: '1.5px solid #fcd34d', background: 'transparent', padding: '0 14px', fontSize: 12, fontWeight: 600, color: '#92400e', cursor: 'pointer' }}
         >
           Listo, la guardé
         </button>

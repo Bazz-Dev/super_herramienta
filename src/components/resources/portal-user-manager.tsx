@@ -102,7 +102,7 @@ export function PortalUserManager({
               <button
                 type="button"
                 onClick={() => setEditing((v) => !v)}
-                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100"
+                className="inline-flex min-h-9 items-center rounded-md border border-gray-300 px-2 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100"
               >
                 {editing ? 'Cerrar' : 'Editar'}
               </button>
@@ -110,7 +110,7 @@ export function PortalUserManager({
                 type="button"
                 onClick={() => reset(u)}
                 disabled={resetPending && pendingId === u.id}
-                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
+                className="inline-flex min-h-9 items-center rounded-md border border-gray-300 px-2 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
               >
                 Resetear
               </button>
@@ -118,7 +118,7 @@ export function PortalUserManager({
                 type="button"
                 onClick={() => toggle(u)}
                 disabled={togglePending && pendingId === u.id}
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition hover:opacity-80 ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
+                className={`inline-flex min-h-9 items-center rounded-full px-2 text-[10px] font-semibold transition hover:opacity-80 ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
               >
                 {u.active ? 'Activo' : 'Inactivo'}
               </button>
@@ -153,11 +153,11 @@ export function PortalUserManager({
               <button
                 type="submit"
                 disabled={editPending}
-                className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink transition hover:opacity-90 disabled:opacity-50"
+                className="inline-flex min-h-9 items-center rounded-md bg-brand px-3 text-xs font-semibold text-ink transition hover:opacity-90 disabled:opacity-50"
               >
                 {editPending ? 'Guardando…' : 'Guardar'}
               </button>
-              <button type="button" onClick={() => setEditing(false)} className="text-xs text-gray-500 hover:underline">
+              <button type="button" onClick={() => setEditing(false)} className="inline-flex min-h-9 items-center text-xs text-gray-500 hover:underline">
                 Cerrar
               </button>
             </div>
@@ -177,7 +177,7 @@ export function PortalUserManager({
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
-            className="text-xs text-brand-700 font-medium hover:underline"
+            className="inline-flex min-h-9 items-center text-xs text-brand-700 font-medium hover:underline"
           >
             {showForm ? 'Cancelar' : '+ Agregar usuario autorizado'}
           </button>
@@ -232,7 +232,7 @@ export function PortalUserManager({
           <button
             type="submit"
             disabled={creating}
-            className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink transition hover:opacity-90 disabled:opacity-50"
+            className="inline-flex min-h-9 items-center rounded-md bg-brand px-3 text-xs font-semibold text-ink transition hover:opacity-90 disabled:opacity-50"
           >
             {creating ? 'Creando…' : 'Crear usuario'}
           </button>

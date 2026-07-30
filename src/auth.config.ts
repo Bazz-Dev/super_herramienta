@@ -6,6 +6,7 @@ import type { Role } from '@/generated/prisma/enums'
 const INTERNAL_PREFIXES = [
   '/dashboard', '/tickets', '/flujo', '/cronograma',
   '/recursos', '/cotizador', '/informe', '/gastos',
+  '/documentos', '/documentacion', '/conciliacion', '/rrhh', '/pipeline',
 ]
 // Tecnico panel — only accessible to tecnico role
 const TECNICO_PREFIX = '/mi-panel'

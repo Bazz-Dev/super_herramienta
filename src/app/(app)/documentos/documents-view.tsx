@@ -90,7 +90,7 @@ function DocIcon({ type, size = 32 }: { type: string; size?: number }) {
 
 function FolderIcon({ size = 18, filled = false }: { size?: number; filled?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 20 20" fill={filled ? '#f5b100' : 'none'} stroke={filled ? '#d4900e' : '#9ca3af'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 20 20" fill={filled ? 'var(--color-brand)' : 'none'} stroke={filled ? '#d4900e' : '#9ca3af'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M3 6a1 1 0 011-1h4.5l2 2H16a1 1 0 011 1v7a1 1 0 01-1 1H4a1 1 0 01-1-1V6z"/>
     </svg>
   )

@@ -55,7 +55,7 @@ export function PortalTeamManager({ users, branches, primary }: { users: TeamUse
         <button
           type="button"
           onClick={() => setShowForm(v => !v)}
-          style={{ fontSize: 12, fontWeight: 700, color: primary, background: 'none', border: 'none', cursor: 'pointer' }}
+          style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 12, fontWeight: 700, color: primary, background: 'none', border: 'none', cursor: 'pointer' }}
         >
           {showForm ? 'Cancelar' : '+ Agregar usuario'}
         </button>
@@ -83,7 +83,7 @@ export function PortalTeamManager({ users, branches, primary }: { users: TeamUse
             Admin del cliente (aprueba solicitudes de sucursal, puede crear más usuarios)
           </label>
           {state.error && <p style={{ fontSize: 12, color: '#dc2626' }}>{state.error}</p>}
-          <button type="submit" disabled={pending} className="pbtn pbtn-primary" style={{ alignSelf: 'flex-start', padding: '8px 16px', minHeight: 0 }}>
+          <button type="submit" disabled={pending} className="pbtn pbtn-primary" style={{ alignSelf: 'flex-start' }}>
             {pending ? 'Creando…' : 'Crear usuario'}
           </button>
         </form>
@@ -112,7 +112,8 @@ export function PortalTeamManager({ users, branches, primary }: { users: TeamUse
                 onClick={() => toggle(u)}
                 disabled={isPending && togglingId === u.id}
                 style={{
-                  flexShrink: 0, borderRadius: 20, padding: '3px 10px', fontSize: 10, fontWeight: 700,
+                  flexShrink: 0, display: 'inline-flex', alignItems: 'center', minHeight: 36,
+                  borderRadius: 20, padding: '0 12px', fontSize: 10, fontWeight: 700,
                   border: 'none', cursor: 'pointer',
                   background: u.active ? '#dcfce7' : '#f3f4f6',
                   color: u.active ? '#15803d' : '#6b7280',

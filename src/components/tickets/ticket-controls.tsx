@@ -301,7 +301,6 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
               url: resolveUrl(doc.fileUrl),
               mimeType: doc.mimeType,
             }))}
-            accent="#f5b100"
             uploadLabel="Agregar archivo"
             accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
             onUpload={async (file) => {
@@ -347,7 +346,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         {/* ── 2. Documentos de trabajo (generados) ── */}
         <div className="p-4 bg-gray-50/60">
           <h3 className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h4"/><circle cx="12" cy="12" r="3.5" fill="#f5b100" stroke="none"/><path d="M12 10.5v3M10.5 12h3" stroke="#111" strokeWidth="1.2" strokeLinecap="round"/></svg>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h4"/><circle cx="12" cy="12" r="3.5" fill="var(--color-brand)" stroke="none"/><path d="M12 10.5v3M10.5 12h3" stroke="#111" strokeWidth="1.2" strokeLinecap="round"/></svg>
             Documentos de trabajo
           </h3>
 
