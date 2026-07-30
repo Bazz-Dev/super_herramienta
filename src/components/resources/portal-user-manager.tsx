@@ -4,7 +4,9 @@ import {
   createPortalUser,
   resetPortalUserPassword,
   togglePortalUserActive,
+  updatePortalUser,
   type PortalUserFormState,
+  type UpdatePortalUserFormState,
 } from '@/app/(app)/recursos/clientes/actions'
 import { RevealedCredential } from '@/components/ui/revealed-credential'
 
@@ -63,6 +65,94 @@ export function PortalUserManager({
   }
 
   const branchName = (id: string | null) => branches.find((b) => b.id === id)?.name
+
+  function PortalUserRow({ u }: { u: PortalUser }) {
+    const [editing, setEditing] = useState(false)
+    const editAction = updatePortalUser.bind(null, u.id)
+    const [editState, editDispatch, editPending] = useActionState<UpdatePortalUserFormState, FormData>(editAction, {})
+    const fieldCls = 'rounded border border-gray-300 px-2 py-1 text-xs outline-none focus:border-brand focus:ring-2 focus:ring-brand/20'
+
+    // Cerrar solo al confirmar éxito — no de inmediato al submit, mismo
+    // motivo que BranchRow: cerrar antes de que la action resuelva
+    // escondería un error real.
+    const [seenEditSuccess, setSeenEditSuccess] = useState(editState.success)
+    if (editState.success !== seenEditSuccess) {
+      setSeenEditSuccess(editState.success)
+      if (editState.success) setEditing(false)
+    }
+
+    return (
+      <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className={`text-sm font-medium ${u.active ? 'text-ink' : 'text-gray-400 line-through'}`}>{u.email}</span>
+              {u.isClientAdmin && (
+                <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">Admin cliente</span>
+              )}
+              {u.branchId && branchName(u.branchId) && (
+                <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600">{branchName(u.branchId)}</span>
+              )}
+            </div>
+            {u.username && <span className="text-xs text-gray-400">@{u.username}</span>}
+          </div>
+          {isSuper ? (
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setEditing((v) => !v)}
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100"
+              >
+                {editing ? 'Cerrar' : 'Editar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => reset(u)}
+                disabled={resetPending && pendingId === u.id}
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
+              >
+                Resetear
+              </button>
+              <button
+                type="button"
+                onClick={() => toggle(u)}
+                disabled={togglePending && pendingId === u.id}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition hover:opacity-80 ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
+              >
+                {u.active ? 'Activo' : 'Inactivo'}
+              </button>
+            </div>
+          ) : (
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+              {u.active ? 'Activo' : 'Inactivo'}
+            </span>
+          )}
+        </div>
+
+        {editing && (
+          <form action={editDispatch} className="mt-2 space-y-2 border-t border-gray-200 pt-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input name="email" type="email" defaultValue={u.email} placeholder="Email" required className={fieldCls} />
+              <input name="username" defaultValue={u.username ?? ''} placeholder="Usuario (opcional)" className={fieldCls} />
+            </div>
+            {editState.error && <p className="text-xs text-red-600">{editState.error}</p>}
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={editPending}
+                className="rounded-md bg-brand px-3 py-1.5 text-xs font-semibold text-ink transition hover:opacity-90 disabled:opacity-50"
+              >
+                {editPending ? 'Guardando…' : 'Guardar'}
+              </button>
+              <button type="button" onClick={() => setEditing(false)} className="text-xs text-gray-500 hover:underline">
+                Cerrar
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="mt-4 border-t border-gray-100 pt-4">
@@ -140,46 +230,7 @@ export function PortalUserManager({
         <p className="text-xs text-gray-400 italic">Sin usuarios autorizados todavía.</p>
       ) : (
         <div className="space-y-1">
-          {users.map((u) => (
-            <div key={u.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className={`text-sm font-medium ${u.active ? 'text-ink' : 'text-gray-400 line-through'}`}>{u.email}</span>
-                  {u.isClientAdmin && (
-                    <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700">Admin cliente</span>
-                  )}
-                  {u.branchId && branchName(u.branchId) && (
-                    <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600">{branchName(u.branchId)}</span>
-                  )}
-                </div>
-                {u.username && <span className="text-xs text-gray-400">@{u.username}</span>}
-              </div>
-              {isSuper ? (
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => reset(u)}
-                    disabled={resetPending && pendingId === u.id}
-                    className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
-                  >
-                    Resetear
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => toggle(u)}
-                    disabled={togglePending && pendingId === u.id}
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition hover:opacity-80 ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
-                  >
-                    {u.active ? 'Activo' : 'Inactivo'}
-                  </button>
-                </div>
-              ) : (
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${u.active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                  {u.active ? 'Activo' : 'Inactivo'}
-                </span>
-              )}
-            </div>
-          ))}
+          {users.map((u) => <PortalUserRow key={u.id} u={u} />)}
         </div>
       )}
       {resetError && <p className="mt-2 text-xs text-red-600">{resetError}</p>}

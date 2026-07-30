@@ -264,6 +264,49 @@ export async function createPortalUser(
   return { success: { email: parsed.data.email, username, password } }
 }
 
+const updatePortalUserSchema = z.object({
+  email: z.string().email('Email inválido'),
+  username: z.string().regex(/^[a-zA-Z0-9_.-]+$/, 'Solo letras, números, _ . -').optional().or(z.literal('')),
+})
+
+export type UpdatePortalUserFormState = { error?: string; fieldErrors?: Record<string, string[]>; success?: boolean }
+
+export async function updatePortalUser(
+  userId: string,
+  _prev: UpdatePortalUserFormState,
+  formData: FormData,
+): Promise<UpdatePortalUserFormState> {
+  const actor = await requireActor(['super'])
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { tenantId: true, role: true, clientId: true },
+  })
+  if (!user || user.role !== 'client' || !canAccessTenant(actor, user.tenantId)) {
+    return { error: 'No encontrado o sin permiso.' }
+  }
+
+  const parsed = updatePortalUserSchema.safeParse({
+    email: formData.get('email'),
+    username: formData.get('username') || undefined,
+  })
+  if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
+  const username = parsed.data.username || null
+
+  const [emailTaken, usernameTaken] = await Promise.all([
+    prisma.user.findFirst({ where: { email: parsed.data.email, id: { not: userId } }, select: { id: true } }),
+    username ? prisma.user.findFirst({ where: { username, id: { not: userId } }, select: { id: true } }) : Promise.resolve(null),
+  ])
+  if (emailTaken) return { error: 'Ese email ya está en uso.', fieldErrors: { email: ['Email duplicado'] } }
+  if (usernameTaken) return { error: 'Ese nombre de usuario ya está en uso.', fieldErrors: { username: ['Usuario duplicado'] } }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { email: parsed.data.email, username },
+  })
+  if (user.clientId) revalidatePath(`/recursos/clientes/${user.clientId}`)
+  return { success: true }
+}
+
 export async function resetPortalUserPassword(userId: string): Promise<{ password: string } | { error: string }> {
   const actor = await requireActor(['super'])
   const user = await prisma.user.findUnique({
