@@ -22,6 +22,8 @@ Herramienta interna de gestión de INGEGAR. Centraliza operaciones, recursos, fa
 | `tecnico` | Técnicos en terreno | Solo `/mi-panel` (autoservicio + FES) |
 | `client` | Contacto del cliente (Carolina JB, etc.) | Solo portal propio `/portal/{slug}` |
 
+**`client` no es un rol plano**: `User.branchId` (opcional) + `User.isClientAdmin` determinan qué ve. Sin `branchId` o con `isClientAdmin=true` → ve todo el cliente. Con `branchId` y `isClientAdmin=false` (usuario de sucursal) → scopeado a esa sucursal en tickets/dashboard/reportes, y sus tickets nuevos entran en `pendiente_aprobacion` en vez de `nuevo` hasta que un admin del cliente los apruebe. Ver Portal cliente y Ticket — `status` más abajo.
+
 **Regla clave**: `role=client` y `role=tecnico` NUNCA entran a la app interna. El middleware los redirige a su superficie correspondiente.
 
 ---
@@ -55,8 +57,11 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 ### Tickets (`/tickets`) — Staff + Portal cliente
 **Para qué**: Gestión de requerimientos de clientes.
 **Modelos**: `Ticket`, `TicketHistory`, `TicketItem`, `TicketDocument`, `TicketCollaborator`
-**Campos clave**: `showToClient`, `internalNotes`, `deletedAt` (soft delete), `folderKey` (R2 prefix)
+**Campos clave**: `showToClient`, `internalNotes`, `deletedAt` (soft delete), `folderKey` (R2 prefix), `parentTicketId` (fusión, sin `@relation` — resolver con query propia)
 **Portal**: cliente ve tickets con `showToClient=true`, puede editar si `status=nuevo`, agregar sub-tareas si `status=nuevo|en_revision`.
+**Aprobación de sucursal**: un usuario de portal con `branchId` (no admin) crea tickets en `pendiente_aprobacion`; un admin del cliente los aprueba (→`nuevo`, notifica staff) o rechaza (→`cancelado`) desde `/portal/[slug]/tickets` (`approvePortalTicket`). Staff y usuarios de portal sin `branchId`/con `isClientAdmin` crean directo en `nuevo`.
+**Fusión**: exclusiva del portal cliente (admin del cliente) — INGEGAR One no tiene esta opción en su selector de Estado. Fusionar es confirmación explícita e irreversible por acción; desfusionar restaura el `status` exacto previo a la fusión (leído de `TicketHistory`, no un default fijo). Cerrados en INGEGAR One incluye `fusionado` (antes era invisible en toda vista interna).
+**Eliminar**: disponible en Activos y Cerrados (mismo `deleteTicket`, gate `super`/`supervisor`).
 
 ### Flujo de Caja (`/flujo`, `/flujo/reportes`, `/flujo/trabajos/[id]`)
 **Para qué**: Control financiero de trabajos ejecutados — facturación, cobranza, márgenes. Rediseñado 2026-07-28 contra `flujo de caja produccion/*.html` (prototipo de referencia del dueño).
@@ -88,11 +93,14 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 
 ### Recursos (`/recursos`) — Inventario
 **Para qué**: Técnicos, vehículos, activos, clientes. (Cuadrillas: descartado — módulo `Crew` sin uso en la operación real, removido por completo el 2026-07-28: ruta, modelo, migración, seed y tests.)
-**Modelos**: `Technician`, `Vehicle`, `Asset`, `Client`, `TechnicianDocument`
+**Modelos**: `Technician`, `Vehicle`, `Asset`, `Client`, `Branch`, `TechnicianDocument`
 **Relaciones**: Técnico ↔ Vehículo 1:1, Vehículo → Activos 1:N.
 **Perfil técnico**: navegación por tabs (Resumen / Datos / Vehículo / Documentos). Resumen: stats de cronograma + stats de tickets + tickets recientes + próximas asignaciones. Links accionables a `/tickets?usuario=id` y `/cronograma?tecnico=id`.
 **ContractType enum**: `indefinido | plazo_fijo | ayudante | no_renovado | despedido`. Los dos últimos = desvinculados (sección separada en lista, auto-inactivan).
 **Documentos**: `DocSection` lista archivos con preview inline vía signed-URL proxy (`/api/files?key=...`).
+**Dashboard — Carga por técnico**: cards siempre visibles (no gated por filtro de período) agrupadas por `Ticket.assignedToId` (`User.id`, nunca `Technician.id` directo — ver `.claude/rules/data.md`), con especialidad resuelta vía `User.technicianId` y link a la ficha solo cuando existe un `Technician` detrás de la asignación.
+**Ficha de cliente** (`/recursos/clientes/[id]`): además del form de edición, gestiona sucursales (`BranchManager`) y usuarios de portal (`PortalUserManager`, `super`-only: crear, editar email/username, resetear password, activar/desactivar). Ambas listas van dentro de `CollapsibleSection` (colapsadas por defecto si hay más de 6 filas — Just Burger tiene 27 sucursales y 15 usuarios) para no dominar la página.
+**Ficha de sucursal** (`/recursos/clientes/[id]/sucursales/[branchId]`): datos editables (dirección/ciudad/contacto, reusa `updateBranch`/`toggleBranch`), usuarios de portal con ese `branchId` (solo lectura — editar sigue viviendo en la ficha del cliente), tickets de esa sucursal. Link "Ver ficha →" desde `BranchManager`.
 
 ### Documentación y acreditación (`/documentacion`)
 **Para qué**: vista cruzada de solo-lectura sobre documentos ya existentes (técnicos, empresa, OT de tickets) para preparar rápido un paquete de acreditación — NO es una biblioteca de archivos nueva, no duplica ningún archivo.
@@ -121,7 +129,7 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Sesión**: separada de la app interna, `role=client`.
 **Mobile-first**: portal íntegramente diseñado para celular (inline styles, sin Tailwind en shell).
 **Feedback de estado**: todos los botones usan `useTransition` + `isPending` para deshabilitar + texto "Enviando…" / "Guardando…".
-**Privacidad**: cada cliente ve solo sus propios tickets (`getClientTickets(clientId)`, nunca cross-tenant).
+**Privacidad**: cada cliente ve solo sus propios tickets (`getClientTickets(clientId)`, nunca cross-tenant). Usuario de sucursal (`branchId` set, `isClientAdmin=false`): además scopeado a su propia sucursal — dashboard, `/tickets` y `/reportes` filtran por `branchId` (los tres llaman `getClientTickets(clientId, branchFilter)` con el mismo criterio; un fix real de esta sesión: dashboard y reportes no aplicaban ese filtro y exponían las demás sucursales del cliente).
 **Staff en portal**: puede crear tickets en nombre del cliente (redirige a `/tickets/{id}` al enviar). `isStaffViewing()` muestra banner "Creando en nombre de {cliente}" en el form. El dashboard oculta el CTA "Nueva solicitud" para staff (ya que pueden entrar directo desde el form).
 
 ---
@@ -401,22 +409,23 @@ Assignment ──? Ticket      opt — un trabajo puede referenciar un ticket
 ### Ticket — `status`
 
 ```
-[nuevo] ──→ [en_revision] ──→ [en_ejecucion] ──→ [esperando_aprobacion] ──→ [resuelto]
-   ↓               ↓               ↓                       ↓
-[cancelado]   [cancelado]    [cancelado]              [cancelado]
+[pendiente_aprobacion] ──(admin cliente aprueba)──→ [nuevo] ──→ [en_revision] ──→ [en_ejecucion] ──→ [esperando_aprobacion] ──→ [resuelto]
+        │                                              ↓               ↓               ↓                       ↓
+        └──(admin cliente rechaza)──→ [cancelado]  [cancelado]    [cancelado]    [cancelado]              [cancelado]
 
-[nuevo] ──→ [fusionado]  ← cuando se duplica con otro ticket
+[cualquier estado abierto] ──→ [fusionado]  ← solo desde el portal cliente (admin del cliente); desfusionar restaura el status previo exacto
 ```
 
-| Status | Label UI | Quién puede editar en portal |
-|--------|----------|------------------------------|
-| `nuevo` | Nuevo | Cliente + staff |
-| `en_revision` | En Revisión | Solo staff |
-| `en_ejecucion` | En Ejecución | Solo staff |
-| `esperando_aprobacion` | Esperando Aprobación | Staff + cliente (aprobar/rechazar) |
-| `resuelto` | Resuelto | Solo staff |
-| `cancelado` | Cancelado | Solo staff |
-| `fusionado` | Fusionado | Solo staff |
+| Status | Label UI | Quién puede editar en portal | Cómo se llega |
+|--------|----------|------------------------------|----------------|
+| `pendiente_aprobacion` | Pendiente aprobación | Admin del cliente (aprobar/rechazar) | Automático: lo crea un usuario de sucursal (`branchId` set, `isClientAdmin=false`) |
+| `nuevo` | Nuevo | Cliente + staff | Creación directa (staff, admin del cliente, o aprobación de una `pendiente_aprobacion`) |
+| `en_revision` | En Revisión | Solo staff | |
+| `en_ejecucion` | En Ejecución | Solo staff | |
+| `esperando_aprobacion` | Esperando Aprobación | Staff + cliente (aprobar/rechazar) | |
+| `resuelto` | Resuelto | Solo staff | |
+| `cancelado` | Cancelado | Solo staff | También el resultado de rechazar una `pendiente_aprobacion` |
+| `fusionado` | Fusionado | Solo cliente — admin del cliente (fusionar/desfusionar), con confirmación explícita | Exclusivamente portal cliente — no existe en el selector de Estado de INGEGAR One |
 
 **Regla portal**: cliente puede **agregar sub-tareas** solo si `status ∈ {nuevo, en_revision}`.
 
@@ -578,7 +587,10 @@ o repetirá el bug para datos importados.
 |-----------|----------|
 | Ticket con `showToClient=false` en portal | Portal NO lo muestra |
 | Crear ticket sin cliente seleccionado | Error 400 (cliente requerido) |
-| Fusionar ticket A en ticket B | A queda en `status=fusionado`, B acumula historial |
+| Fusionar ticket A en ticket B (desde portal, admin del cliente) | A queda en `status=fusionado`, `parentTicketId=B.id`, B acumula historial; INGEGAR One no tiene esta acción |
+| Desfusionar A | Restaura el `status` que A tenía justo antes de fusionarse (leído de `TicketHistory`), no un default fijo |
+| Usuario de sucursal (`branchId`, no admin) crea ticket | Queda en `pendiente_aprobacion`, invisible para otras sucursales del mismo cliente, notifica al admin del cliente (no a staff) |
+| Admin del cliente aprueba/rechaza `pendiente_aprobacion` | Aprobar → `nuevo` + notifica staff; rechazar → `cancelado` + notifica al creador |
 | Portal: cliente intenta editar ticket `en_ejecucion` | UI oculta botones de edición; server action rechaza |
 | Ticket con `urgency=emergencia` → notificación push | Push enviado a todos los staff del tenant |
 | `estimatedDate` en el pasado | Muestra badge "Vencido X días" en portal dashboard |
@@ -604,6 +616,8 @@ o repetirá el bug para datos importados.
 | Activo sin vehículo asignado | Aparece como "sin vehículo" — no error |
 | Documento de técnico con fecha de vencimiento pasada | Muestra alerta roja en ficha |
 | Técnico con `hireDate` null | RR.HH. section puede fallar si trata como Date |
+| `/recursos/clientes/[id]/sucursales/[branchId]` con `branchId` de otro cliente | `notFound()` — se valida `branch.clientId === id` explícitamente, no solo que la sucursal exista |
+| Sucursal/lista de usuarios de portal con ≤ 6 filas | `CollapsibleSection` abierta por defecto; > 6 filas, cerrada (Just Burger: 27 sucursales, 15 usuarios) |
 
 ### 🟠 Flujo de Caja
 
@@ -639,6 +653,8 @@ o repetirá el bug para datos importados.
 | Portal en iOS Safari (no PWA) | Push notifications deshabilitadas — `pushSupported()` retorna `false` |
 | Ticket con `showToClient=false` | No visible en portal, aunque el cliente conozca el ID |
 | KPI "Emergencias" cuando hay 0 emergencias | Badge verde (sin urgencias) — no muestra animación de alerta |
+| Usuario de sucursal ve dashboard/reportes/tickets | Los tres scopean por `branchId` con el mismo criterio (`getClientTickets(clientId, branchFilter)`) — antes solo `/tickets` lo hacía, dashboard y reportes mostraban las demás sucursales |
+| Staff usando "Ver como" (impersonar portal) | Rol real sigue siendo `super`/`supervisor` en el JWT — nunca activa gates de `role==='client'` (fusionar, aprobar sucursal, etc.), por diseño |
 
 ### 🟡 RR.HH.
 

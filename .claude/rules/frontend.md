@@ -14,7 +14,11 @@
 `Button` (variants primary/secondary/danger/ghost; `buttonClass()` exportado para elementos no-`<button>`
 como `<a download>`), `Badge`/`StatusDot`, `Table`, `Modal` (usa `createPortal` a `document.body` —
 necesario, sin portal un Modal abierto dentro de una `<table>` rompe la hidratación), `EmptyState`,
-`Tooltip`, `FilePreviewButton` (preview universal de documentos — ver abajo).
+`Tooltip`, `FilePreviewButton` (preview universal de documentos — ver abajo), `CollapsibleSection`
+(`src/components/ui/collapsible-section.tsx` — título + resumen visible cuando está cerrada +
+`defaultOpen`/`forceOpen`; usada donde una lista larga domina la vista, ej. sucursales/usuarios de
+portal en la ficha de cliente cuando hay más de ~6 filas, costos/documentos/historial en la ficha de
+trabajo de Flujo de Caja — no aplicar en cascada a listas cortas que no generan fricción real).
 
 **Antes de escribir un nuevo botón/badge/modal/card a mano**: comprobar si ya existe el primitivo
 equivalente. Reusar es la opción por defecto — no crear una segunda implementación de un patrón que

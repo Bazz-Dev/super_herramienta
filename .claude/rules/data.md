@@ -21,6 +21,15 @@
   (`portalSlug`), no tenants propios — viven bajo el tenant `ingegar`.
 - Portal (`role=client`): ve solo sus propios tickets vía `getClientTickets(clientId)`, nunca
   cross-tenant ni cross-cliente.
+- **Usuario de sucursal** (`User.branchId` set, `isClientAdmin=false`): además scopeado a su propia
+  sucursal. `getClientTickets(clientId, branchId?)` acepta un segundo parámetro para esto — **los tres
+  callers** (`/portal/[slug]/tickets`, `/dashboard`, `/reportes`) deben calcular el mismo
+  `branchFilter = (!isStaff && !isClientAdmin && userBranchId) ? userBranchId : null` y pasarlo. Trampa
+  real ya mordida: dashboard y reportes se agregaron sin este filtro y exponían las 27 sucursales de
+  Just Burger a un usuario de una sola sucursal (cerrado, ver GAP_REGISTER G45) — cualquier vista nueva
+  que liste tickets de un cliente en el portal necesita el mismo criterio, no solo la lista principal.
+  Sus tickets nuevos nacen en `pendiente_aprobacion` (no `nuevo`) hasta que un admin del cliente
+  (`isClientAdmin=true`) los aprueba vía `approvePortalTicket`.
 
 ## Dos sistemas de estado en `Job` (Flujo de Caja)
 
@@ -32,8 +41,9 @@ nuevo sobre `Job` necesita el mismo fallback a campos clásicos que ya tiene `jo
 
 Algunos campos que *parecen* relaciones son en realidad scalars sueltos sin `@relation` en el schema
 (p.ej. `Job.technicianId`, `Ticket.assignedToId` apunta a `User`, no a `Technician` — para llegar del
-uno al otro hay que pasar por `User.technicianId`). Antes de escribir `include: { X: true }`, confirmar
-en `schema.prisma` que la relación existe; si no, resolver con una segunda query.
+uno al otro hay que pasar por `User.technicianId`; `Ticket.parentTicketId`, usado por la fusión de
+tickets del portal cliente). Antes de escribir `include: { X: true }`, confirmar en `schema.prisma` que
+la relación existe; si no, resolver con una segunda query.
 
 ## OT vs. Carpetas de clientes — no son lo mismo, no se fusionan
 
