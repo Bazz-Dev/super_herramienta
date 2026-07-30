@@ -27,6 +27,7 @@ const nextConfig: NextConfig = {
     'playwright',
     'pdf-to-img',
     'pdfjs-dist',
+    '@napi-rs/canvas',
   ],
   // Force the serverless function to include files Next's tracing misses:
   //  - @sparticuz/chromium binary (bin/*.br) → otherwise executablePath is missing
@@ -44,6 +45,8 @@ const nextConfig: NextConfig = {
     '/api/tickets/[id]/ot-photo': [
       './node_modules/pdf-to-img/**',
       './node_modules/pdfjs-dist/**',
+      './node_modules/@napi-rs/canvas/**',
+      './node_modules/@napi-rs/canvas-linux-x64-gnu/**',
     ],
   },
 }
