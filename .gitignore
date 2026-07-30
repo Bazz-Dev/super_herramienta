@@ -46,6 +46,9 @@ npm-debug.log*
 .vscode/
 design-reference/flujo-consolidado.csv
 design-reference/*.xlsx
+# Prototipo HTML de referencia citado en docs/ARQUITECTURA.md (rediseño Flujo
+# de Caja 2026-07-28) — se mantiene en disco, nunca en git (archivo grande).
+/flujo de caja produccion/
 justburger-ingegar/*.xlsx
 justburger-ingegar/*.gs
 justburger-ingegar/*.html
