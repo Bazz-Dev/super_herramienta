@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { updateTicketFields, updateTicketStatus, addTicketComment } from '@/app/(app)/tickets/actions'
-import { ALL_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
+import { SELECTABLE_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
 
 type Item    = { id: string; title: string; status: string; description: string | null }
@@ -29,6 +29,7 @@ interface Props {
   staffUsers: { id: string; name: string }[]
   technicians: { id: string; name: string }[]
   linkedInformes?: Informe[]
+  parentTicket?: { id: string; ticketCode: string } | null
 }
 
 // ── doc helpers ────────────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ function fileIcon(mimeType: string | null, name: string): string {
   return '📎'
 }
 
-export function TicketControls({ ticket, staffUsers, technicians, linkedInformes = [] }: Props) {
+export function TicketControls({ ticket, staffUsers, technicians, linkedInformes = [], parentTicket = null }: Props) {
   const router = useRouter()
   // G24: transiciones separadas — un guardado en curso no bloquea las otras
   // acciones ni deja todo el panel en "Guardando…".
@@ -198,16 +199,22 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             <label className="block text-xs text-gray-500 mb-1">
               Estado{statusPending && <span className="ml-1 text-amber-600">· guardando…</span>}
             </label>
-            <select
-              value={ticket.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              disabled={statusPending}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-50"
-            >
-              {ALL_STATUSES.map((s) => (
-                <option key={s} value={s}>{STATUS_LABEL[s as TicketStatusId]}</option>
-              ))}
-            </select>
+            {ticket.status === 'fusionado' ? (
+              <div className="flex h-[34px] items-center rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-500">
+                Fusionado{parentTicket ? ` en ${parentTicket.ticketCode}` : ''} — gestionado desde el portal del cliente
+              </div>
+            ) : (
+              <select
+                value={ticket.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={statusPending}
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-50"
+              >
+                {SELECTABLE_STATUSES.map((s) => (
+                  <option key={s} value={s}>{STATUS_LABEL[s as TicketStatusId]}</option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 

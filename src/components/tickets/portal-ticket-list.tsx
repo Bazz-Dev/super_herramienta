@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { mergeTickets } from '@/app/portal/[slug]/tickets/actions'
 
 export interface PortalTicket {
   id: string
@@ -25,6 +27,7 @@ interface Props {
   cardBg?: string
   textColor?: string
   isAdmin?: boolean
+  isClientAdmin?: boolean
 }
 
 // ── Design tokens (hardcoded — never depend on CSS vars) ──
@@ -137,7 +140,43 @@ function FilterDropdown({ label, options, selected, onChange, primary, cardBg, t
   )
 }
 
-export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C.card, textColor = C.tx, isAdmin }: Props) {
+export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C.card, textColor = C.tx, isAdmin, isClientAdmin }: Props) {
+  const router = useRouter()
+  const [mergeMode, setMergeMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [parentId, setParentId] = useState('')
+  const [confirming, setConfirming] = useState(false)
+  const [merging, startMerge] = useTransition()
+  const [mergeError, setMergeError] = useState('')
+
+  function toggleMergeMode() {
+    setMergeMode(v => !v)
+    setSelected(new Set())
+    setParentId('')
+    setConfirming(false)
+    setMergeError('')
+  }
+  function toggleSelected(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+    setConfirming(false)
+  }
+  function doMerge() {
+    if (!confirming) { setConfirming(true); return }
+    const parent = parentId || [...selected][0]
+    const childIds = [...selected].filter(id => id !== parent)
+    setMergeError('')
+    startMerge(async () => {
+      const res = await mergeTickets(parent, childIds)
+      if (!res.success) { setMergeError('error' in res ? (res.error ?? 'Error al fusionar') : 'Error al fusionar'); return }
+      toggleMergeMode()
+      router.refresh()
+    })
+  }
+
   const [q, setQ]           = useState('')
   const [statuses, setSt]   = useState<Set<string>>(new Set())
   const [urgencies, setUr]  = useState<Set<string>>(new Set())
@@ -253,7 +292,68 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
           <FilterDropdown label="Urgencia" options={[{v:'emergencia',l:'Emergencia'},{v:'urgencia',l:'Urgente'},{v:'no_urgente',l:'Normal'},{v:'preventivo',l:'Preventivo'}]} selected={urgencies} onChange={v => setUr(toggleSet(urgencies, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />
           {allBranches.length > 1 && <FilterDropdown label="Sucursal" options={allBranches.map(b => ({ v: b, l: b }))} selected={branches} onChange={v => setBr(toggleSet(branches, v))} primary={primary} cardBg={cardBg} textColor={textColor} bg={bg} />}
           {hasFilters && <button onClick={clearAll} style={{ padding: '6px 10px', borderRadius: C.r, border: `1px solid ${C.bd2}`, background: cardBg, color: C.t2, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 36, whiteSpace: 'nowrap' }}>× Limpiar</button>}
+          {isClientAdmin && (
+            <button onClick={toggleMergeMode} style={{
+              marginLeft: isMobile ? 0 : 'auto', padding: '6px 12px', borderRadius: C.r,
+              border: `1px solid ${mergeMode ? primary : C.bd2}`,
+              background: mergeMode ? `${primary}18` : cardBg,
+              color: mergeMode ? primary : C.t2,
+              fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', minHeight: 36, whiteSpace: 'nowrap',
+            }}>
+              {mergeMode ? '× Cancelar fusión' : '⚭ Fusionar tickets'}
+            </button>
+          )}
         </div>
+
+        {mergeMode && (
+          <div style={{ marginTop: 8, padding: '10px 12px', background: `${primary}0d`, border: `1px solid ${primary}40`, borderRadius: 10 }}>
+            {selected.size === 0 ? (
+              <p style={{ fontSize: 12, color: C.t2, margin: 0 }}>
+                Selecciona 2 o más tickets abiertos para consolidarlos en uno solo (una OC y un informe técnico para todos).
+              </p>
+            ) : selected.size === 1 ? (
+              <p style={{ fontSize: 12, color: C.t2, margin: 0 }}>Selecciona al menos un ticket más para fusionar.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: textColor }}>{selected.size} seleccionados</span>
+                  <span style={{ fontSize: 12, color: C.t3 }}>· quedan fusionados en:</span>
+                  <select value={parentId || [...selected][0]} onChange={e => setParentId(e.target.value)} style={{
+                    padding: '4px 8px', fontSize: 12, border: `1px solid ${C.bd2}`, borderRadius: C.r,
+                    background: cardBg, color: textColor, fontFamily: 'inherit',
+                  }}>
+                    {[...selected].map(id => {
+                      const t = tickets.find(x => x.id === id)
+                      return <option key={id} value={id}>{t?.ticketCode} — {t?.title}</option>
+                    })}
+                  </select>
+                </div>
+                {confirming && (
+                  <p style={{ fontSize: 12, color: '#b45309', margin: 0, fontWeight: 600 }}>
+                    ⚠ Esto no se puede deshacer solo — cada ticket se puede desfusionar por separado después, uno por uno. ¿Confirmas la fusión?
+                  </p>
+                )}
+                {mergeError && <p style={{ fontSize: 12, color: '#b91c1c', margin: 0 }}>{mergeError}</p>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={doMerge} disabled={merging} style={{
+                    padding: '7px 14px', borderRadius: C.r, border: 'none',
+                    background: confirming ? '#b45309' : primary, color: '#fff',
+                    fontSize: 12, fontWeight: 700, cursor: merging ? 'not-allowed' : 'pointer',
+                    opacity: merging ? 0.6 : 1, fontFamily: 'inherit',
+                  }}>
+                    {merging ? 'Fusionando…' : confirming ? 'Sí, fusionar' : `Fusionar ${selected.size} tickets →`}
+                  </button>
+                  {confirming && (
+                    <button onClick={() => setConfirming(false)} disabled={merging} style={{
+                      padding: '7px 14px', borderRadius: C.r, border: `1px solid ${C.bd2}`,
+                      background: cardBg, color: C.t2, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                    }}>Cancelar</button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Row 2: quick pills */}
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -303,12 +403,32 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
             {sorted.map(t => {
               const isOpen = OPEN.includes(t.status)
               const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
+              const selectable = mergeMode && isOpen
+              const isSelected = selected.has(t.id)
               return (
-                <a key={t.id} href={`/portal/${slug}/tickets/${t.id}`}
-                  style={{ display: 'block', background: cardBg, border: `1px solid ${C.bd}`, borderLeft: `4px solid ${URG_COLOR[t.urgency] ?? C.bd}`, borderRadius: 12, padding: '12px 14px', textDecoration: 'none', boxShadow: C.sh }}>
+                <div key={t.id}
+                  onClick={() => {
+                    if (mergeMode) { if (selectable) toggleSelected(t.id); return }
+                    window.location.href = `/portal/${slug}/tickets/${t.id}`
+                  }}
+                  style={{
+                    display: 'block', cursor: mergeMode && !selectable ? 'default' : 'pointer',
+                    background: isSelected ? `${primary}12` : cardBg,
+                    // borderTop/Right/Bottom en vez del shorthand `border` — mezclarlo con
+                    // borderLeft (el acento de 4px) dispara "Updating a style property
+                    // during rerender" de React cuando el valor cambia entre renders.
+                    borderTop: `1px solid ${isSelected ? primary : C.bd}`,
+                    borderRight: `1px solid ${isSelected ? primary : C.bd}`,
+                    borderBottom: `1px solid ${isSelected ? primary : C.bd}`,
+                    borderLeft: `4px solid ${URG_COLOR[t.urgency] ?? C.bd}`, borderRadius: 12, padding: '12px 14px',
+                    boxShadow: C.sh, opacity: mergeMode && !selectable ? 0.5 : 1,
+                  }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: t.description ? 4 : 6 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</div>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: C.bd2, flexShrink: 0, marginTop: 2 }}><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    {mergeMode && selectable && (
+                      <input type="checkbox" checked={isSelected} readOnly style={{ marginTop: 2, width: 16, height: 16, accentColor: primary, flexShrink: 0 }} />
+                    )}
+                    <div style={{ fontSize: 13, fontWeight: 600, color: textColor, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{t.title}</div>
+                    {!mergeMode && <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: C.bd2, flexShrink: 0, marginTop: 2 }}><path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
                   {t.description && (
                     <div style={{ fontSize: 11, color: C.t3, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
@@ -325,7 +445,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
                   {overdue && (
                     <div style={{ marginTop: 5, fontSize: 10, fontWeight: 700, color: '#ef4444' }}>{Math.abs(daysBetween(t.estimatedDate!))}d vencido</div>
                   )}
-                </a>
+                </div>
               )
             })}
           </div>
@@ -336,6 +456,7 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: `2px solid ${C.bd}`, background: bg }}>
+                    {mergeMode && <th style={{ width: 32 }} />}
                     {([
                       ['code', 'ID'], ['title', 'Título'], ['branch', 'Sucursal'], ['assignedTo', 'Técnico'],
                       ['urgency', 'Urgencia'], ['status', 'Estado'],
@@ -361,13 +482,29 @@ export function PortalTicketList({ tickets, slug, primary, bg = C.bg, cardBg = C
                   {sorted.map((t, i) => {
                     const isOpen = OPEN.includes(t.status)
                     const overdue = t.estimatedDate && daysBetween(t.estimatedDate) < 0 && isOpen
+                    const selectable = mergeMode && isOpen
+                    const isSelected = selected.has(t.id)
                     return (
                       <tr key={t.id}
-                        onClick={() => window.location.href = `/portal/${slug}/tickets/${t.id}`}
-                        style={{ borderBottom: i < filtered.length-1 ? `1px solid ${C.bd}` : 'none', cursor: 'pointer', borderLeft: `3px solid ${URG_COLOR[t.urgency] ?? 'transparent'}`, background: cardBg }}
-                        onMouseEnter={e => (e.currentTarget.style.background = bg)}
-                        onMouseLeave={e => (e.currentTarget.style.background = cardBg)}
+                        onClick={() => {
+                          if (mergeMode) { if (selectable) toggleSelected(t.id); return }
+                          window.location.href = `/portal/${slug}/tickets/${t.id}`
+                        }}
+                        style={{
+                          borderBottom: i < filtered.length-1 ? `1px solid ${C.bd}` : 'none',
+                          cursor: mergeMode && !selectable ? 'default' : 'pointer',
+                          borderLeft: `3px solid ${URG_COLOR[t.urgency] ?? 'transparent'}`,
+                          background: isSelected ? `${primary}12` : cardBg,
+                          opacity: mergeMode && !selectable ? 0.5 : 1,
+                        }}
+                        onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = bg }}
+                        onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = cardBg }}
                       >
+                        {mergeMode && (
+                          <td style={{ padding: '10px 14px' }}>
+                            {selectable && <input type="checkbox" checked={isSelected} readOnly style={{ width: 15, height: 15, accentColor: primary }} />}
+                          </td>
+                        )}
                         <td style={{ padding: '10px 14px' }}>
                           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.t3 }}>{t.ticketCode}</span>
                         </td>

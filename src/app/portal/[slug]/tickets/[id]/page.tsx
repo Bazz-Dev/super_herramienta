@@ -12,6 +12,7 @@ import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalCommentForm } from '@/components/tickets/portal-comment-form'
 import { PortalTicketActions } from '@/components/tickets/portal-ticket-actions'
 import { PortalApprovalActions } from '@/components/tickets/portal-approval-actions'
+import { PortalUnmergeButton } from '@/components/tickets/portal-unmerge-button'
 import { PortalInformeBtn } from '@/components/tickets/portal-informe-btn'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
 import { resolvePortalTheme } from '@/lib/portal-theme'
@@ -122,14 +123,23 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   if (!client) notFound()
   if (!canViewPortal(session, client.id)) redirect(`/portal/${slug}`)
 
+  const isClientAdminEarly = session?.user?.isClientAdmin ?? false
+
   const ticket = await getClientTicket(client.id, id)
   if (!ticket) {
     // Check if the ticket exists but was merged (fusionado) into another
     const merged = await prisma.ticket.findFirst({
       where: { id, clientId: client.id, status: 'fusionado', deletedAt: null },
-      select: { ticketCode: true, title: true, createdAt: true },
+      select: { ticketCode: true, title: true, createdAt: true, parentTicketId: true },
     })
     if (!merged) notFound()
+    // parentTicketId no tiene @relation declarada — se resuelve aparte.
+    const parent = merged.parentTicketId
+      ? await prisma.ticket.findFirst({
+          where: { id: merged.parentTicketId, clientId: client.id, deletedAt: null },
+          select: { id: true, ticketCode: true },
+        })
+      : null
     const mt = resolvePortalTheme(client.portalTheme)
     return (
       <PortalShell slug={slug} clientName={client.name} logoUrl={client.logoUrl} userName={session!.user.name ?? 'Usuario'}
@@ -145,12 +155,26 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
             <h2 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--tx)', margin: '0 0 10px' }}>Solicitud consolidada</h2>
             <p style={{ fontSize: '13px', color: 'var(--t2)', margin: '0 0 6px', lineHeight: '1.65', maxWidth: '360px', marginInline: 'auto' }}>
               Esta solicitud fue consolidada junto a otras similares para atenderse de forma conjunta por el equipo INGEGAR.
-              Si tienes dudas sobre su estado, contáctate directamente con tu ejecutivo.
             </p>
+            {parent ? (
+              <Link href={`/portal/${slug}/tickets/${parent.id}`} className="pbtn pbtn-ghost" style={{ textDecoration: 'none', display: 'inline-block', marginTop: '4px' }}>
+                Ver {parent.ticketCode} →
+              </Link>
+            ) : (
+              <p style={{ fontSize: '13px', color: 'var(--t2)', margin: 0 }}>Si tienes dudas sobre su estado, contáctate directamente con tu ejecutivo.</p>
+            )}
             <p style={{ fontSize: '11px', color: 'var(--t3)', margin: '16px 0 0' }}>
               {merged.ticketCode} · Creada el {new Date(merged.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
+          {isClientAdminEarly && (
+            <div className="pcard" style={{ padding: '16px 18px' }}>
+              <p style={{ fontSize: '12px', color: 'var(--t2)', margin: '0 0 10px' }}>
+                ¿Fusionaste este ticket por error? Podés separarlo de nuevo — vuelve a su estado anterior a la fusión.
+              </p>
+              <PortalUnmergeButton ticketId={id} primary={mt.primary} />
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '16px' }}>
             <Link href={`/portal/${slug}/tickets`} className="pbtn pbtn-ghost" style={{ textDecoration: 'none' }}>← Volver a mis solicitudes</Link>
           </div>
@@ -167,8 +191,9 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   }
 
   // Pre-sign document URLs (1h expiry) + informes técnicos vinculados (FK real,
-  // ver G2) — ninguna depende de la otra, antes se esperaban en serie.
-  const [signedDocs, linkedInformes] = await Promise.all([
+  // ver G2) + tickets fusionados en este (parentTicketId, sin @relation
+  // declarada) — ninguna depende de otra, antes se esperaban en serie.
+  const [signedDocs, linkedInformes, mergedChildren] = await Promise.all([
     Promise.all(
       ticket.documents.map(async (doc) => ({
         ...doc,
@@ -179,6 +204,11 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
       where: { clientId: client.id, type: 'informe', ticketId: id },
       select: { id: true, title: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
+    }),
+    prisma.ticket.findMany({
+      where: { parentTicketId: id, clientId: client.id, deletedAt: null },
+      select: { id: true, ticketCode: true, title: true },
+      orderBy: { ticketCode: 'asc' },
     }),
   ])
 
@@ -333,6 +363,29 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
                 <p style={{ fontSize: '14px', color: 'var(--tx)', lineHeight: '1.65', whiteSpace: 'pre-wrap', margin: 0 }}>{ticket.clientComment}</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── FUSIONADOS EN ESTE ──────────────────────────────────────── */}
+        {mergedChildren.length > 0 && (
+          <div className="pcard" style={{ padding: '18px 20px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+              Tickets fusionados en este ({mergedChildren.length})
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {mergedChildren.map(c => (
+                <Link key={c.id} href={`/portal/${slug}/tickets/${c.id}`} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px',
+                  padding: '8px 10px', background: 'var(--bg)', borderRadius: '8px', textDecoration: 'none',
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ fontSize: '10px', fontFamily: 'ui-monospace, monospace', color: 'var(--t3)' }}>{c.ticketCode}</span>
+                    <p style={{ fontSize: '13px', color: 'var(--tx)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</p>
+                  </div>
+                  <span style={{ fontSize: '11px', color: acc, fontWeight: '600', flexShrink: 0 }}>Ver →</span>
+                </Link>
+              ))}
+            </div>
           </div>
         )}
 

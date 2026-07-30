@@ -5,7 +5,7 @@ import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
 import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
-import type { TicketUrgency } from '@/generated/prisma/enums'
+import type { TicketUrgency, TicketStatus } from '@/generated/prisma/enums'
 import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 
 export async function createPortalTicket(fd: FormData) {
@@ -320,6 +320,124 @@ export async function addPortalComment(
 
   revalidatePath(`/portal/${ticket.client?.portalSlug ?? ''}/tickets/${ticketId}`)
   revalidatePath(`/tickets/${ticketId}`)
+
+  return { success: true }
+}
+
+// Fusionar/desfusionar es 100% del cliente (admin del cliente, portal) — ver
+// .claude/rules/data.md sobre Ticket.parentTicketId (sin @relation
+// declarada, se resuelve con queries propias). No hay contraparte en
+// INGEGAR One: el equipo solo lo ve de forma informativa en el detalle del
+// ticket (ver-controls.tsx), nunca lo dispara.
+
+const NOT_MERGEABLE: TicketStatus[] = ['resuelto', 'cancelado', 'fusionado']
+
+export async function mergeTickets(parentId: string, childIds: string[]) {
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'client' || !session.user.isClientAdmin) return { success: false }
+  const clientId = session.user.clientId ?? ''
+  const ids = [...new Set(childIds)].filter((id) => id !== parentId)
+  if (ids.length === 0) return { success: false, error: 'Selecciona al menos 2 tickets' }
+
+  const tickets = await prisma.ticket.findMany({
+    where: { id: { in: [parentId, ...ids] }, clientId, deletedAt: null },
+    select: { id: true, ticketCode: true, status: true, tenantId: true, client: { select: { portalSlug: true } } },
+  })
+  const parent = tickets.find((t) => t.id === parentId)
+  const children = tickets.filter((t) => ids.includes(t.id))
+  if (!parent || children.length !== ids.length) return { success: false, error: 'Ticket no encontrado' }
+  if (NOT_MERGEABLE.includes(parent.status as TicketStatus) || children.some((c) => NOT_MERGEABLE.includes(c.status as TicketStatus))) {
+    return { success: false, error: 'Solo se pueden fusionar tickets abiertos' }
+  }
+
+  await Promise.all(children.map((child) =>
+    prisma.$transaction([
+      prisma.ticket.update({
+        where: { id: child.id },
+        data: { status: 'fusionado', parentTicketId: parentId },
+      }),
+      prisma.ticketHistory.create({
+        data: {
+          ticketId: child.id,
+          userId: session.user.id,
+          fromStatus: child.status,
+          toStatus: 'fusionado',
+          note: `Fusionado por el cliente en ${parent.ticketCode}`,
+          isInternal: false,
+        },
+      }),
+    ]),
+  ))
+
+  await notifyTenantStaff(parent.tenantId, {
+    type: 'ticket_update',
+    title: `${children.length} ticket(s) fusionados`,
+    body: `El cliente fusionó ${children.length} ticket(s) en ${parent.ticketCode}`,
+    href: `/tickets/${parentId}`,
+  }).catch(() => {})
+
+  const portalSlug = parent.client?.portalSlug ?? ''
+  revalidatePath(`/portal/${portalSlug}/tickets`)
+  revalidatePath('/tickets')
+  for (const c of children) {
+    revalidatePath(`/portal/${portalSlug}/tickets/${c.id}`)
+    revalidatePath(`/tickets/${c.id}`)
+  }
+  revalidatePath(`/tickets/${parentId}`)
+
+  return { success: true }
+}
+
+export async function unmergeTicket(childId: string) {
+  const session = await auth()
+  if (!session?.user || session.user.role !== 'client' || !session.user.isClientAdmin) return { success: false }
+  const clientId = session.user.clientId ?? ''
+
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: childId, clientId, status: 'fusionado', deletedAt: null },
+    select: { id: true, tenantId: true, client: { select: { portalSlug: true } } },
+  })
+  if (!ticket) return { success: false, error: 'Ticket no encontrado o no está fusionado' }
+
+  // El status real previo a la fusión quedó guardado en el fromStatus de la
+  // entrada de historial que la propia fusión creó — se recupera de ahí en
+  // vez de asumir un valor fijo.
+  const lastMerge = await prisma.ticketHistory.findFirst({
+    where: { ticketId: childId, toStatus: 'fusionado' },
+    orderBy: { createdAt: 'desc' },
+    select: { fromStatus: true },
+  })
+  const restoredStatus = (lastMerge?.fromStatus ?? 'nuevo') as TicketStatus
+
+  await prisma.$transaction([
+    prisma.ticket.update({
+      where: { id: childId },
+      data: { status: restoredStatus, parentTicketId: null },
+    }),
+    prisma.ticketHistory.create({
+      data: {
+        ticketId: childId,
+        userId: session.user.id,
+        fromStatus: 'fusionado',
+        toStatus: restoredStatus,
+        note: 'Desfusionado por el cliente',
+        isInternal: false,
+      },
+    }),
+  ])
+
+  await notifyTenantStaff(ticket.tenantId, {
+    type: 'ticket_update',
+    title: 'Ticket desfusionado',
+    body: 'El cliente deshizo una fusión de tickets',
+    href: `/tickets/${childId}`,
+  }).catch(() => {})
+
+  const portalSlug = ticket.client?.portalSlug ?? ''
+  revalidatePath(`/portal/${portalSlug}/tickets`)
+  revalidatePath(`/portal/${portalSlug}/tickets/${childId}`)
+  revalidatePath('/tickets')
+  revalidatePath(`/tickets/${childId}`)
 
   return { success: true }
 }

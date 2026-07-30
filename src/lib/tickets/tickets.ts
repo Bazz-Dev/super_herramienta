@@ -125,7 +125,10 @@ export async function getClientTickets(clientId: string, branchId?: string | nul
 
 export async function getClientTicket(clientId: string, ticketId: string) {
   const t = await prisma.ticket.findFirst({
-    where: { id: ticketId, clientId, showToClient: true },
+    // fusionado se excluye acá — el caller (portal/[slug]/tickets/[id]/page.tsx)
+    // depende de que esto devuelva null para caer a su pantalla especial de
+    // "Solicitud consolidada" en vez de mostrar el ticket como si nada.
+    where: { id: ticketId, clientId, showToClient: true, status: { not: 'fusionado' } },
     include: {
       branch: { select: { id: true, name: true, city: true } },
       assignedTo: { select: { id: true, name: true } },

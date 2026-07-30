@@ -65,6 +65,11 @@ export const KANBAN_COLUMNS: { status: TicketStatusId; label: string; color: str
 ]
 
 export const ALL_STATUSES = Object.keys(STATUS_LABEL) as TicketStatusId[]
+// Fusionado se saca del selector genérico de Estado — solo se llega a ese
+// estado a través del flujo real de fusión del cliente (portal), que además
+// pide el ticket destino y guarda cómo revertirlo. Elegirlo a mano acá
+// dejaba el ticket "fusionado" sin destino y sin forma de encontrarlo.
+export const SELECTABLE_STATUSES = ALL_STATUSES.filter((s) => s !== 'fusionado')
 export const ALL_URGENCIES = Object.keys(URGENCY_LABEL) as TicketUrgencyId[]
 
 // Lower = shown first in list views

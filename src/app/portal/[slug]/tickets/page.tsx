@@ -90,7 +90,7 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
       )}
 
       <PortalTicketList tickets={tickets} slug={slug} primary={theme.primary}
-        bg={theme.bg} cardBg={theme.card} textColor={theme.text} isAdmin={isStaff} />
+        bg={theme.bg} cardBg={theme.card} textColor={theme.text} isAdmin={isStaff} isClientAdmin={isClientAdmin} />
     </PortalShell>
   )
 }

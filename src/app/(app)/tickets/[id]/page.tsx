@@ -50,6 +50,21 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   ])
   if (!ticket) notFound()
 
+  // parentTicketId no tiene @relation declarada en el schema (ver
+  // .claude/rules/data.md) — se resuelve con queries propias. Fusionar
+  // tickets es 100% un flujo del cliente (portal) ahora; acá solo se
+  // muestra de forma informativa, sin control para editarlo.
+  const [parentTicket, childTickets] = await Promise.all([
+    ticket.parentTicketId
+      ? prisma.ticket.findUnique({ where: { id: ticket.parentTicketId }, select: { id: true, ticketCode: true } })
+      : Promise.resolve(null),
+    prisma.ticket.findMany({
+      where: { parentTicketId: id },
+      select: { id: true, ticketCode: true, title: true },
+      orderBy: { ticketCode: 'asc' },
+    }),
+  ])
+
   const linkedInformes = allInformes.map(d => ({
     id: d.id,
     title: d.title,
@@ -109,6 +124,17 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               <div className="mt-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
                 <p className="mb-0.5 text-xs font-semibold text-blue-600">Comentario del cliente</p>
                 <p className="text-sm text-blue-800">{ticket.clientComment}</p>
+              </div>
+            )}
+            {parentTicket && (
+              <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <p className="text-sm text-gray-600">
+                  Este ticket fue fusionado por el cliente en{' '}
+                  <Link href={`/tickets/${parentTicket.id}`} className="font-semibold text-brand-700 hover:underline">
+                    {parentTicket.ticketCode}
+                  </Link>
+                  . Se gestiona desde ahí — para revertirlo, el cliente puede desfusionarlo en su portal.
+                </p>
               </div>
             )}
           </div>
@@ -243,6 +269,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             staffUsers={staffUsers}
             technicians={technicians}
             linkedInformes={linkedInformes}
+            parentTicket={parentTicket}
           />
         </div>
 
@@ -274,6 +301,29 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                   className="ml-3 shrink-0 text-xs font-semibold text-brand hover:underline"
                 >
                   Ver trabajo →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Tickets fusionados en este por el cliente */}
+      {childTickets.length > 0 && (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Tickets fusionados en este</h2>
+            <span className="text-xs text-gray-400">{childTickets.length} ticket{childTickets.length > 1 ? 's' : ''}</span>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {childTickets.map((c) => (
+              <div key={c.id} className="flex items-center justify-between py-2.5 text-sm">
+                <div className="min-w-0">
+                  <p className="font-mono text-xs text-gray-400">{c.ticketCode}</p>
+                  <p className="truncate font-medium text-gray-800">{c.title}</p>
+                </div>
+                <Link href={`/tickets/${c.id}`} className="ml-3 shrink-0 text-xs font-semibold text-brand hover:underline">
+                  Ver ticket →
                 </Link>
               </div>
             ))}

@@ -25,7 +25,9 @@ export default async function TicketsPage() {
       orderBy: { name: 'asc' },
     }),
     prisma.ticket.findMany({
-      where: { tenantId: actor.tenantId, status: { in: ['resuelto', 'cancelado'] } },
+      // fusionado vive acá también — antes no aparecía en ninguna pestaña
+      // (ni Activos ni Cerrados), imposible de encontrar salvo por URL directa.
+      where: { tenantId: actor.tenantId, status: { in: ['resuelto', 'cancelado', 'fusionado'] } },
       select: {
         id: true, ticketCode: true, title: true, description: true, status: true, closedDate: true,
         client: { select: { name: true } },
