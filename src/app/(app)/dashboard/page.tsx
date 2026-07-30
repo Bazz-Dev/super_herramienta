@@ -130,7 +130,7 @@ export default async function DashboardPage({
   ] = await Promise.all([
     prisma.technician.findMany({
       where: { ...scope, active: true },
-      select: { id: true, name: true, vehicle: { select: { id: true } } },
+      select: { id: true, name: true, specialty: true, vehicle: { select: { id: true } } },
     }),
     prisma.vehicle.findMany({
       where: scope,
@@ -138,7 +138,11 @@ export default async function DashboardPage({
     }),
     prisma.ticket.findMany({
       where: { ...scope, status: { notIn: ['resuelto', 'cancelado', 'fusionado'] } },
-      select: { id: true, status: true, urgency: true, assignedToId: true, client: { select: { name: true } }, assignedTo: { select: { name: true } } },
+      // assignedTo.technicianId: Ticket.assignedToId apunta a User, no a
+      // Technician (ver .claude/rules/data.md) — puede ser un supervisor
+      // autoasignado, no siempre un técnico real. Se resuelve el link a la
+      // ficha (y la especialidad) solo cuando technicianId existe.
+      select: { id: true, status: true, urgency: true, estimatedDate: true, assignedToId: true, client: { select: { name: true } }, assignedTo: { select: { name: true, technicianId: true } } },
     }),
     prisma.job.aggregate({
       where: { ...scope, collectionStatus: { in: ['pendiente_pago', 'sin_oc'] } },
@@ -186,23 +190,38 @@ export default async function DashboardPage({
   const facturadoDeltaPct = periodMetrics && prevPeriodMetrics ? pctDelta(periodMetrics.facturado, prevPeriodMetrics.facturado) : null
   const resolvedDeltaPct = from ? pctDelta(resolvedCount, prevResolvedCount) : null
 
-  // Tickets activos por técnico — misma convención tabla+barra que
-  // computeMonthlyTrend/MonthlyTrend en cashflow (sin librería de gráficos).
-  const workloadMap = new Map<string, number>()
+  const now = new Date()
+
+  // Tickets activos por técnico — antes agrupaba por assignedTo.name (string):
+  // dos personas con el mismo nombre real habrían colisionado en la misma
+  // fila. Agrupa por assignedToId (User.id, el dato real y único) — el
+  // asignado puede ser un supervisor autoasignado, no siempre un técnico,
+  // así que el link a la ficha y la especialidad solo se resuelven cuando
+  // hay un Technician real detrás (assignedTo.technicianId).
+  const specialtyByTechId = new Map(technicians.map((t) => [t.id, t.specialty]))
+  const workloadMap = new Map<string, { name: string; technicianId: string | null; count: number; overdue: number }>()
   for (const t of openTickets) {
-    if (!t.assignedTo) continue
-    workloadMap.set(t.assignedTo.name, (workloadMap.get(t.assignedTo.name) ?? 0) + 1)
+    if (!t.assignedToId || !t.assignedTo) continue
+    const entry = workloadMap.get(t.assignedToId) ?? { name: t.assignedTo.name, technicianId: t.assignedTo.technicianId, count: 0, overdue: 0 }
+    entry.count++
+    if (t.estimatedDate && new Date(t.estimatedDate).getTime() < now.getTime()) entry.overdue++
+    workloadMap.set(t.assignedToId, entry)
   }
   const techWorkload = [...workloadMap.entries()]
-    .map(([name, count]) => ({ name, count }))
+    .map(([userId, w]) => ({
+      userId,
+      technicianId: w.technicianId,
+      name: w.name,
+      specialty: w.technicianId ? specialtyByTechId.get(w.technicianId) : null,
+      count: w.count,
+      overdue: w.overdue,
+    }))
     .sort((a, b) => b.count - a.count)
-  const maxTechCount = techWorkload[0]?.count ?? 1
 
   const vehicleAlerts = expiryAlerts(vehicles)
   const techDocAlerts = technicianDocAlerts(technicianDocs)
   const unassigned = openTickets.filter(t => !t.assignedToId)
   const emergencias = openTickets.filter(t => t.urgency === 'emergencia')
-  const now = new Date()
 
   const overdueJobs = attentionJobs.filter(j => isOverdueV2(j, now))
   const overdueAmount = overdueJobs.reduce((s, j) => s + (j.netAmount ?? 0), 0)
@@ -313,7 +332,7 @@ export default async function DashboardPage({
           <Suspense fallback={null}><DateRangeFilter basePath="/dashboard" desde={desde} hasta={hasta} /></Suspense>
         </div>
         {periodMetrics ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <KpiCard
               label="Facturado"
               value={clp(periodMetrics.facturado)}
@@ -324,29 +343,60 @@ export default async function DashboardPage({
               value={String(resolvedCount)}
               delta={resolvedDeltaPct != null ? { pct: resolvedDeltaPct, label: deltaLabel } : undefined}
             />
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">Tickets activos por técnico</p>
-              {techWorkload.length === 0 ? (
-                <p className="text-xs text-gray-400">Sin tickets activos asignados.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {techWorkload.slice(0, 5).map((t) => (
-                    <li key={t.name} className="flex items-center gap-2 text-xs">
-                      <span className="w-20 shrink-0 truncate text-gray-600">{t.name}</span>
-                      <div className="h-2 flex-1 rounded-full bg-gray-100">
-                        <div className="h-2 rounded-full bg-brand" style={{ width: `${(t.count / maxTechCount) * 100}%` }} />
-                      </div>
-                      <span className="w-4 shrink-0 text-right font-semibold text-ink">{t.count}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
           </div>
         ) : (
           <p className="text-sm text-gray-400">Elige un período específico (no &quot;Todo&quot;) para ver facturación y tickets resueltos comparados contra el período anterior.</p>
         )}
       </div>
+
+      {/* Carga por técnico — antes vivía adentro de "Resumen del período" como
+          tabla+barra agrupada por nombre en texto, lo que (a) la escondía
+          por completo si el filtro estaba en "Todo" pese a no depender del
+          período, y (b) habría colisionado dos técnicos con el mismo
+          nombre. Ahora es su propia sección siempre visible, con cards que
+          reusan el lenguaje visual ya establecido en /recursos/tecnicos
+          (avatar de iniciales + stat), agrupada por técnico real
+          (assignedToId), con link directo a la ficha completa. */}
+      {techWorkload.length > 0 && (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">Carga por técnico</h2>
+            <span className="text-xs text-gray-400">{techWorkload.length} con tickets activos</span>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {techWorkload.map((t) => {
+              const cardClass = `flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm transition-shadow ${t.technicianId ? 'hover:shadow-md' : ''}`
+              const cardBody = (
+                <>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand/10 text-sm font-bold text-brand">
+                    {t.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink">{t.name}</p>
+                    <p className="truncate text-xs text-gray-400">{t.specialty ?? (t.technicianId ? 'Sin especialidad' : 'Staff')}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {t.overdue > 0 && (
+                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600">
+                        {t.overdue} vencido{t.overdue > 1 ? 's' : ''}
+                      </span>
+                    )}
+                    <span className="flex flex-col items-center rounded-md bg-gray-50 px-2 py-1">
+                      <span className="text-sm font-bold text-ink">{t.count}</span>
+                      <span className="text-[9px] uppercase tracking-wide text-gray-400">activos</span>
+                    </span>
+                  </div>
+                </>
+              )
+              return t.technicianId ? (
+                <Link key={t.userId} href={`/recursos/tecnicos/${t.technicianId}`} className={cardClass}>{cardBody}</Link>
+              ) : (
+                <div key={t.userId} className={cardClass}>{cardBody}</div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Detalle de las excepciones — mismos datos de "Requiere tu atención"
           pero con el ítem concreto para actuar directo desde acá. */}
