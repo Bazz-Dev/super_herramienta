@@ -29,7 +29,7 @@ export default async function InformePage({ searchParams }: Props) {
         // se re-usan acá para no obligar a subirlas dos veces al armar el informe.
         documents: {
           where: { mimeType: { startsWith: 'image/' } },
-          select: { id: true, name: true },
+          select: { id: true, name: true, fileUrl: true },
           orderBy: { uploadedAt: 'asc' },
         },
       },

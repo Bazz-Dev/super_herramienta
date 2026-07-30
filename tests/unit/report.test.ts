@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pdf } from 'pdf-to-img'
+import { PDFDocument } from 'pdf-lib'
 import { generateReportPdf } from '../../src/lib/reports/pdf.ts'
 import { sampleReport } from '../../src/lib/reports/sample.ts'
 import { renderReportHTML } from '../../src/lib/reports/template'
@@ -10,8 +10,8 @@ const TIMEOUT = 60_000
 const IMG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 
 async function pageCount(buf: Buffer): Promise<number> {
-  const doc = await pdf(buf)
-  return doc.length
+  const doc = await PDFDocument.load(buf)
+  return doc.getPageCount()
 }
 
 function isPdf(buf: Buffer): boolean {

@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url)
   const key = searchParams.get('key')
-  const type = searchParams.get('type') as 'ticket' | 'technician' | 'company' | 'job' | null
+  const type = searchParams.get('type') as 'ticket' | 'technician' | 'company' | 'job' | 'client-editor' | null
 
   if (!key || !type) {
     return NextResponse.json({ error: 'Missing key or type' }, { status: 400 })
@@ -33,7 +33,16 @@ export async function GET(req: NextRequest) {
   const { tenantId, role } = session.user
 
   // Verify the requesting user actually owns a document with this key
-  if (type === 'ticket') {
+  if (type === 'client-editor') {
+    // Fotos/OT recién subidas desde el editor de Informe Técnico — todavía no
+    // son un ClientDocument (eso ocurre recién al "Guardar en cliente"), así
+    // que no hay fila de dueño que verificar; el gate es el mismo que ya usa
+    // /api/client-documents y /api/client-documents/upload-url para esta
+    // función (staff del tenant, sin excepción por cliente puntual).
+    if (role !== 'super' && role !== 'supervisor') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  } else if (type === 'ticket') {
     const clientId = session.user.clientId
     const ticketFilter =
       role === 'super'  ? undefined :

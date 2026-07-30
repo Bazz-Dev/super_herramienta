@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { ReportData } from '@/lib/reports/types'
 import { renderReportHTML } from '@/lib/reports/template'
 import { fileToDataUrl } from '@/lib/quotes/image-data-url'
+import { previewSrc } from '@/lib/reports/resolve-preview-url'
 import { DownloadReportButton } from './download-report-button'
 import { SaveDocumentButton } from '@/components/quotes/save-document-button'
 import { ReportPhotosEditor } from './report-photos-editor'
@@ -13,7 +14,7 @@ import { ExternalLinkIcon, ImageIcon, PlusIcon, TrashIcon, ZoomInIcon, ZoomOutIc
 import { Field, IconButton, SectionCard, TextArea, TextInput } from '@/components/quotes/ui'
 
 interface ClientOption { id: string; name: string }
-interface TicketPhoto { id: string; name: string }
+interface TicketPhoto { id: string; name: string; fileUrl: string }
 interface TicketOption {
   id: string; ticketCode: string; title: string
   otNumber: string | null; otFileUrl: string | null; clientId: string; clientName: string; branchName: string
@@ -43,17 +44,29 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
   // rasteriza la página 1 si hace falta) porque Chromium no puede incrustar
   // un PDF dentro de otro PDF al generar el informe. Si el ticket ya tiene
   // OT guardada se carga sola; si no, se puede adjuntar aquí mismo.
+  //
+  // otImageUrl guarda una KEY DE R2, no el binario embebido en data: URI —
+  // ese embebido (vigente hasta esta sesión) era lo que hacía que guardar el
+  // informe o generar el PDF mandara un body de varios MB y Vercel lo cortara
+  // con 413 (límite de plataforma ~4.5MB por request, no configurable). Se
+  // baja la imagen ya rasterizada (una respuesta, no cuenta como body de
+  // subida) y se re-sube a R2 (multipart, un archivo chico) — dos saltos
+  // livianos en vez de un blob gigante en el JSON.
   const [otBusy, setOtBusy] = useState(false)
   const [otError, setOtError] = useState<string | null>(null)
   const [otIsPdf, setOtIsPdf] = useState(false)
 
-  async function fetchOTAsDataUrl(ticketId: string, isPdf: boolean) {
+  async function persistOTAsR2Key(ticketId: string, clientId: string): Promise<string> {
     const res = await fetch(`/api/tickets/${ticketId}/ot-photo?as=image`)
     if (!res.ok) throw new Error()
     const blob = await res.blob()
-    const file = new File([blob], isPdf ? 'ot.png' : 'ot.jpg', { type: blob.type || 'image/png' })
-    set({ otImageUrl: await fileToDataUrl(file) })
-    setOtIsPdf(isPdf)
+    const fd = new FormData()
+    fd.set('clientId', clientId)
+    fd.set('file', new File([blob], 'ot.png', { type: blob.type || 'image/png' }))
+    const uploadRes = await fetch('/api/client-documents/upload-url', { method: 'POST', body: fd })
+    if (!uploadRes.ok) throw new Error()
+    const { key } = (await uploadRes.json()) as { key: string }
+    return key
   }
 
   async function loadTicketOT(ticket: TicketOption | undefined) {
@@ -61,7 +74,9 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
     setOtBusy(true)
     setOtError(null)
     try {
-      await fetchOTAsDataUrl(ticket.id, ticket.otFileUrl.toLowerCase().endsWith('.pdf'))
+      const key = await persistOTAsR2Key(ticket.id, ticket.clientId)
+      set({ otImageUrl: key })
+      setOtIsPdf(ticket.otFileUrl.toLowerCase().endsWith('.pdf'))
     } catch {
       setOtError('No se pudo cargar la OT guardada en el ticket.')
     } finally {
@@ -79,8 +94,9 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
     setOtError(null)
 
     if (!isPdf && !selectedTicketId) {
-      // Sin ticket vinculado, una imagen se puede usar directo en este informe
-      // (no hay dónde persistirla para la próxima vez).
+      // Sin ticket vinculado no hay dónde persistir en R2 todavía — se usa
+      // embebida como antes (caso poco común: una sola foto, no arma el
+      // problema de tamaño que sí arma el flujo normal con ticket).
       try {
         set({ otImageUrl: await fileToDataUrl(file) })
         setOtIsPdf(false)
@@ -100,7 +116,9 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
       return
     }
     try {
-      await fetchOTAsDataUrl(selectedTicketId, isPdf)
+      const key = await persistOTAsR2Key(selectedTicketId, selectedClientId)
+      set({ otImageUrl: key })
+      setOtIsPdf(isPdf)
     } catch {
       setOtError('La OT quedó guardada en el ticket, pero no se pudo generar la vista previa.')
     } finally {
@@ -112,29 +130,16 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
   // importan una sola vez por documento (Set de ids ya importados) para que
   // re-seleccionar el mismo ticket en el dropdown no las duplique.
   const [importedPhotoIds, setImportedPhotoIds] = useState<Set<string>>(new Set())
-  const [photosImporting, setPhotosImporting] = useState(false)
 
-  async function loadTicketPhotos(ticket: TicketOption | undefined) {
+  function loadTicketPhotos(ticket: TicketOption | undefined) {
     const toImport = ticket?.photos.filter((p) => !importedPhotoIds.has(p.id)) ?? []
     if (toImport.length === 0 || !ticket) return
     setImportedPhotoIds((prev) => new Set([...prev, ...toImport.map((p) => p.id)]))
-    setPhotosImporting(true)
-    const imported = await Promise.all(toImport.map(async (p) => {
-      try {
-        // Bytes server-side directos (no redirect a R2) — un fetch() a un
-        // redirect cross-origin necesita CORS en el bucket; esta ruta lo evita.
-        const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${p.id}`)
-        if (!res.ok) return null
-        const blob = await res.blob()
-        const file = new File([blob], p.name, { type: blob.type || 'image/jpeg' })
-        return { url: await fileToDataUrl(file), caption: p.name }
-      } catch {
-        return null
-      }
-    }))
-    setPhotosImporting(false)
-    const valid = imported.filter((p): p is { url: string; caption: string } => p !== null)
-    if (valid.length > 0) setData((d) => ({ ...d, photos: [...d.photos, ...valid] }))
+    // p.fileUrl ya es la key de R2 del documento del ticket — se referencia
+    // directo (sin bajar bytes ni volver a subir) en vez de convertir a
+    // data: URI, que era el mismo problema de tamaño que otImageUrl.
+    const imported = toImport.map((p) => ({ url: p.fileUrl, caption: p.name }))
+    setData((d) => ({ ...d, photos: [...d.photos, ...imported] }))
   }
 
   // Carga la foto de la OT desde el ticket vinculado (fetch a R2 vía la API) — external-system
@@ -146,9 +151,20 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const [html, setHtml] = useState(() => renderReportHTML(initial))
+  // La vista previa (navegador, con cookie de sesión) resuelve keys de R2 a
+  // /api/files?...; el estado real (data) que viaja a guardar/generar PDF
+  // mantiene la key cruda — nunca se reemplaza ahí, solo en esta copia.
+  function toPreviewData(d: ReportData): ReportData {
+    return {
+      ...d,
+      otImageUrl: previewSrc(d.otImageUrl),
+      photos: d.photos.map((p) => ({ ...p, url: previewSrc(p.url) })),
+    }
+  }
+
+  const [html, setHtml] = useState(() => renderReportHTML(toPreviewData(initial)))
   useEffect(() => {
-    const t = setTimeout(() => setHtml(renderReportHTML(data)), 250)
+    const t = setTimeout(() => setHtml(renderReportHTML(toPreviewData(data))), 250)
     return () => clearTimeout(t)
   }, [data])
 
@@ -231,7 +247,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
             ) : data.otImageUrl ? (
               <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={data.otImageUrl} alt="Orden de trabajo" className="h-16 w-16 rounded object-cover" />
+                <img src={previewSrc(data.otImageUrl)} alt="Orden de trabajo" className="h-16 w-16 rounded object-cover" />
                 <span className="flex-1 text-xs text-gray-500">
                   {otIsPdf ? 'PDF escaneado' : 'Foto'} · se incluirá al final del PDF.
                 </span>
@@ -275,8 +291,8 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
           <SectionsEditor sections={data.sections} onChange={(sections) => set({ sections })} />
         </SectionCard>
 
-        <SectionCard title="Registro fotográfico" description={photosImporting ? 'Importando fotos ya subidas al ticket…' : 'Fotos del trabajo en terreno'} icon={<ImageIcon />}>
-          <ReportPhotosEditor photos={data.photos} onChange={(photos) => set({ photos })} />
+        <SectionCard title="Registro fotográfico" description="Fotos del trabajo en terreno" icon={<ImageIcon />}>
+          <ReportPhotosEditor photos={data.photos} onChange={(photos) => set({ photos })} clientId={selectedClientId} />
         </SectionCard>
 
         <SectionCard title="Datos de contacto (pie)" description="Aparecen en el pie del documento">

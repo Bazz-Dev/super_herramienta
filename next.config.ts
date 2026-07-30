@@ -25,9 +25,6 @@ const nextConfig: NextConfig = {
     '@sparticuz/chromium',
     'playwright-core',
     'playwright',
-    'pdf-to-img',
-    'pdfjs-dist',
-    '@napi-rs/canvas',
   ],
   // Force the serverless function to include files Next's tracing misses:
   //  - @sparticuz/chromium binary (bin/*.br) → otherwise executablePath is missing
@@ -43,10 +40,13 @@ const nextConfig: NextConfig = {
       './node_modules/playwright-core/**',
     ],
     '/api/tickets/[id]/ot-photo': [
-      './node_modules/pdf-to-img/**',
-      './node_modules/pdfjs-dist/**',
-      './node_modules/@napi-rs/canvas/**',
-      './node_modules/@napi-rs/canvas-linux-x64-gnu/**',
+      './node_modules/@sparticuz/chromium/**',
+      './node_modules/playwright-core/**',
+      // pdf.js se lee como archivo estático (readFile + require.resolve) para
+      // correrlo dentro de la página de Chromium — la ruta se arma en
+      // runtime, así que el tracing estático de Turbopack no la sigue sola.
+      './node_modules/pdfjs-dist/build/pdf.min.mjs',
+      './node_modules/pdfjs-dist/build/pdf.worker.min.mjs',
     ],
   },
 }

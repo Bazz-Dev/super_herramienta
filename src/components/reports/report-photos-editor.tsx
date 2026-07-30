@@ -3,15 +3,18 @@
 import { useState } from 'react'
 import type { ReportPhoto } from '@/lib/reports/types'
 import { fileToDataUrl } from '@/lib/quotes/image-data-url'
+import { previewSrc } from '@/lib/reports/resolve-preview-url'
 import { PlusIcon, TrashIcon } from '@/components/quotes/icons'
 import { IconButton, TextInput } from '@/components/quotes/ui'
 
 export function ReportPhotosEditor({
   photos,
   onChange,
+  clientId,
 }: {
   photos: ReportPhoto[]
   onChange: (next: ReportPhoto[]) => void
+  clientId?: string
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,7 +23,11 @@ export function ReportPhotosEditor({
     setBusy(true)
     setError(null)
     try {
-      const urls = await Promise.all(Array.from(files).map(fileToDataUrl))
+      const urls = clientId
+        ? await Promise.all(Array.from(files).map((file) => uploadToClientDocs(file, clientId)))
+        // Sin cliente todavía (informe sin ticket vinculado) no hay dónde
+        // persistir en R2 — se guarda embebida como antes, caso poco común.
+        : await Promise.all(Array.from(files).map(fileToDataUrl))
       onChange([...photos, ...urls.map((url) => ({ url, caption: '' }))])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al subir')
@@ -40,7 +47,7 @@ export function ReportPhotosEditor({
           {photos.map((photo, i) => (
             <div key={i} className="rounded-lg border border-gray-200 p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photo.url} alt={photo.caption || 'Registro fotográfico'} className="h-24 w-full rounded object-cover" />
+              <img src={previewSrc(photo.url)} alt={photo.caption || 'Registro fotográfico'} className="h-24 w-full rounded object-cover" />
               <div className="mt-1.5 flex items-center gap-1">
                 <TextInput
                   value={photo.caption}
@@ -77,4 +84,17 @@ export function ReportPhotosEditor({
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   )
+}
+
+// Sube el archivo a R2 (misma ruta que el drag-and-drop de /documentos) y
+// devuelve la key — nunca el binario embebido en el estado del editor, que es
+// justo lo que terminaba mandándose por HTTP en el body de guardar/generar PDF.
+async function uploadToClientDocs(file: File, clientId: string): Promise<string> {
+  const fd = new FormData()
+  fd.set('clientId', clientId)
+  fd.set('file', file)
+  const res = await fetch('/api/client-documents/upload-url', { method: 'POST', body: fd })
+  if (!res.ok) throw new Error(`Error al subir ${file.name}`)
+  const { key } = (await res.json()) as { key: string }
+  return key
 }
