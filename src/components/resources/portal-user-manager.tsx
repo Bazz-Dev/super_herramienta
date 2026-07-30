@@ -9,6 +9,7 @@ import {
   type UpdatePortalUserFormState,
 } from '@/app/(app)/recursos/clientes/actions'
 import { RevealedCredential } from '@/components/ui/revealed-credential'
+import { CollapsibleSection } from '@/components/ui/collapsible-section'
 
 interface PortalUser {
   id: string
@@ -229,9 +230,15 @@ export function PortalUserManager({
       {users.length === 0 ? (
         <p className="text-xs text-gray-400 italic">Sin usuarios autorizados todavía.</p>
       ) : (
-        <div className="space-y-1">
-          {users.map((u) => <PortalUserRow key={u.id} u={u} />)}
-        </div>
+        <CollapsibleSection
+          title="Ver usuarios"
+          summary={`${users.length} · ${users.filter((u) => u.active).length} activos`}
+          defaultOpen={users.length <= 6}
+        >
+          <div className="space-y-1">
+            {users.map((u) => <PortalUserRow key={u.id} u={u} />)}
+          </div>
+        </CollapsibleSection>
       )}
       {resetError && <p className="mt-2 text-xs text-red-600">{resetError}</p>}
     </div>

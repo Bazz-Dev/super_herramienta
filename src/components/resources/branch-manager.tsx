@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useActionState, useState } from 'react'
 import { createBranch, toggleBranch, updateBranch } from '@/app/(app)/recursos/clientes/actions'
+import { CollapsibleSection } from '@/components/ui/collapsible-section'
 
 interface Branch {
   id: string
@@ -60,9 +61,15 @@ export function BranchManager({ clientId, branches }: { clientId: string; branch
       {branches.length === 0 ? (
         <p className="text-xs text-gray-400 italic">Sin sucursales. Agrega la primera.</p>
       ) : (
-        <div className="space-y-1">
-          {branches.map((b) => <BranchRow key={b.id} branch={b} clientId={clientId} />)}
-        </div>
+        <CollapsibleSection
+          title="Ver sucursales"
+          summary={`${branches.length} · ${branches.filter((b) => b.active).length} activas`}
+          defaultOpen={branches.length <= 6}
+        >
+          <div className="space-y-1">
+            {branches.map((b) => <BranchRow key={b.id} branch={b} clientId={clientId} />)}
+          </div>
+        </CollapsibleSection>
       )}
     </div>
   )
