@@ -7,26 +7,35 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { generatePassword } from '@/lib/password'
 
-// Todas las actions de este archivo son exclusivas del admin del cliente
-// (Carolina y equivalentes) — isClientAdmin es un rol DENTRO de su propio
-// portal, nunca un puente a INGEGAR One. `role` nunca se toca acá (siempre
-// 'client'), y todo scoping usa session.user.clientId/tenantId, jamás un
-// valor recibido del formulario — mismo gate exacto que ya usan
-// mergeTickets/unmergeTicket/approvePortalTicket en ../tickets/actions.ts.
-async function requireClientAdmin() {
+// Todas las actions de este archivo son del admin del cliente (Carolina y
+// equivalentes) O de staff INGEGAR viendo/gestionando el portal — staff ya
+// tiene acceso completo a esto mismo desde /recursos/clientes/[id]
+// (BranchManager/PortalUserManager), así que dejarlo operar también desde
+// acá no es una escalada de privilegio nueva. isClientAdmin sigue siendo un
+// rol DENTRO del portal del cliente, nunca un puente a INGEGAR One: `role`
+// nunca se toca acá (siempre 'client' para lo que crea un admin de cliente).
+// targetClientId viene BINDEADO server-side desde la página (resuelto de
+// getPortalClientBySlug(slug), nunca de un campo de formulario) — mismo
+// nivel de confianza que cualquier :id de ruta ya usado en el resto de la
+// app, no un valor que el cliente pueda falsificar para apuntar a otro
+// cliente.
+async function requireClientAdmin(targetClientId: string) {
   const session = await auth()
-  if (!session?.user || session.user.role !== 'client' || !session.user.isClientAdmin || !session.user.clientId) return null
-  // session.user no trae portalSlug (solo tenantSlug, el de INGEGAR) — se
-  // resuelve acá para poder revalidar la ruta correcta del portal del cliente.
-  const client = await prisma.client.findUnique({ where: { id: session.user.clientId }, select: { portalSlug: true } })
+  if (!session?.user) return null
+
+  const isStaff = session.user.role === 'super' || session.user.role === 'supervisor'
+  const isOwnClientAdmin = session.user.role === 'client' && session.user.isClientAdmin && session.user.clientId === targetClientId
+  if (!isStaff && !isOwnClientAdmin) return null
+
+  const client = await prisma.client.findUnique({ where: { id: targetClientId }, select: { portalSlug: true, tenantId: true } })
   if (!client?.portalSlug) return null
-  return { tenantId: session.user.tenantId, clientId: session.user.clientId, portalSlug: client.portalSlug }
+  return { tenantId: client.tenantId, clientId: targetClientId, portalSlug: client.portalSlug }
 }
 
 export type PortalBranchFormState = { error?: string }
 
-export async function createPortalBranch(_prev: PortalBranchFormState, formData: FormData): Promise<PortalBranchFormState> {
-  const actor = await requireClientAdmin()
+export async function createPortalBranch(clientId: string, _prev: PortalBranchFormState, formData: FormData): Promise<PortalBranchFormState> {
+  const actor = await requireClientAdmin(clientId)
   if (!actor?.clientId) return { error: 'No autorizado.' }
 
   const name = (formData.get('name') as string)?.trim()
@@ -52,8 +61,8 @@ export async function createPortalBranch(_prev: PortalBranchFormState, formData:
   return {}
 }
 
-export async function togglePortalBranchActive(branchId: string, active: boolean): Promise<{ error?: string }> {
-  const actor = await requireClientAdmin()
+export async function togglePortalBranchActive(clientId: string, branchId: string, active: boolean): Promise<{ error?: string }> {
+  const actor = await requireClientAdmin(clientId)
   if (!actor?.clientId) return { error: 'No autorizado.' }
 
   const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { clientId: true } })
@@ -78,8 +87,8 @@ export type PortalTeamUserFormState = {
   success?: { email: string; username: string | null; password: string }
 }
 
-export async function createPortalTeamUser(_prev: PortalTeamUserFormState, formData: FormData): Promise<PortalTeamUserFormState> {
-  const actor = await requireClientAdmin()
+export async function createPortalTeamUser(clientId: string, _prev: PortalTeamUserFormState, formData: FormData): Promise<PortalTeamUserFormState> {
+  const actor = await requireClientAdmin(clientId)
   if (!actor?.clientId) return { error: 'No autorizado.' }
 
   const parsed = createTeamUserSchema.safeParse({
@@ -118,8 +127,8 @@ export async function createPortalTeamUser(_prev: PortalTeamUserFormState, formD
   return { success: { email: parsed.data.email, username, password } }
 }
 
-export async function togglePortalTeamUserActive(userId: string, active: boolean): Promise<{ error?: string }> {
-  const actor = await requireClientAdmin()
+export async function togglePortalTeamUserActive(clientId: string, userId: string, active: boolean): Promise<{ error?: string }> {
+  const actor = await requireClientAdmin(clientId)
   if (!actor?.clientId) return { error: 'No autorizado.' }
 
   const user = await prisma.user.findUnique({

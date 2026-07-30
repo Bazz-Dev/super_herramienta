@@ -104,7 +104,10 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   // 6 months chart data
   const today = new Date()
   const months = Array.from({length:6}, (_,i) => {
-    const d = new Date(today); d.setMonth(d.getMonth()-(5-i))
+    // Día fijo en 1 — construir con today.getDate() (p.ej. 30/31) puede no
+    // existir en el mes destino (30 feb) y JS lo desborda al mes siguiente,
+    // duplicando esa key y saltándose un mes (bug real, visto en producción).
+    const d = new Date(today.getFullYear(), today.getMonth()-(5-i), 1)
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
     let active=0, resolved=0
     tickets.forEach(t => { if(!String(t.createdAt).startsWith(key)) return; if(['resuelto','cancelado'].includes(t.status)) resolved++; else active++ })

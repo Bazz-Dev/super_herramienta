@@ -22,7 +22,7 @@ export function BranchManager({ clientId, branches }: { clientId: string; branch
   const [state, dispatch, pending] = useActionState(action, {})
 
   return (
-    <div className="mt-4 border-t border-gray-100 pt-4">
+    <div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Sucursales ({branches.length})

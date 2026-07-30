@@ -42,6 +42,7 @@ export default async function PortalNewTicketPage({ params }: { params: Promise<
       topbarTitle="Nueva solicitud"
       topbarSub="Completa el formulario para crear un requerimiento"
       topbarRight={backLink}
+      isAdmin={isStaff}
       isClientAdmin={session?.user?.isClientAdmin ?? false}
     >
       <div style={{ padding: '24px 28px', maxWidth: '680px' }}>

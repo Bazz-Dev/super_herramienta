@@ -23,9 +23,10 @@ const inputStyle: React.CSSProperties = {
 // admin del cliente — crea usuarios de sucursal y otros admins del cliente
 // ("admin aprobador"), nunca toca `role` (siempre 'client'), ver
 // requireClientAdmin() en ../../app/portal/[slug]/sucursales/actions.ts.
-export function PortalTeamManager({ users, branches, primary }: { users: TeamUser[]; branches: Branch[]; primary: string }) {
+export function PortalTeamManager({ clientId, users, branches, primary }: { clientId: string; users: TeamUser[]; branches: Branch[]; primary: string }) {
   const [showForm, setShowForm] = useState(false)
-  const [state, dispatch, pending] = useActionState<PortalTeamUserFormState, FormData>(createPortalTeamUser, {})
+  const createAction = createPortalTeamUser.bind(null, clientId)
+  const [state, dispatch, pending] = useActionState<PortalTeamUserFormState, FormData>(createAction, {})
   const [revealed, setRevealed] = useState<{ email: string; username: string | null; password: string } | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [toggleError, setToggleError] = useState('')
@@ -41,7 +42,7 @@ export function PortalTeamManager({ users, branches, primary }: { users: TeamUse
     setToggleError('')
     setTogglingId(u.id)
     startTransition(async () => {
-      const res = await togglePortalTeamUserActive(u.id, !u.active)
+      const res = await togglePortalTeamUserActive(clientId, u.id, !u.active)
       if (res.error) setToggleError(res.error)
     })
   }

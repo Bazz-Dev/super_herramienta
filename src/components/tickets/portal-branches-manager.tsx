@@ -21,15 +21,16 @@ const inputStyle: React.CSSProperties = {
 // .claude/rules/frontend.md. El toggle activa/desactiva es de un clic, sin
 // confirmación — mismo criterio que toggleBranch interno (reversible, no es
 // una acción destructiva real).
-export function PortalBranchesManager({ branches, primary }: { branches: Branch[]; primary: string }) {
+export function PortalBranchesManager({ clientId, branches, primary }: { clientId: string; branches: Branch[]; primary: string }) {
   const [showForm, setShowForm] = useState(false)
-  const [state, dispatch, pending] = useActionState<PortalBranchFormState, FormData>(createPortalBranch, {})
+  const createAction = createPortalBranch.bind(null, clientId)
+  const [state, dispatch, pending] = useActionState<PortalBranchFormState, FormData>(createAction, {})
   const [togglingId, setTogglingId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function toggle(id: string, active: boolean) {
     setTogglingId(id)
-    startTransition(() => { togglePortalBranchActive(id, active) })
+    startTransition(() => { togglePortalBranchActive(clientId, id, active) })
   }
 
   return (

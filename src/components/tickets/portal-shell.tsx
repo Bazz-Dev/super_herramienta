@@ -76,8 +76,9 @@ const NAV = [
   { href: (s: string) => `/portal/${s}/cuenta`,      label: 'Mi cuenta',         Icon: IconUser },
 ]
 
-// Solo admin del cliente (isClientAdmin) — gestión de sucursales y equipo de
-// su propio portal, nunca visible para un usuario de sucursal normal.
+// Admin del cliente (isClientAdmin) o staff INGEGAR viendo el portal
+// (isAdmin) — gestión de sucursales y equipo. Nunca visible para un usuario
+// de sucursal normal (ni cliente ni staff pueden llegar sin uno de los dos).
 const SUCURSALES_NAV_ITEM = { href: (s: string) => `/portal/${s}/sucursales`, label: 'Sucursales', Icon: IconBuilding }
 
 export function PortalShell({
@@ -112,7 +113,7 @@ export function PortalShell({
   const SB_WIDTH = 216
 
   const accountIdx = NAV.findIndex(n => n.label === 'Mi cuenta')
-  const visibleNav = isClientAdmin
+  const visibleNav = (isClientAdmin || isAdmin)
     ? [...NAV.slice(0, accountIdx), SUCURSALES_NAV_ITEM, ...NAV.slice(accountIdx)]
     : NAV
 

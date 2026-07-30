@@ -126,8 +126,6 @@ export default async function EditClientePage({
             )}
           </div>
 
-          <BranchManager clientId={client.id} branches={client.branches} />
-
           <div className="mt-3 flex gap-3 border-t border-gray-100 pt-3">
             <Link
               href={`/flujo/reportes?cliente=${client.id}`}
@@ -150,6 +148,15 @@ export default async function EditClientePage({
           </div>
         </div>
       )}
+
+      {/* Sucursales — independiente de hasJobs: antes vivía dentro del panel
+          "Actividad financiera" y por eso desaparecía para cualquier cliente
+          sin trabajos de Flujo de Caja todavía (bug real, Happyland vs Just
+          Burger — reportado por el dueño, sucursales no depende de tener
+          trabajos registrados). */}
+      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <BranchManager clientId={client.id} branches={client.branches} />
+      </div>
 
       {/* Portal de cliente */}
       {client.portalSlug && (
