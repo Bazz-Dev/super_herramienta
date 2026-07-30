@@ -154,7 +154,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
             + Nueva
           </Link>
         }
-        isAdmin={isStaff}>
+        isAdmin={isStaff} isClientAdmin={isClientAdmin}>
         <div className="pg">
 
           {/* ── Greeting ── */}

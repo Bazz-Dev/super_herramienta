@@ -136,6 +136,18 @@ export function PortalUserManager({
               <input name="email" type="email" defaultValue={u.email} placeholder="Email" required className={fieldCls} />
               <input name="username" defaultValue={u.username ?? ''} placeholder="Usuario (opcional)" className={fieldCls} />
             </div>
+            {branches.length > 0 && (
+              <select name="branchId" defaultValue={u.branchId ?? ''} className={fieldCls}>
+                <option value="">Sin sucursal (acceso a todo el cliente)</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            )}
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              <input type="checkbox" name="isClientAdmin" defaultChecked={u.isClientAdmin} className="h-3.5 w-3.5 rounded border-gray-300 accent-brand" />
+              Admin del cliente (aprueba solicitudes de sucursal, puede crear sucursales/usuarios desde el portal)
+            </label>
             {editState.error && <p className="text-xs text-red-600">{editState.error}</p>}
             <div className="flex items-center gap-2">
               <button

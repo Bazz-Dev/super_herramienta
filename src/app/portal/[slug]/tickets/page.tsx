@@ -65,7 +65,7 @@ export default async function PortalTicketsPage({ params }: { params: Promise<{ 
       topbarTitle="Mis solicitudes"
       topbarSub={topbarSub}
       topbarRight={btn}
-      isAdmin={isStaff}>
+      isAdmin={isStaff} isClientAdmin={isClientAdmin}>
 
       {/* Approval queue for client admin */}
       {pendingApproval.length > 0 && (

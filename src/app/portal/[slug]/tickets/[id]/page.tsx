@@ -146,7 +146,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
         primary={mt.primary} bg={mt.bg} cardBg={mt.card} textColor={mt.text}
         activeHref={`/portal/${slug}/tickets`} topbarTitle={merged.title} topbarSub={merged.ticketCode}
         topbarRight={<Link href={`/portal/${slug}/tickets`} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--t2)', textDecoration: 'none', fontWeight: '500' }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11L5 7l4-4"/></svg>Mis solicitudes</Link>}
-        isAdmin={isStaffViewing(session)}>
+        isAdmin={isStaffViewing(session)} isClientAdmin={isClientAdminEarly}>
         <div className="pg" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div className="pcard" style={{ padding: '32px 24px', textAlign: 'center' }}>
             <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: '#f3f4f6', display: 'grid', placeItems: 'center', margin: '0 auto 18px' }}>
@@ -242,7 +242,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
     <PortalShell slug={slug} clientName={client.name} logoUrl={client.logoUrl} userName={session!.user.name ?? 'Usuario'} primary={acc}
       bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/tickets`} topbarTitle={ticket.title} topbarSub={ticket.ticketCode} topbarRight={backLink}
-      isAdmin={isStaffViewing(session)}>
+      isAdmin={isStaffViewing(session)} isClientAdmin={isClientAdmin}>
 
       <div className="pg" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
 

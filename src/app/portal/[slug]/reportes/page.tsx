@@ -143,7 +143,7 @@ export default async function PortalReportesPage({
       primary={theme.primary} bg={theme.bg} cardBg={theme.card} textColor={theme.text}
       activeHref={`/portal/${slug}/reportes`}
       topbarTitle="Reportes" topbarSub="Resumen estadístico de solicitudes"
-      isAdmin={isStaff}>
+      isAdmin={isStaff} isClientAdmin={isClientAdmin}>
       <div style={{ padding: '20px 28px' }}>
 
         {/* Header strip */}

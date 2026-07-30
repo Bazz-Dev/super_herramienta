@@ -58,6 +58,7 @@ export default async function PortalInformesPage({ params }: { params: Promise<{
       topbarTitle="Informes Técnicos"
       topbarSub={`${docs.length} informe${docs.length !== 1 ? 's' : ''} disponible${docs.length !== 1 ? 's' : ''}`}
       isAdmin={isStaff}
+      isClientAdmin={session?.user?.isClientAdmin ?? false}
     >
       <PortalInformeList
         docs={serialized}

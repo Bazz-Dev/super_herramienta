@@ -20,6 +20,7 @@ interface Props {
   topbarSub?: string
   topbarRight?: React.ReactNode
   isAdmin?: boolean
+  isClientAdmin?: boolean
 }
 
 const SB = '#121110'         // sidebar always dark
@@ -48,6 +49,9 @@ function IconBriefcase() {
 function IconCalendar() {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="12" height="11" rx="1.5"/><path d="M2 7h12M5 1v3M11 1v3"/></svg>
 }
+function IconBuilding() {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="8" height="12" rx="1"/><path d="M10 6h3a1 1 0 011 1v6a1 1 0 01-1 1h-3M4.5 5h1M4.5 7.5h1M4.5 10h1"/></svg>
+}
 function IconLogout() {
   return <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 2H3a1 1 0 00-1 1v8a1 1 0 001 1h2M9 10l3-3-3-3M12 7H5"/></svg>
 }
@@ -72,11 +76,15 @@ const NAV = [
   { href: (s: string) => `/portal/${s}/cuenta`,      label: 'Mi cuenta',         Icon: IconUser },
 ]
 
+// Solo admin del cliente (isClientAdmin) — gestión de sucursales y equipo de
+// su propio portal, nunca visible para un usuario de sucursal normal.
+const SUCURSALES_NAV_ITEM = { href: (s: string) => `/portal/${s}/sucursales`, label: 'Sucursales', Icon: IconBuilding }
+
 export function PortalShell({
   slug, clientName, logoUrl, userName, primary,
   bg = '#f4f3f1', cardBg = '#ffffff', textColor = '#18130e',
   activeHref, children, topbarTitle, topbarSub, topbarRight,
-  isAdmin = false,
+  isAdmin = false, isClientAdmin = false,
 }: Props) {
   const [open, setOpen] = useState(false)
   const [navHover, setNavHover] = useState<string | null>(null)
@@ -103,7 +111,10 @@ export function PortalShell({
 
   const SB_WIDTH = 216
 
-  const visibleNav = NAV
+  const accountIdx = NAV.findIndex(n => n.label === 'Mi cuenta')
+  const visibleNav = isClientAdmin
+    ? [...NAV.slice(0, accountIdx), SUCURSALES_NAV_ITEM, ...NAV.slice(accountIdx)]
+    : NAV
 
   return (
     // Root wrapper — inline background prevents ANY external CSS from overriding

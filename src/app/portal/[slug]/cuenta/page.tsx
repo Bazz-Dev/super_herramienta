@@ -25,6 +25,7 @@ export default async function PortalCuentaPage({ params }: { params: Promise<{ s
       activeHref={`/portal/${slug}/cuenta`}
       topbarTitle="Mi cuenta"
       topbarSub="Gestiona tu contraseña de acceso"
+      isClientAdmin={session?.user?.isClientAdmin ?? false}
     >
       <div style={{ padding: '24px 20px', maxWidth: 480, margin: '0 auto' }}>
         <PortalChangePasswordForm slug={slug} primary={theme.primary} />

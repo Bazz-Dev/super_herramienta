@@ -269,6 +269,8 @@ export async function createPortalUser(
 const updatePortalUserSchema = z.object({
   email: z.string().email('Email inválido'),
   username: z.string().regex(/^[a-zA-Z0-9_.-]+$/, 'Solo letras, números, _ . -').optional().or(z.literal('')),
+  branchId: z.string().optional().or(z.literal('')),
+  isClientAdmin: z.boolean().default(false),
 })
 
 export type UpdatePortalUserFormState = { error?: string; fieldErrors?: Record<string, string[]>; success?: boolean }
@@ -290,9 +292,30 @@ export async function updatePortalUser(
   const parsed = updatePortalUserSchema.safeParse({
     email: formData.get('email'),
     username: formData.get('username') || undefined,
+    branchId: formData.get('branchId') || undefined,
+    isClientAdmin: formData.get('isClientAdmin') === 'on',
   })
   if (!parsed.success) return { error: 'Revisa los campos.', fieldErrors: parsed.error.flatten().fieldErrors }
   const username = parsed.data.username || null
+  const branchId = parsed.data.branchId || null
+
+  if (branchId && user.clientId) {
+    const branch = await prisma.branch.findFirst({ where: { id: branchId, clientId: user.clientId }, select: { id: true } })
+    if (!branch) return { error: 'Sucursal no válida.' }
+  }
+
+  // Salvavalvula de staff: si el admin del cliente se queda sin ningún otro
+  // admin activo (ver togglePortalTeamUserActive del portal, mismo guard),
+  // avisar en vez de dejarlo sin nadie que apruebe solicitudes de sucursal.
+  if (!parsed.data.isClientAdmin && user.clientId) {
+    const wasAdmin = await prisma.user.findUnique({ where: { id: userId }, select: { isClientAdmin: true } })
+    if (wasAdmin?.isClientAdmin) {
+      const otherActiveAdmins = await prisma.user.count({
+        where: { clientId: user.clientId, role: 'client', isClientAdmin: true, active: true, id: { not: userId } },
+      })
+      if (otherActiveAdmins === 0) return { error: 'Este es el único admin activo del cliente — asigna otro admin antes de quitarle el rol.' }
+    }
+  }
 
   const [emailTaken, usernameTaken] = await Promise.all([
     prisma.user.findFirst({ where: { email: parsed.data.email, id: { not: userId } }, select: { id: true } }),
@@ -303,7 +326,7 @@ export async function updatePortalUser(
 
   await prisma.user.update({
     where: { id: userId },
-    data: { email: parsed.data.email, username },
+    data: { email: parsed.data.email, username, branchId, isClientAdmin: parsed.data.isClientAdmin },
   })
   if (user.clientId) revalidatePath(`/recursos/clientes/${user.clientId}`)
   return { success: true }

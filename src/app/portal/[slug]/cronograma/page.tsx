@@ -93,6 +93,7 @@ export default async function PortalCronogramaPage({ params }: { params: Promise
       topbarTitle="Cronograma"
       topbarSub={`Trabajos programados · ${client.name}`}
       isAdmin={isStaff}
+      isClientAdmin={session?.user?.isClientAdmin ?? false}
     >
       <div className="pg">
         {/* KPIs */}
