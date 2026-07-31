@@ -56,7 +56,10 @@ export default async function PortalSucursalesPage({ params }: { params: Promise
     >
       <div className="pg" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '20px 22px' }}>
         <PortalBranchesManager clientId={client.id} branches={branchesWithCount} primary={theme.primary} />
-        <PortalTeamManager clientId={client.id} users={users} branches={branches} primary={theme.primary} />
+        <PortalTeamManager
+          clientId={client.id} users={users} branches={branches} primary={theme.primary}
+          canManage={isClientAdmin || session?.user?.role === 'super'}
+        />
       </div>
     </PortalShell>
   )

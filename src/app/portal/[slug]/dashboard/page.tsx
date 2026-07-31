@@ -30,9 +30,13 @@ const CATEGORY_LABELS: Record<string,string> = {
 function daysBetween(d: string) {
   return Math.floor((new Date(d).getTime() - Date.now()) / 86400000)
 }
-function localYearMonth() {
-  const d = new Date()
+// Acepta un Date arbitrario (default: ahora) — reusado para bucketing de
+// tickets por mes, no solo para "hoy".
+function localYearMonth(d: Date = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
+}
+function localDateOnly(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -87,11 +91,11 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
   const act     = tickets.filter(t => OPEN.includes(t.status))
   const inProc  = act.filter(t => t.status !== 'nuevo')
   const mes     = localYearMonth()
-  const resMes  = tickets.filter(t => t.status==='resuelto' && t.closedDate && String(t.closedDate).startsWith(mes))
+  const resMes  = tickets.filter(t => t.status==='resuelto' && t.closedDate && localYearMonth(new Date(t.closedDate)) === mes)
   const vnc     = act.filter(t => t.estimatedDate && daysBetween(String(t.estimatedDate)) < 0)
   const emg     = tickets.filter(t => t.urgency==='emergencia' && OPEN.includes(t.status))
   const sinAbordar = act.filter(t => t.status==='nuevo' && (now()-new Date(t.createdAt).getTime()) > 86_400_000)
-  const hoy     = tickets.filter(t => String(t.createdAt).startsWith(new Date().toISOString().slice(0,10)))
+  const hoy     = tickets.filter(t => localDateOnly(new Date(t.createdAt)) === localDateOnly(new Date()))
   const sucursales = new Set(act.filter(t => t.branch).map(t => t.branch!.name)).size
 
   const withDate = tickets.filter(t => t.status==='resuelto' && t.estimatedDate && t.closedDate)
@@ -110,7 +114,7 @@ export default async function PortalDashboardPage({ params }: { params: Promise<
     const d = new Date(today.getFullYear(), today.getMonth()-(5-i), 1)
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
     let active=0, resolved=0
-    tickets.forEach(t => { if(!String(t.createdAt).startsWith(key)) return; if(['resuelto','cancelado'].includes(t.status)) resolved++; else active++ })
+    tickets.forEach(t => { if(localYearMonth(new Date(t.createdAt)) !== key) return; if(['resuelto','cancelado'].includes(t.status)) resolved++; else active++ })
     return { key, label: MONTHS[d.getMonth()], active, resolved, total: active+resolved }
   })
 

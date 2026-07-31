@@ -19,11 +19,22 @@ import { generatePassword } from '@/lib/password'
 // nivel de confianza que cualquier :id de ruta ya usado en el resto de la
 // app, no un valor que el cliente pueda falsificar para apuntar a otro
 // cliente.
-async function requireClientAdmin(targetClientId: string) {
+//
+// staffRoles por acción replica EXACTAMENTE la distinción ya existente en
+// recursos/clientes/actions.ts: createBranch/toggleBranch son
+// ['super','supervisor'], pero createPortalUser/updatePortalUser/
+// resetPortalUserPassword/togglePortalUserActive son ['super'] a secas —
+// supervisor gestiona sucursales pero deliberadamente NO cuentas/
+// credenciales de usuarios de portal. Un solo isStaff compartido para
+// ambos tipos de action hubiera dejado a supervisor crear/promover admins
+// de cliente vía este flujo nuevo, algo que el equivalente interno le
+// tiene explícitamente prohibido — hallazgo real de differential-review
+// antes de este fix.
+async function requireClientAdmin(targetClientId: string, staffRoles: Array<'super' | 'supervisor'> = ['super', 'supervisor']) {
   const session = await auth()
   if (!session?.user) return null
 
-  const isStaff = session.user.role === 'super' || session.user.role === 'supervisor'
+  const isStaff = staffRoles.includes(session.user.role as 'super' | 'supervisor')
   const isOwnClientAdmin = session.user.role === 'client' && session.user.isClientAdmin && session.user.clientId === targetClientId
   if (!isStaff && !isOwnClientAdmin) return null
 
@@ -88,7 +99,7 @@ export type PortalTeamUserFormState = {
 }
 
 export async function createPortalTeamUser(clientId: string, _prev: PortalTeamUserFormState, formData: FormData): Promise<PortalTeamUserFormState> {
-  const actor = await requireClientAdmin(clientId)
+  const actor = await requireClientAdmin(clientId, ['super'])
   if (!actor?.clientId) return { error: 'No autorizado.' }
 
   const parsed = createTeamUserSchema.safeParse({
@@ -128,7 +139,7 @@ export async function createPortalTeamUser(clientId: string, _prev: PortalTeamUs
 }
 
 export async function togglePortalTeamUserActive(clientId: string, userId: string, active: boolean): Promise<{ error?: string }> {
-  const actor = await requireClientAdmin(clientId)
+  const actor = await requireClientAdmin(clientId, ['super'])
   if (!actor?.clientId) return { error: 'No autorizado.' }
 
   const user = await prisma.user.findUnique({

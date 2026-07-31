@@ -23,7 +23,12 @@ const inputStyle: React.CSSProperties = {
 // admin del cliente — crea usuarios de sucursal y otros admins del cliente
 // ("admin aprobador"), nunca toca `role` (siempre 'client'), ver
 // requireClientAdmin() en ../../app/portal/[slug]/sucursales/actions.ts.
-export function PortalTeamManager({ clientId, users, branches, primary }: { clientId: string; users: TeamUser[]; branches: Branch[]; primary: string }) {
+// canManage: false para staff `supervisor` — mismo criterio que isSuper en
+// PortalUserManager (INGEGAR One), supervisor gestiona sucursales pero no
+// cuentas/credenciales de usuarios de portal (requireActor(['super']) en
+// createPortalUser et al.). El gate real vive en el server action; esto
+// solo evita mostrar controles que igual rebotarían con "No autorizado".
+export function PortalTeamManager({ clientId, users, branches, primary, canManage }: { clientId: string; users: TeamUser[]; branches: Branch[]; primary: string; canManage: boolean }) {
   const [showForm, setShowForm] = useState(false)
   const createAction = createPortalTeamUser.bind(null, clientId)
   const [state, dispatch, pending] = useActionState<PortalTeamUserFormState, FormData>(createAction, {})
@@ -53,13 +58,15 @@ export function PortalTeamManager({ clientId, users, branches, primary }: { clie
     <div className="pcard" style={{ padding: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <h2 style={{ fontSize: 14, fontWeight: 700 }}>Usuarios de tu equipo ({users.length})</h2>
-        <button
-          type="button"
-          onClick={() => setShowForm(v => !v)}
-          style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 12, fontWeight: 700, color: primary, background: 'none', border: 'none', cursor: 'pointer' }}
-        >
-          {showForm ? 'Cancelar' : '+ Agregar usuario'}
-        </button>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setShowForm(v => !v)}
+            style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 12, fontWeight: 700, color: primary, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            {showForm ? 'Cancelar' : '+ Agregar usuario'}
+          </button>
+        )}
       </div>
 
       {revealed && (
@@ -68,7 +75,7 @@ export function PortalTeamManager({ clientId, users, branches, primary }: { clie
         </div>
       )}
 
-      {showForm && (
+      {canManage && showForm && (
         <form action={dispatch} style={{ marginBottom: 12, borderRadius: 8, border: `1px solid ${primary}33`, background: `${primary}0d`, padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <input name="name" placeholder="Nombre *" required style={inputStyle} />
           <input name="email" type="email" placeholder="Email *" required style={inputStyle} />
@@ -108,20 +115,33 @@ export function PortalTeamManager({ clientId, users, branches, primary }: { clie
                 </div>
                 {u.username && <span style={{ fontSize: 11, color: 'rgba(24,19,14,0.35)' }}>@{u.username}</span>}
               </div>
-              <button
-                type="button"
-                onClick={() => toggle(u)}
-                disabled={isPending && togglingId === u.id}
-                style={{
-                  flexShrink: 0, display: 'inline-flex', alignItems: 'center', minHeight: 36,
-                  borderRadius: 20, padding: '0 12px', fontSize: 10, fontWeight: 700,
-                  border: 'none', cursor: 'pointer',
-                  background: u.active ? '#dcfce7' : '#f3f4f6',
-                  color: u.active ? '#15803d' : '#6b7280',
-                }}
-              >
-                {u.active ? 'Activo' : 'Inactivo'}
-              </button>
+              {canManage ? (
+                <button
+                  type="button"
+                  onClick={() => toggle(u)}
+                  disabled={isPending && togglingId === u.id}
+                  style={{
+                    flexShrink: 0, display: 'inline-flex', alignItems: 'center', minHeight: 36,
+                    borderRadius: 20, padding: '0 12px', fontSize: 10, fontWeight: 700,
+                    border: 'none', cursor: 'pointer',
+                    background: u.active ? '#dcfce7' : '#f3f4f6',
+                    color: u.active ? '#15803d' : '#6b7280',
+                  }}
+                >
+                  {u.active ? 'Activo' : 'Inactivo'}
+                </button>
+              ) : (
+                <span
+                  style={{
+                    flexShrink: 0, display: 'inline-flex', alignItems: 'center', minHeight: 36,
+                    borderRadius: 20, padding: '0 12px', fontSize: 10, fontWeight: 700,
+                    background: u.active ? '#dcfce7' : '#f3f4f6',
+                    color: u.active ? '#15803d' : '#6b7280',
+                  }}
+                >
+                  {u.active ? 'Activo' : 'Inactivo'}
+                </span>
+              )}
             </div>
           ))}
         </div>
