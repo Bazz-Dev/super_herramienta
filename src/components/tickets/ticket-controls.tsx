@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { updateTicketFields, updateTicketStatus, addTicketComment } from '@/app/(app)/tickets/actions'
+import { updateTicketFields, updateTicketStatus, addTicketComment, promoteDocumentToOT } from '@/app/(app)/tickets/actions'
 import { SELECTABLE_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { PROCESS_FLOW_LABELS } from '@/lib/cashflow/labels'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
@@ -67,6 +67,10 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   const [comment, setComment] = useState('')
   const [isInternal, setIsInternal] = useState(false)
   const [docs, setDocs] = useState<Doc[]>(ticket.documents)
+  const [otFileUrl, setOtFileUrl] = useState(ticket.otFileUrl)
+  const [otUploading, setOtUploading] = useState(false)
+  const [otPromotingId, setOtPromotingId] = useState<string | null>(null)
+  const [otError, setOtError] = useState('')
   const [otNumber, setOtNumber] = useState(ticket.otNumber ?? '')
   const [assignedToId, setAssignedToId] = useState(ticket.assignedToId ?? '')
   const [estimatedDate, setEstimatedDate] = useState(ticket.estimatedDate ?? '')
@@ -127,6 +131,47 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
       setLastSaved({ otNumber, assignedToId, estimatedDate, workSummary, showToClient, processFlow })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
+    })
+  }
+
+  // Subida/reemplazo de OT — mismo endpoint ya usado y probado en el panel
+  // del técnico (tecnico-ticket-actions.tsx). Antes esta ficha no tenía
+  // ningún control conectado a él (bug real, ver promoteDocumentToOT).
+  async function uploadOT(file: File) {
+    setOtUploading(true)
+    setOtError('')
+    try {
+      const fd = new FormData()
+      fd.set('file', file)
+      const res = await fetch(`/api/tickets/${ticket.id}/ot-photo`, { method: 'POST', body: fd })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setOtError(body.error ?? `Error ${res.status} al subir la OT.`)
+      } else {
+        const body = await res.json()
+        setOtFileUrl(body.otFileUrl)
+      }
+    } finally {
+      setOtUploading(false)
+    }
+  }
+
+  // Promueve un archivo ya subido como "Otro" a ser la OT, sin re-subirlo —
+  // resuelve documentos ya mal clasificados antes de que existiera el botón
+  // de arriba, sin pedirle a nadie que vuelva a buscar el PDF/foto original.
+  function promoteToOT(docId: string) {
+    setOtPromotingId(docId)
+    setOtError('')
+    startFields(async () => {
+      const res = await promoteDocumentToOT(ticket.id, docId)
+      if (res.success) {
+        setDocs(prev => prev.filter(d => d.id !== docId))
+        const doc = docs.find(d => d.id === docId)
+        if (doc) setOtFileUrl(doc.fileUrl)
+      } else {
+        setOtError(res.error ?? 'No se pudo promover a OT.')
+      }
+      setOtPromotingId(null)
     })
   }
 
@@ -357,6 +402,14 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
                   <span className="text-base shrink-0">{fileIcon(doc.mimeType, doc.name)}</span>
                   <span className="flex-1 min-w-0 text-sm text-gray-700 truncate" title={doc.name}>{doc.name}</span>
                   <div className="flex items-center gap-3 shrink-0">
+                    {!otFileUrl && (
+                      <button type="button" className="text-xs text-gray-500 hover:text-ink hover:underline transition disabled:opacity-40"
+                        disabled={otPromotingId === doc.id}
+                        title="Este archivo pasa a ser la OT del ticket — no se vuelve a subir, solo se reclasifica."
+                        onClick={() => promoteToOT(doc.id)}>
+                        {otPromotingId === doc.id ? 'Marcando…' : 'Marcar como OT'}
+                      </button>
+                    )}
                     <a href={resolveUrl(doc.fileUrl)} target="_blank" rel="noopener noreferrer"
                       className="text-xs text-brand hover:underline font-medium">Abrir ↗</a>
                     <button type="button" className="text-xs text-red-400 hover:text-red-600 transition"
@@ -379,23 +432,31 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             Documentos de trabajo
           </h3>
 
-          {/* OT */}
-          {(ticket.otNumber || ticket.otFileUrl) && (
-            <div className="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">OT</span>
-              {ticket.otNumber && <span className="font-mono text-sm font-bold text-ink">{ticket.otNumber}</span>}
-              {ticket.otFileUrl && (
-                <a
-                  href={`/api/tickets/${ticket.id}/ot-photo`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ml-auto text-xs font-medium text-brand hover:underline"
-                >
-                  Ver OT ↗
-                </a>
-              )}
-            </div>
-          )}
+          {/* OT — antes esta sección era solo lectura (sin botón de subida
+              conectado, bug real ver promoteDocumentToOT); ahora sube/
+              reemplaza directo con el mismo endpoint que ya usa el técnico. */}
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">OT</span>
+            {ticket.otNumber && <span className="font-mono text-sm font-bold text-ink">{ticket.otNumber}</span>}
+            {otFileUrl ? (
+              <div className="ml-auto flex items-center gap-3">
+                <a href={`/api/tickets/${ticket.id}/ot-photo`} target="_blank" rel="noreferrer"
+                  className="text-xs font-medium text-brand hover:underline">Ver OT ↗</a>
+                <label className={`cursor-pointer text-xs font-medium text-gray-500 hover:text-ink hover:underline transition ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
+                  {otUploading ? 'Subiendo…' : 'Reemplazar OT'}
+                  <input type="file" accept="application/pdf,image/*" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) uploadOT(f); e.target.value = '' }} />
+                </label>
+              </div>
+            ) : (
+              <label className={`ml-auto inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100 ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
+                {otUploading ? 'Subiendo…' : '📄 Escanear / adjuntar OT'}
+                <input type="file" accept="application/pdf,image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadOT(f); e.target.value = '' }} />
+              </label>
+            )}
+          </div>
+          {otError && <p className="mb-3 text-xs text-red-600">{otError}</p>}
 
           {/* Informes técnicos vinculados */}
           {linkedInformes.length > 0 && (

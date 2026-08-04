@@ -383,6 +383,50 @@ export async function deleteTicket(ticketId: string) {
   return { success: true }
 }
 
+// Promueve un documento ya subido a "Otros" a ser la OT del ticket, sin
+// volver a subir el archivo — bug real encontrado en vivo: la ficha interna
+// (ticket-controls.tsx) se quedó sin botón de subida de OT tras un refactor
+// que consolidó "Adjuntos" en un único uploader genérico (el panel del
+// técnico en /mi-panel sí lo conservó), así que staff terminaba subiendo el
+// escaneo de la OT por el uploader genérico y quedaba en "Otros" sin
+// completar nunca Ticket.otFileUrl. Reusa la MISMA key de R2 — nunca
+// descarga ni vuelve a subir el archivo, solo repunta la referencia y borra
+// la fila de TicketDocument (el archivo físico en R2 queda intacto, ahora
+// referenciado desde otFileUrl, nunca duplicado). Rechaza si el ticket ya
+// tiene una OT — evita pisar una real por accidente desde la lista
+// genérica; para reemplazarla existe el botón dedicado "Reemplazar OT".
+export async function promoteDocumentToOT(ticketId: string, documentId: string) {
+  const actor = await requireActor(['super', 'supervisor'])
+
+  const ticket = await prisma.ticket.findFirst({
+    where: { id: ticketId, tenantId: actor.tenantId },
+    select: { id: true, otFileUrl: true },
+  })
+  if (!ticket) return { success: false, error: 'Ticket no encontrado.' }
+  if (ticket.otFileUrl) return { success: false, error: 'Este ticket ya tiene una OT — usa "Reemplazar OT" si quieres cambiarla.' }
+
+  const doc = await prisma.ticketDocument.findFirst({
+    where: { id: documentId, ticketId },
+    select: { id: true, fileUrl: true, name: true },
+  })
+  if (!doc) return { success: false, error: 'Documento no encontrado.' }
+
+  await prisma.$transaction([
+    prisma.ticket.update({ where: { id: ticketId }, data: { otFileUrl: doc.fileUrl } }),
+    prisma.ticketDocument.delete({ where: { id: documentId } }),
+  ])
+
+  await logAudit({
+    tenantId: actor.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: 'ticket_document.promote_to_ot', entityType: 'Ticket', entityId: ticketId,
+    before: { otFileUrl: null }, after: { otFileUrl: doc.fileUrl, promotedFrom: doc.name },
+    source: 'tickets/actions.ts:promoteDocumentToOT',
+  })
+
+  revalidatePath(`/tickets/${ticketId}`)
+  return { success: true }
+}
+
 // Vincula un Job de Flujo de Caja sin Ticket al ticket recién creado desde
 // /conciliacion (flujo "SIN TICKET -> Crear ticket"). originTicketId es el
 // mismo mecanismo que ya usa /tickets/[id] para mostrar los trabajos de un
