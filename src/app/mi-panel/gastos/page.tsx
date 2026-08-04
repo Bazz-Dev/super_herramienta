@@ -18,7 +18,7 @@ export default async function MiPanelGastosPage() {
     )
   }
 
-  const [allExpenses, recentExpenses] = await Promise.all([
+  const [allExpenses, recentExpenses, tickets] = await Promise.all([
     prisma.expense.findMany({
       where: { technicianId: actor.technicianId },
       select: { amount: true, status: true },
@@ -31,6 +31,13 @@ export default async function MiPanelGastosPage() {
         approvedBy: { select: { name: true } },
       },
       orderBy: { date: 'desc' },
+    }),
+    // Solo SUS tickets asignados (informe #14) — mismo scoping que
+    // /mi-panel/tickets, un técnico no elige entre tickets ajenos.
+    prisma.ticket.findMany({
+      where: { assignedToId: actor.effectiveId, deletedAt: null, status: { notIn: ['cancelado', 'fusionado'] } },
+      select: { id: true, ticketCode: true, title: true },
+      orderBy: { createdAt: 'desc' },
     }),
   ])
 
@@ -69,7 +76,7 @@ export default async function MiPanelGastosPage() {
 
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-sm font-semibold text-gray-700">💸 Reportar gasto</h2>
-        <ExpenseForm compact />
+        <ExpenseForm compact tickets={tickets} />
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">

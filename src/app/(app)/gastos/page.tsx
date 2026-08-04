@@ -64,6 +64,15 @@ export default async function GastosPage({
     orderBy: { name: 'asc' },
   })
 
+  // Tickets para asociar el gasto directo (informe #14) — mismo criterio de
+  // exclusión que /flujo/trabajos/new (cancelado/fusionado no son destinos
+  // válidos para nada nuevo).
+  const tickets = await prisma.ticket.findMany({
+    where: { ...tenantScope(actor), deletedAt: null, status: { notIn: ['cancelado', 'fusionado'] } },
+    select: { id: true, ticketCode: true, title: true },
+    orderBy: { createdAt: 'desc' },
+  })
+
   const canApprove = actor.role === 'super' || actor.role === 'supervisor'
   const canDelete = actor.role === 'super'
   const isStaff = actor.role === 'super' || actor.role === 'supervisor'
@@ -108,13 +117,13 @@ export default async function GastosPage({
       {isStaff && technicians.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-base font-semibold text-ink">Registrar gasto para un técnico</h2>
-          <StaffNewExpense technicians={technicians} />
+          <StaffNewExpense technicians={technicians} tickets={tickets} />
         </div>
       )}
       {isTecnico && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-base font-semibold text-ink">Registrar mi gasto</h2>
-          <ExpenseForm />
+          <ExpenseForm tickets={tickets} />
         </div>
       )}
 
@@ -140,6 +149,7 @@ export default async function GastosPage({
         expenses={expenses}
         canApprove={canApprove}
         canDelete={canDelete}
+        canEditAny={isStaff}
       />
     </div>
   )

@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { auth } from '@/auth'
 import { listJobs } from '@/lib/cashflow/queries'
-import { JOB_TYPE_LABELS, COLLECTION_LABELS, COST_CATEGORY_LABELS } from '@/lib/cashflow/labels'
+import { JOB_TYPE_LABELS, COST_CATEGORY_LABELS } from '@/lib/cashflow/labels'
 import { matchesReportPreset, type ReportPreset } from '@/lib/cashflow/job-presets'
+import { financialState, FINANCIAL_LABEL } from '@/lib/tickets/ticket-state-summary'
 
 function clpNum(v: number | null) { return v ?? 0 }
 
@@ -84,7 +85,13 @@ export async function GET(req: NextRequest) {
       total: net + tax,
       costs: totalCosts,
       margin: net - totalCosts,
-      status: COLLECTION_LABELS[j.collectionStatus] ?? j.collectionStatus,
+      // Antes: COLLECTION_LABELS[j.collectionStatus] — ese campo clásico
+      // puede quedar desincronizado de OC/factura/pago reales (ver
+      // metrics.ts, informe #25); financialState() es el mismo cálculo
+      // canónico que ya usa la ficha del ticket, así que una fila exportada
+      // con preset="Pagados" (filtrado con isPaidJob) nunca puede mostrar acá
+      // una etiqueta distinta de "Pagada".
+      status: FINANCIAL_LABEL[financialState(j)],
     })
   }
 

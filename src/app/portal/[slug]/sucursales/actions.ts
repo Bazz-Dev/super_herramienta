@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { generatePassword } from '@/lib/password'
+import { logAudit } from '@/lib/audit'
 
 // Todas las actions de este archivo son del admin del cliente (Carolina y
 // equivalentes) O de staff INGEGAR viendo/gestionando el portal — staff ya
@@ -40,7 +41,7 @@ async function requireClientAdmin(targetClientId: string, staffRoles: Array<'sup
 
   const client = await prisma.client.findUnique({ where: { id: targetClientId }, select: { portalSlug: true, tenantId: true } })
   if (!client?.portalSlug) return null
-  return { tenantId: client.tenantId, clientId: targetClientId, portalSlug: client.portalSlug }
+  return { tenantId: client.tenantId, clientId: targetClientId, portalSlug: client.portalSlug, actorId: session.user.id, actorRole: session.user.role }
 }
 
 export type PortalBranchFormState = { error?: string }
@@ -127,12 +128,19 @@ export async function createPortalTeamUser(clientId: string, _prev: PortalTeamUs
 
   const password = generatePassword()
   const passwordHash = await bcrypt.hash(password, 10)
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
       email: parsed.data.email, username, name: parsed.data.name, passwordHash,
       role: 'client', tenantId: actor.tenantId, clientId: actor.clientId, branchId,
       isClientAdmin: parsed.data.isClientAdmin,
     },
+  })
+  await logAudit({
+    tenantId: actor.tenantId, actorId: actor.actorId, actorRole: actor.actorRole,
+    action: 'user.create', entityType: 'User', entityId: created.id,
+    after: { email: parsed.data.email, role: 'client', clientId: actor.clientId, branchId, isClientAdmin: parsed.data.isClientAdmin },
+    reason: 'Self-service desde portal cliente',
+    source: 'portal/[slug]/sucursales/actions.ts:createPortalTeamUser',
   })
   revalidatePath(`/portal/${actor.portalSlug}/sucursales`)
   return { success: { email: parsed.data.email, username, password } }
@@ -144,7 +152,7 @@ export async function togglePortalTeamUserActive(clientId: string, userId: strin
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { clientId: true, role: true, isClientAdmin: true },
+    select: { clientId: true, role: true, isClientAdmin: true, active: true },
   })
   if (!user || user.role !== 'client' || user.clientId !== actor.clientId) return { error: 'Usuario no encontrado.' }
 
@@ -158,6 +166,13 @@ export async function togglePortalTeamUserActive(clientId: string, userId: strin
   }
 
   await prisma.user.update({ where: { id: userId }, data: { active, sessionVersion: { increment: 1 } } })
+  await logAudit({
+    tenantId: actor.tenantId, actorId: actor.actorId, actorRole: actor.actorRole,
+    action: active ? 'user.activate' : 'user.deactivate', entityType: 'User', entityId: userId,
+    before: { active: user.active }, after: { active },
+    reason: 'Self-service desde portal cliente',
+    source: 'portal/[slug]/sucursales/actions.ts:togglePortalTeamUserActive',
+  })
   revalidatePath(`/portal/${actor.portalSlug}/sucursales`)
   return {}
 }

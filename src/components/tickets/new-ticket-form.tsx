@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createTicket, linkJobToNewTicket } from '@/app/(app)/tickets/actions'
 import { URGENCY_LABEL, type TicketUrgencyId } from '@/lib/tickets/labels'
+import { PROCESS_FLOW_LABELS } from '@/lib/cashflow/labels'
 import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 import { Spinner } from '@/components/ui/spinner'
 import { BranchSelect } from '@/components/resources/branch-select'
@@ -31,6 +32,7 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
   const [branchId, setBranchId] = useState(defaults?.branchId ?? '')
   const [urgency, setUrgency] = useState<TicketUrgencyId>('no_urgente')
   const [category, setCategory] = useState('')
+  const [processFlow, setProcessFlow] = useState<'pre_quote' | 'post_execution'>('pre_quote')
   const [title, setTitle] = useState(defaults?.title ?? '')
   const [description, setDescription] = useState(defaults?.description ?? '')
   const [assignedToId, setAssignedToId] = useState('')
@@ -65,6 +67,7 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
     fd.set('description', description)
     fd.set('urgency', urgency)
     fd.set('category', category)
+    fd.set('processFlow', processFlow)
     fd.set('clientId', clientId)
     if (branchId) fd.set('branchId', branchId)
     if (assignedToId) fd.set('assignedToId', assignedToId)
@@ -128,8 +131,8 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
         </div>
       </div>
 
-      {/* Urgency + Category */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* Urgency + Category + Modalidad */}
+      <div className="grid gap-4 sm:grid-cols-3">
         <div>
           <label className={labelCls}>Urgencia</label>
           <select value={urgency} onChange={e => setUrgency(e.target.value as TicketUrgencyId)} className={inputCls}>
@@ -147,6 +150,18 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
             placeholder="Ej: Climatización, Eléctrica…"
             className={inputCls}
           />
+        </div>
+        <div>
+          <label className={labelCls}>Modalidad comercial *</label>
+          <select
+            value={processFlow}
+            onChange={e => setProcessFlow(e.target.value as 'pre_quote' | 'post_execution')}
+            className={inputCls}
+          >
+            {(['pre_quote', 'post_execution'] as const).map(pf => (
+              <option key={pf} value={pf}>{PROCESS_FLOW_LABELS[pf]}</option>
+            ))}
+          </select>
         </div>
       </div>
 

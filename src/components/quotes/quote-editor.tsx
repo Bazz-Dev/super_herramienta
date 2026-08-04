@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   computeTotals,
   TEMPLATES,
@@ -22,10 +23,21 @@ import { StringListEditor } from './string-list-editor'
 import { Field, IconButton, NumberInput, SectionCard, Select, TextArea, TextInput } from './ui'
 
 interface ClientOption { id: string; name: string }
+interface TicketOption { id: string; ticketCode: string; title: string; clientId: string; clientName: string; clientRut: string; branchName: string }
 
-export function QuoteEditor({ initial, clients = [], docId }: { initial: QuoteData; clients?: ClientOption[]; docId?: string }) {
-  const [data, setData] = useState<QuoteData>(initial)
+export function QuoteEditor({ initial, clients = [], tickets = [], docId, ticketId }: { initial: QuoteData; clients?: ClientOption[]; tickets?: TicketOption[]; docId?: string; ticketId?: string }) {
+  const router = useRouter()
+  const initialTicket = ticketId ? tickets.find(t => t.id === ticketId) : undefined
+
+  const [data, setData] = useState<QuoteData>(() => (
+    initialTicket
+      ? { ...initial, client: { ...initial.client, name: initialTicket.clientName, rut: initialTicket.clientRut } }
+      : initial
+  ))
   const set = (patch: Partial<QuoteData>) => setData((d) => ({ ...d, ...patch }))
+
+  const [selectedTicketId, setSelectedTicketId] = useState(initialTicket?.id ?? '')
+  const [selectedClientId, setSelectedClientId] = useState(initialTicket?.clientId ?? '')
 
   const totals = useMemo(() => computeTotals(data), [data])
 
@@ -72,6 +84,45 @@ export function QuoteEditor({ initial, clients = [], docId }: { initial: QuoteDa
         </SectionCard>
 
         <SectionCard title="Cliente y cabecera">
+          {/* Ticket link — autocompletes client. Obligatorio para guardar
+              (informe #1 del plan): toda propuesta nace desde un ticket. */}
+          <div className="mb-4 rounded-lg border border-brand/20 bg-brand/5 p-3">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label className="block text-xs font-semibold text-gray-600">
+                Ticket de origen <span className="text-red-500">*</span>
+                <span className="ml-1.5 font-normal text-gray-400">(autocompletará cliente)</span>
+              </label>
+              <div className="flex items-center gap-2 text-xs">
+                <a href="/tickets/new" target="_blank" rel="noopener" className="font-semibold text-brand-600 hover:underline">
+                  + Crear ticket nuevo
+                </a>
+                <button type="button" onClick={() => router.refresh()} className="text-gray-400 hover:text-gray-600" title="Refrescar lista de tickets">
+                  ↻ Refrescar
+                </button>
+              </div>
+            </div>
+            <select
+              value={selectedTicketId}
+              onChange={(e) => {
+                setSelectedTicketId(e.target.value)
+                const t = tickets.find(t => t.id === e.target.value)
+                if (!t) { setSelectedClientId(''); return }
+                setSelectedClientId(t.clientId)
+                set({ client: { ...data.client, name: t.clientName, rut: t.clientRut } })
+              }}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+            >
+              <option value="">— Seleccionar ticket —</option>
+              {tickets.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.ticketCode} · {t.title}{t.branchName ? ` (${t.branchName})` : ''}
+                </option>
+              ))}
+            </select>
+            {tickets.length === 0 && (
+              <p className="mt-1.5 text-xs text-amber-700">No hay tickets disponibles — crea uno primero.</p>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Cliente">
               <TextInput value={data.client.name} onChange={(e) => set({ client: { ...data.client, name: e.target.value } })} />
@@ -250,6 +301,8 @@ export function QuoteEditor({ initial, clients = [], docId }: { initial: QuoteDa
               defaultTitle={data.client?.name ? `Propuesta ${data.client.name}` : 'Propuesta'}
               documentType="propuesta"
               existingDocId={docId}
+              ticketId={selectedTicketId}
+              defaultClientId={selectedClientId}
             />
           </div>
         </div>

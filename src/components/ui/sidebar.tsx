@@ -66,6 +66,11 @@ const NAV_SECTIONS = [
       { href: '/recursos/vehiculos', label: 'Vehículos', icon: VehicleIcon },
       { href: '/recursos/activos', label: 'Herramientas', icon: ToolsIcon },
       { href: '/recursos/empresa', label: 'Empresa', icon: BuildingIcon },
+      // Bóveda de credenciales: solo super (filtrado abajo) — datos más
+      // sensibles que el resto de "Recursos", mismo criterio que
+      // PortalUserManager (crear/editar cuentas es super-only).
+      { href: '/recursos/credenciales', label: 'Credenciales', icon: KeyIcon, superOnly: true },
+      { href: '/recursos/auditoria', label: 'Auditoría', icon: ShieldCheckIcon },
       { href: '/gastos', label: 'Gastos', icon: ReceiptIcon },
     ],
   },
@@ -73,11 +78,13 @@ const NAV_SECTIONS = [
 
 export function Sidebar({
   user,
+  role,
   logout,
   portalClients = [],
   viewAsBar,
 }: {
   user: { name: string; tenantSlug: string; roleLabel: string }
+  role: string
   logout: ReactNode
   portalClients?: { name: string; portalSlug: string }[]
   viewAsBar?: ReactNode
@@ -114,7 +121,7 @@ export function Sidebar({
                 {section.label}
               </p>
             )}
-            {section.links.map(({ href, label, icon: Icon }) => {
+            {section.links.filter((l) => !('superOnly' in l && l.superOnly) || role === 'super').map(({ href, label, icon: Icon }) => {
               const active = isActive(href)
               return (
                 <Link
@@ -347,6 +354,15 @@ function BuildingIcon() {
       <path d="M4 21V4a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v17" />
       <path d="M15 10h4a1 1 0 0 1 1 1v10" />
       <path d="M9 21v-4h2v4M8 7h1M8 11h1M8 15h1M12 7h1M12 11h1M12 15h1" />
+    </svg>
+  )
+}
+
+function KeyIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="M10.9 12.1 19 4M18 5l2 2M15 8l2 2" />
     </svg>
   )
 }

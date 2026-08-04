@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { uploadToR2, deleteFromR2, getObjectBuffer, isR2Key } from '@/lib/r2'
+import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -70,6 +71,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const doc = await prisma.ticketDocument.create({
     data: { ticketId, name: file.name, fileUrl: key, mimeType: file.type || null, uploadedById: session.user.id },
   })
+  await logAudit({
+    tenantId, actorId: session.user.id, actorRole: role,
+    action: 'ticket_document.create', entityType: 'TicketDocument', entityId: doc.id,
+    after: { ticketId, name: doc.name, mimeType: doc.mimeType },
+    source: 'api/tickets/[id]/documents/route.ts:POST',
+  })
 
   return NextResponse.json({ id: doc.id, name: doc.name, fileUrl: doc.fileUrl, mimeType: doc.mimeType, uploadedAt: doc.uploadedAt })
 }
@@ -89,12 +96,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const doc = await prisma.ticketDocument.findFirst({
     where: { id: docId, ticketId, ticket: { tenantId } },
-    select: { id: true, fileUrl: true },
+    select: { id: true, fileUrl: true, name: true },
   })
   if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   await prisma.ticketDocument.delete({ where: { id: docId } })
   if (isR2Key(doc.fileUrl)) await deleteFromR2(doc.fileUrl).catch(() => null)
+  await logAudit({
+    tenantId, actorId: session.user.id, actorRole: role,
+    action: 'ticket_document.delete', entityType: 'TicketDocument', entityId: docId,
+    before: { ticketId, name: doc.name },
+    source: 'api/tickets/[id]/documents/route.ts:DELETE',
+  })
 
   return NextResponse.json({ ok: true })
 }

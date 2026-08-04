@@ -8,6 +8,7 @@ import { clp } from '@/lib/cashflow/format'
 import { toDateInput } from '@/lib/cashflow/dates'
 import { getJobSummary } from '@/app/(app)/flujo/actions'
 import { Modal } from '@/components/resources/modal'
+import type { JobLike } from '@/lib/tickets/ticket-state-summary'
 
 type Cost = { id: string; category: string; amount: number; supplier: string | null; documentRef: string | null }
 type Job = {
@@ -16,11 +17,10 @@ type Job = {
   type: string
   executionDate: Date | null
   netAmount: number | null
-  collectionStatus: string
   branch: { name: string } | null
   client: { id: string; name: string }
   costs: Cost[]
-}
+} & JobLike
 
 type Summary = Awaited<ReturnType<typeof getJobSummary>>
 
@@ -70,7 +70,7 @@ export function JobRow({ job, showClient }: { job: Job; showClient: boolean }) {
           {clp(job.netAmount)}
         </td>
         <td className="px-4 py-2.5">
-          <CollectionChip status={job.collectionStatus} />
+          <CollectionChip job={job} />
         </td>
         <td className="px-2 py-2.5 text-gray-300">›</td>
       </tr>
@@ -86,7 +86,7 @@ export function JobRow({ job, showClient }: { job: Job; showClient: boolean }) {
               <DetailRow label="Tipo" value={JOB_TYPE_LABELS[summary.type] ?? summary.type} />
               <DetailRow label="Fecha ejecución" value={summary.executionDate ? toDateInput(summary.executionDate) : null} />
               <DetailRow label="Técnico" value={summary.technicianName ?? <span className="text-amber-600">Sin asignar</span>} />
-              <DetailRow label="Estado" value={<CollectionChip status={summary.collectionStatus} />} />
+              <DetailRow label="Estado" value={<CollectionChip job={summary} />} />
               <DetailRow label="Código" value={summary.code} />
               <DetailRow label="Presupuesto" value={summary.quoteRef} />
               <DetailRow label="OC" value={summary.purchaseOrder} />

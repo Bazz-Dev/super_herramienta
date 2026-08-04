@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { getPresignedUrl, isR2Key } from '@/lib/r2'
+import { ticketFileFilter } from '@/lib/files-access'
 
 export const runtime = 'nodejs'
 
@@ -43,12 +44,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   } else if (type === 'ticket') {
-    const clientId = session.user.clientId
-    const ticketFilter =
-      role === 'super'  ? undefined :
-      role === 'client' && clientId ? { tenantId, clientId } :
-      role === 'client' ? { tenantId, clientId: '' } : // no clientId → deny by impossible match
-                          { tenantId }
+    const ticketFilter = ticketFileFilter(role, tenantId, session.user.id, session.user.clientId)
     const doc = await prisma.ticketDocument.findFirst({
       where: { fileUrl: key, ticket: ticketFilter },
       select: { id: true },

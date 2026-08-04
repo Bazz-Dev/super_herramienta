@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { updateTicketFields, updateTicketStatus, addTicketComment } from '@/app/(app)/tickets/actions'
 import { SELECTABLE_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
+import { PROCESS_FLOW_LABELS } from '@/lib/cashflow/labels'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
 
 type Item    = { id: string; title: string; status: string; description: string | null }
@@ -23,6 +24,7 @@ interface Props {
     internalNotes: string | null
     folderKey: string | null
     showToClient: boolean
+    processFlow: string | null
     items: Item[]
     documents: Doc[]
   }
@@ -70,7 +72,9 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   const [estimatedDate, setEstimatedDate] = useState(ticket.estimatedDate ?? '')
   const [workSummary, setWorkSummary] = useState(ticket.workSummary ?? '')
   const [showToClient, setShowToClient] = useState(ticket.showToClient)
+  const [processFlow, setProcessFlow] = useState(ticket.processFlow ?? '')
   const [saved, setSaved] = useState(false)
+  const [statusError, setStatusError] = useState('')
 
   // "Asignación y control" vive en estado local hasta apretar "Guardar
   // cambios" — si el usuario cambia el técnico y sale de la página por
@@ -78,12 +82,13 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   // pestaña) sin guardar, el cambio se pierde en silencio y parece que la
   // asignación "no quedó". El snapshot se actualiza tras cada guardado
   // exitoso para que dirty vuelva a false sin necesitar un reload.
-  const [lastSaved, setLastSaved] = useState({ otNumber: ticket.otNumber ?? '', assignedToId: ticket.assignedToId ?? '', estimatedDate: ticket.estimatedDate ?? '', workSummary: ticket.workSummary ?? '', showToClient: ticket.showToClient })
+  const [lastSaved, setLastSaved] = useState({ otNumber: ticket.otNumber ?? '', assignedToId: ticket.assignedToId ?? '', estimatedDate: ticket.estimatedDate ?? '', workSummary: ticket.workSummary ?? '', showToClient: ticket.showToClient, processFlow: ticket.processFlow ?? '' })
   const dirty = otNumber !== lastSaved.otNumber
     || assignedToId !== lastSaved.assignedToId
     || estimatedDate !== lastSaved.estimatedDate
     || workSummary !== lastSaved.workSummary
     || showToClient !== lastSaved.showToClient
+    || processFlow !== lastSaved.processFlow
 
   useEffect(() => {
     if (!dirty) return
@@ -117,8 +122,9 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         estimatedDate: estimatedDate || undefined,
         workSummary: workSummary || undefined,
         showToClient,
+        processFlow: (processFlow || null) as 'pre_quote' | 'post_execution' | null,
       })
-      setLastSaved({ otNumber, assignedToId, estimatedDate, workSummary, showToClient })
+      setLastSaved({ otNumber, assignedToId, estimatedDate, workSummary, showToClient, processFlow })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     })
@@ -135,14 +141,19 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         estimatedDate: estimatedDate || undefined,
         workSummary: workSummary || undefined,
         showToClient,
+        processFlow: (processFlow || null) as 'pre_quote' | 'post_execution' | null,
       })
-      setLastSaved({ otNumber, assignedToId, estimatedDate, workSummary, showToClient })
+      setLastSaved({ otNumber, assignedToId, estimatedDate, workSummary, showToClient, processFlow })
       router.push(`/informe?ticketId=${ticket.id}`)
     })
   }
 
   function handleStatusChange(newStatus: string) {
-    startStatus(async () => { await updateTicketStatus(ticket.id, newStatus) })
+    setStatusError('')
+    startStatus(async () => {
+      const res = await updateTicketStatus(ticket.id, newStatus)
+      if (!res.success) setStatusError(res.error ?? 'No se pudo actualizar el estado.')
+    })
   }
 
   function handleComment() {
@@ -216,7 +227,25 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
               </select>
             )}
           </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Modalidad comercial</label>
+            <select
+              value={processFlow}
+              onChange={(e) => setProcessFlow(e.target.value)}
+              disabled={isClosed}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-50"
+            >
+              <option value="">Sin definir</option>
+              {(['pre_quote', 'post_execution'] as const).map((pf) => (
+                <option key={pf} value={pf}>{PROCESS_FLOW_LABELS[pf]}</option>
+              ))}
+            </select>
+          </div>
         </div>
+
+        {statusError && (
+          <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{statusError}</p>
+        )}
 
         <div className="mt-3">
           <label className="block text-xs text-gray-500 mb-1">Resumen del trabajo (visible al cliente al cerrar)</label>

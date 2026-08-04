@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { ownedDocState, linkedDocState, DOC_STATE_DOT, DOC_STATE_LABELS, type DocState } from '@/lib/cashflow/job-presets'
+import { PURCHASE_ORDER_STATUS_LABELS, PURCHASE_ORDER_STATUS_COLORS } from '@/lib/cashflow/labels'
 
 // Grilla de documentos de un trabajo (OC/Factura/OT/Informe) — compartida
 // entre la edición rápida del acordeón (/flujo) y la ficha completa
@@ -11,21 +12,23 @@ import { ownedDocState, linkedDocState, DOC_STATE_DOT, DOC_STATE_LABELS, type Do
 // (mismo patrón que Ticket.otFileUrl); OT/Informe se gestionan en el ticket
 // de origen — acá solo se enlaza, nunca se duplica el archivo.
 export function JobDocumentsGrid({
-  jobId, purchaseOrder, purchaseOrderFileUrl, invoiceNumber, invoiceFileUrl, otFileUrl, originTicketId, informeDocId,
+  jobId, purchaseOrder, purchaseOrderFileUrl, purchaseOrderStatus, invoiceNumber, invoiceFileUrl, invoiceStatus, otFileUrl, originTicketId, informeDocId,
 }: {
   jobId: string
   purchaseOrder: string | null
   purchaseOrderFileUrl: string | null
+  purchaseOrderStatus?: string | null
   invoiceNumber: string | null
   invoiceFileUrl: string | null
+  invoiceStatus?: string | null
   otFileUrl: string | null
   originTicketId: string | null
   informeDocId: string | null
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      <OwnedDocSlot jobId={jobId} label="OC" docField="purchaseOrder" numberValue={purchaseOrder} fileUrl={purchaseOrderFileUrl} />
-      <OwnedDocSlot jobId={jobId} label="Factura" docField="invoice" numberValue={invoiceNumber} fileUrl={invoiceFileUrl} />
+      <OwnedDocSlot jobId={jobId} label="OC" docField="purchaseOrder" numberValue={purchaseOrder} fileUrl={purchaseOrderFileUrl} statusValue={purchaseOrderStatus} />
+      <OwnedDocSlot jobId={jobId} label="Factura" docField="invoice" numberValue={invoiceNumber} fileUrl={invoiceFileUrl} statusValue={invoiceStatus} />
       <LinkedDocSlot
         label="OT"
         moduleName="Tickets"
@@ -59,13 +62,14 @@ export function DocBadge({ state }: { state: DocState }) {
 // desvincular pegan directo a /api/flujo/trabajos/[id]/documents,
 // independiente de cualquier submit de los demás campos del trabajo.
 function OwnedDocSlot({
-  jobId, label, docField, numberValue, fileUrl,
+  jobId, label, docField, numberValue, fileUrl, statusValue,
 }: {
   jobId: string
   label: string
   docField: 'purchaseOrder' | 'invoice'
   numberValue: string | null
   fileUrl: string | null
+  statusValue?: string | null
 }) {
   const [currentUrl, setCurrentUrl] = useState(fileUrl)
   const [busy, setBusy] = useState(false)
@@ -117,6 +121,11 @@ function OwnedDocSlot({
         <DocBadge state={state} />
       </div>
       <p className="mb-1.5 truncate text-xs text-ink">{numberValue || '—'}</p>
+      {statusValue && (
+        <span className={`mb-1.5 inline-block rounded border px-1.5 py-0.5 text-[10px] font-semibold ${PURCHASE_ORDER_STATUS_COLORS[statusValue] ?? ''}`}>
+          {PURCHASE_ORDER_STATUS_LABELS[statusValue] ?? statusValue}
+        </span>
+      )}
       <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
         {currentUrl && (
           <a href={`/api/files?key=${encodeURIComponent(currentUrl)}&type=job`} target="_blank" rel="noopener noreferrer" className="text-brand hover:underline">

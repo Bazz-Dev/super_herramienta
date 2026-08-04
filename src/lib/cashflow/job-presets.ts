@@ -5,6 +5,20 @@
 // Dos sistemas de chips distintos en el prototipo, con reglas distintas —
 // no se conflaron en uno solo.
 
+// Una cuota real (informe #12) — su propia OC/factura/pago. Ver
+// prisma/schema.prisma `JobInstallment`.
+type Installment = {
+  netAmount: number | null
+  purchaseOrder: string | null
+  purchaseOrderStatus?: string | null
+  invoiceNumber: string | null
+  invoiceDate: Date | null
+  invoiceStatus?: string | null
+  creditDays: number | null
+  paymentDate: Date | null
+  paymentAmount: number | null
+}
+
 type Job = {
   financialStage: string
   commercialStage: string
@@ -12,9 +26,12 @@ type Job = {
   nonBillable: boolean
   netAmount: number | null
   purchaseOrder: string | null
+  purchaseOrderStatus?: string | null
   invoiceNumber: string | null
   invoiceDate: Date | null
+  invoiceStatus?: string | null
   paymentDate: Date | null
+  paymentAmount?: number | null
   executionDate: Date | null
   creditDays: number | null
   technicianId?: string | null
@@ -26,18 +43,85 @@ type Job = {
   // que solo existen en el esquema clásico.
   status?: string
   collectionStatus?: string
+  // Opcional a propósito: la enorme mayoría de los trabajos no tiene cuotas
+  // (pago único, los campos de arriba alcanzan). Solo los callers que
+  // seleccionan `installments` en su query activan la lógica de cuotas de
+  // abajo — todo el resto de la app sigue leyendo los campos planos exacto
+  // como antes, sin ningún cambio de comportamiento.
+  installments?: Installment[]
 }
 
 const DAY = 24 * 60 * 60 * 1000
 
+function daysUntil(due: Date, now: Date): number {
+  return Math.floor((due.getTime() - now.getTime()) / DAY)
+}
+
+export function installmentBalance(i: Installment): number {
+  return (i.netAmount ?? 0) - (i.paymentAmount ?? 0)
+}
+export function isInstallmentPaid(i: Installment): boolean {
+  return i.netAmount != null && installmentBalance(i) <= 0
+}
+export function installmentDueDate(i: Installment): Date | null {
+  if (!i.invoiceDate) return null
+  return new Date(i.invoiceDate.getTime() + (i.creditDays ?? 30) * DAY)
+}
+export function isInstallmentOverdue(i: Installment, now: Date): boolean {
+  if (isInstallmentPaid(i) || !i.invoiceDate) return false
+  const due = installmentDueDate(i)
+  return !!due && daysUntil(due, now) < 0
+}
+// Resumen para mostrar "saldo total = suma de saldos" (informe #12,
+// criterio de aceptación explícito) sin que cada pantalla reimplemente la
+// suma.
+export function jobInstallmentsSummary(installments: Installment[]) {
+  const totalNet = installments.reduce((s, i) => s + (i.netAmount ?? 0), 0)
+  const totalPaid = installments.reduce((s, i) => s + (i.paymentAmount ?? 0), 0)
+  return {
+    count: installments.length,
+    totalNet,
+    totalPaid,
+    balance: totalNet - totalPaid,
+    allPaid: installments.length > 0 && installments.every(isInstallmentPaid),
+  }
+}
+
 export function isPaidJob(j: Job): boolean {
+  if (j.installments?.length) return j.installments.every(isInstallmentPaid)
+  // Cuando paymentAmount está presente (informe #13), es la señal más
+  // precisa disponible — manda sobre paymentDate/financialStage, que solo
+  // dicen "hubo un pago" sin decir cuánto. Sin esto, registrar una fecha de
+  // pago parcial (sin marcar financialStage='paid') se leía como pago total
+  // por el fallback clásico de abajo — bug real encontrado en verificación
+  // en vivo de este mismo bloque, no solo hipotético.
+  if (j.netAmount != null && j.paymentAmount != null) return j.paymentAmount >= j.netAmount
+  // Histórico (paymentAmount nunca seteado) sigue leyendo exactamente igual
+  // que antes de que este campo existiera.
   return j.financialStage === 'paid' || j.paymentDate != null || j.collectionStatus === 'pagado'
 }
-export function hasPurchaseOrder(j: Job): boolean {
-  return !!j.purchaseOrder?.trim()
+// Pago registrado pero incompleto (informe #13) — distinto de "sin pago" y
+// de "pagado". Un trabajo ya pagado nunca cuenta como parcial (se revisa
+// isPaidJob primero, mismo orden que isOverdueV2 ya usaba con isPaidJob).
+export function isPartiallyPaidJob(j: Job): boolean {
+  if (isPaidJob(j)) return false
+  if (j.installments?.length) return jobInstallmentsSummary(j.installments).totalPaid > 0
+  return (j.paymentAmount ?? 0) > 0
 }
+// Una OC "anulada" (informe #11) ya no cuenta como OC vigente — pero el
+// histórico sin `purchaseOrderStatus` (null, nunca se le asignó un estado)
+// se sigue tratando exactamente como antes de que este campo existiera:
+// nunca se infiere "anulada" ni "vigente" a la fuerza sobre datos viejos.
+export function hasPurchaseOrder(j: Job): boolean {
+  if (j.installments?.length) return j.installments.some((i) => !!i.purchaseOrder?.trim() && i.purchaseOrderStatus !== 'anulada')
+  return !!j.purchaseOrder?.trim() && j.purchaseOrderStatus !== 'anulada'
+}
+// Una factura "anulada" (informe #13, mismo criterio que hasPurchaseOrder
+// con OC en el informe #11) ya no cuenta como factura vigente — histórico
+// sin `invoiceStatus` (null) se sigue tratando exactamente como antes.
 export function hasInvoiceInfo(j: Job): boolean {
-  return !!j.invoiceNumber?.trim() || j.invoiceDate != null
+  if (j.installments?.length) return j.installments.some((i) => (!!i.invoiceNumber?.trim() || i.invoiceDate != null) && i.invoiceStatus !== 'anulada')
+  return (!!j.invoiceNumber?.trim() || j.invoiceDate != null) && j.invoiceStatus !== 'anulada'
 }
 export function isExecutedJob(j: Job): boolean {
   return ['executed', 'client_review', 'closed'].includes(j.operationalStage) || j.executionDate != null || j.status === 'ejecutado'
@@ -56,15 +140,23 @@ export function jobDueDateV2(j: Job): Date | null {
   if (!j.invoiceDate) return null
   return new Date(j.invoiceDate.getTime() + (j.creditDays ?? 30) * DAY)
 }
-function daysUntil(due: Date, now: Date): number {
-  return Math.floor((due.getTime() - now.getTime()) / DAY)
-}
 export function isOverdueV2(j: Job, now: Date): boolean {
+  if (j.installments?.length) return !j.nonBillable && j.installments.some((i) => isInstallmentOverdue(i, now))
   if (isPaidJob(j) || j.nonBillable || !hasInvoiceInfo(j)) return false
   const due = jobDueDateV2(j)
   return !!due && daysUntil(due, now) < 0
 }
 export function isDueSoon(j: Job, now: Date): boolean {
+  if (j.installments?.length) {
+    if (j.nonBillable) return false
+    return j.installments.some((i) => {
+      if (isInstallmentPaid(i)) return false
+      const due = installmentDueDate(i)
+      if (!due) return false
+      const d = daysUntil(due, now)
+      return d >= 0 && d <= 7
+    })
+  }
   if (isPaidJob(j) || j.nonBillable || !hasInvoiceInfo(j)) return false
   const due = jobDueDateV2(j)
   if (!due) return false

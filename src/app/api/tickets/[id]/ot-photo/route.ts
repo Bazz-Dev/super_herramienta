@@ -4,6 +4,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { uploadToR2, deleteFromR2, getPresignedUrl, isR2Key } from '@/lib/r2'
 import { rasterizePdfFirstPage } from '@/lib/pdf-rasterize'
+import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -53,6 +54,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const previousKey = ticket.otFileUrl
   await prisma.ticket.update({ where: { id: ticketId }, data: { otFileUrl: key } })
   if (previousKey && isR2Key(previousKey)) await deleteFromR2(previousKey).catch(() => null)
+  await logAudit({
+    tenantId: session.user.tenantId, actorId: session.user.id, actorRole: session.user.role,
+    action: previousKey ? 'ticket_document.replace' : 'ticket_document.create',
+    entityType: 'Ticket', entityId: ticketId,
+    before: { otFileUrl: previousKey },
+    after: { otFileUrl: key },
+    source: 'api/tickets/[id]/ot-photo/route.ts:POST',
+  })
 
   return NextResponse.json({ otFileUrl: key })
 }

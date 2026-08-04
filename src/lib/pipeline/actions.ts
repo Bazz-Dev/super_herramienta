@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import type { ProposalStatus } from '@/generated/prisma/enums'
+import { logAudit } from '@/lib/audit'
 
 async function getActor() {
   return requireActor(['super', 'supervisor'])
@@ -58,6 +59,21 @@ export async function updatePipelineStatus(
       ...(note !== undefined ? { proposalNote: note } : {}),
     },
   })
+  // "enviada" (informe #32B punto 4: decisión real de staff, envía algo al
+  // cliente) sí se audita; "vista" queda fuera a propósito — es una señal
+  // pasiva del cliente abriendo el link, no una acción de nadie de INGEGAR,
+  // más cerca de telemetría que de una decisión (documentado en GAP_REGISTER).
+  if (['enviada', 'aceptada', 'rechazada', 'perdida'].includes(status)) {
+    await logAudit({
+      tenantId: actor.tenantId, actorId: actor.id, actorRole: actor.role,
+      action: status === 'enviada' ? 'proposal.send' : 'proposal.decision',
+      entityType: 'ClientDocument', entityId: docId,
+      before: { proposalStatus: doc.proposalStatus },
+      after: { proposalStatus: status },
+      reason: note,
+      source: 'pipeline/actions.ts:updatePipelineStatus',
+    })
+  }
   return { success: true }
 }
 

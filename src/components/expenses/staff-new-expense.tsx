@@ -3,11 +3,18 @@
 import { useState } from 'react'
 import { ExpenseForm } from './expense-form'
 
-interface Props {
-  technicians: { id: string; name: string }[]
+interface Ticket {
+  id: string
+  ticketCode: string
+  title: string
 }
 
-export function StaffNewExpense({ technicians }: Props) {
+interface Props {
+  technicians: { id: string; name: string }[]
+  tickets?: Ticket[]
+}
+
+export function StaffNewExpense({ technicians, tickets = [] }: Props) {
   const [selectedTechId, setSelectedTechId] = useState(technicians[0]?.id ?? '')
 
   return (
@@ -28,7 +35,7 @@ export function StaffNewExpense({ technicians }: Props) {
         </select>
       </div>
       {selectedTechId && (
-        <ExpenseForm technicianId={selectedTechId} />
+        <ExpenseForm technicianId={selectedTechId} tickets={tickets} />
       )}
     </div>
   )

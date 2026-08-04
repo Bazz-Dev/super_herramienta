@@ -55,6 +55,11 @@ No crear una tabla intermedia OT↔Client↔Ticket sin una necesidad real de muc
 por relación — ninguna de las dos existe hoy; `Job.originTicketId` ya permite que un ticket cubra
 varios trabajos sin tabla nueva.
 
+Esta regla sigue vigente incluso bajo la dirección de "Ticket como raíz de agregación" acordada
+2026-08-02 (`docs/ARQUITECTURA.md` § Ontología del dominio → Modelo objetivo): "expediente único"
+ahí significa vista unificada por referencia (extender el patrón de `/documentacion`), nunca fusionar
+`ClientDocument`/`TicketDocument`/`Ticket.otFileUrl` en una tabla nueva.
+
 ## Turso / producción
 
 Ver `.claude/rules/production-safety.md` para el flujo de escritura seguro. `TURSO_AUTH_TOKEN` +

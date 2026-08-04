@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { JobForm } from '@/components/cashflow/job-form'
 import { createJob } from '../../actions'
+import { comercialState } from '@/lib/tickets/ticket-state-summary'
 
 export default async function NewTrabajoPage({
   searchParams,
@@ -18,10 +19,11 @@ export default async function NewTrabajoPage({
     ticketCode?: string
     ticketId?: string
     proposalId?: string
+    processFlow?: string
   }>
 }) {
   const actor = await requireActor()
-  const { cliente, desc, sucursal, quoteRef, netAmount, ticketCode, ticketId, proposalId } = await searchParams
+  const { cliente, desc, sucursal, quoteRef, netAmount, ticketCode, ticketId, proposalId, processFlow } = await searchParams
 
   const allClients = await prisma.client.findMany({
     where: tenantScope(actor),
@@ -34,7 +36,7 @@ export default async function NewTrabajoPage({
       ? cliente
       : allClients[0]?.id ?? ''
 
-  const [branches, technicianRows, existingJobsFromProposal] = await Promise.all([
+  const [branches, technicianRows, existingJobsFromProposal, proposalDoc, ticketOptions] = await Promise.all([
     clientId ? listBranches(actor, clientId) : Promise.resolve([]),
     prisma.technician.findMany({
       where: { ...tenantScope(actor), active: true },
@@ -44,7 +46,50 @@ export default async function NewTrabajoPage({
     proposalId
       ? prisma.job.count({ where: { originProposalId: proposalId, ...tenantScope(actor) } })
       : Promise.resolve(0),
+    // Si la propuesta ya tiene ticket (obligatorio desde Etapa 1c para
+    // propuestas nuevas), lo heredamos — evita reseleccionar a mano lo que
+    // ya se sabe. proposalStatus también, para heredar la etapa comercial
+    // real (ver más abajo).
+    proposalId
+      ? prisma.clientDocument.findFirst({ where: { id: proposalId, ...tenantScope(actor) }, select: { ticketId: true, proposalStatus: true } })
+      : Promise.resolve(null),
+    // Ticket de origen obligatorio para trabajos nuevos (informe #1) — scopeado
+    // al cliente actual, mismo patrón que branches.
+    clientId
+      ? prisma.ticket.findMany({
+          where: { clientId, ...tenantScope(actor), deletedAt: null, status: { notIn: ['cancelado', 'fusionado'] } },
+          select: { id: true, ticketCode: true, title: true },
+          orderBy: { createdAt: 'desc' },
+        })
+      : Promise.resolve([]),
   ])
+
+  // Heredar la etapa comercial real del ticket de origen (bloque de release,
+  // Gate 1): antes, un trabajo nuevo SIEMPRE nacía en commercialStage='intake'
+  // (default del schema) aunque el ticket ya mostrara "Comercial: Aprobada"
+  // (propuesta aceptada en Pipeline) — el ticket quedaba desincronizado del
+  // trabajo recién creado. Reusa comercialState(), el mismo cálculo canónico
+  // que ya usa la ficha del ticket — no se inventa una regla nueva. Solo se
+  // siembra al CREAR (mismo patrón ya establecido para processFlow, informe
+  // #2) — no es un sync continuo, así que no reintroduce el problema de
+  // "dos sistemas de estado en paralelo" documentado en ARQUITECTURA.md.
+  const originTicketId = ticketId ?? proposalDoc?.ticketId ?? null
+  const originatingProposal = proposalId
+    ? proposalDoc
+    : originTicketId
+      ? await prisma.clientDocument.findFirst({
+          where: { ticketId: originTicketId, type: 'propuesta', ...tenantScope(actor) },
+          select: { proposalStatus: true },
+          orderBy: { createdAt: 'desc' },
+        })
+      : null
+  const originTicketForState = originTicketId
+    ? await prisma.ticket.findFirst({ where: { id: originTicketId, ...tenantScope(actor) }, select: { processFlow: true, status: true } })
+    : null
+  const inheritedCommercialStage =
+    originatingProposal && comercialState(null, originatingProposal, originTicketForState ?? undefined) === 'aprobada'
+      ? 'approved'
+      : undefined
 
   // Pre-fill from ticket/pipeline origin
   const resolvedBranchId = sucursal && branches.some((b) => b.id === sucursal) ? sucursal : undefined
@@ -55,8 +100,10 @@ export default async function NewTrabajoPage({
         branchId: resolvedBranchId,
         quoteRef: quoteRef ? decodeURIComponent(quoteRef) : undefined,
         netAmount: parsedAmount && !isNaN(parsedAmount) ? parsedAmount : undefined,
-        originTicketId: ticketId ?? null,
+        originTicketId: ticketId ?? proposalDoc?.ticketId ?? null,
         originProposalId: proposalId ?? null,
+        processFlow: processFlow === 'pre_quote' || processFlow === 'post_execution' ? processFlow : undefined,
+        commercialStage: inheritedCommercialStage,
       }
     : undefined
 
@@ -97,6 +144,7 @@ export default async function NewTrabajoPage({
         clients={allClients}
         clientId={clientId}
         initial={initial}
+        tickets={ticketOptions}
       />
     </div>
   )

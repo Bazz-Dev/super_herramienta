@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
 import type { TicketUrgency, TicketStatus } from '@/generated/prisma/enums'
-import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
+import { buildTicketCode, clientTicketPrefix, createTicketWithUniqueCode } from '@/lib/tickets/ticket-code'
 
 export async function createPortalTicket(fd: FormData) {
   const session = await auth()
@@ -41,9 +41,6 @@ export async function createPortalTicket(fd: FormData) {
 
   const ticketCode = buildTicketCode(urgency, branch?.name ?? 'SUCURSAL', clientTicketPrefix(client))
 
-  const existing = await prisma.ticket.findUnique({ where: { ticketCode }, select: { id: true } })
-  const finalCode = existing ? `${ticketCode}-${Date.now().toString(36).slice(-4)}` : ticketCode
-
   // Branch users (non-admin clients) → pendiente_aprobacion for the client admin to review
   const isBranchUser = isClient && !isClientAdmin
   const ticketStatus = isBranchUser ? 'pendiente_aprobacion' : 'nuevo'
@@ -52,22 +49,24 @@ export async function createPortalTicket(fd: FormData) {
     key: string; name: string; mimeType: string
   }[]
 
-  const ticket = await prisma.ticket.create({
-    data: {
-      ticketCode: finalCode,
-      title,
-      description,
-      clientComment,
-      urgency: urgency as TicketUrgency,
-      category,
-      status: ticketStatus,
-      clientId,
-      branchId,
-      tenantId: client.tenantId,
-      createdById,
-      folderKey: ticketFolderKey(clientTicketPrefix(client), finalCode),
-    },
-  })
+  const ticket = await createTicketWithUniqueCode(ticketCode, (code) =>
+    prisma.ticket.create({
+      data: {
+        ticketCode: code,
+        title,
+        description,
+        clientComment,
+        urgency: urgency as TicketUrgency,
+        category,
+        status: ticketStatus,
+        clientId,
+        branchId,
+        tenantId: client.tenantId,
+        createdById,
+        folderKey: ticketFolderKey(clientTicketPrefix(client), code),
+      },
+    }),
+  )
 
   if (uploadedFiles.length > 0) {
     await prisma.ticketDocument.createMany({

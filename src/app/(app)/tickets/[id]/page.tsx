@@ -10,6 +10,10 @@ import {
 } from '@/lib/tickets/labels'
 import { TicketControls } from '@/components/tickets/ticket-controls'
 import { HistoryPanel } from '@/components/tickets/history-panel'
+import { TicketDocumentsPanel } from '@/components/tickets/ticket-documents-panel'
+import { TicketStateSummary } from '@/components/tickets/ticket-state-summary'
+import { PROCESS_FLOW_LABELS, PROCESS_FLOW_COLORS } from '@/lib/cashflow/labels'
+import { ExpenseJobLink } from '@/components/tickets/expense-job-link'
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   // requireActor aplica "ver como" (viewas) — no usar session.user directo aquí
@@ -20,7 +24,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   // getTicket() no depende de estas otras 5 (solo necesitan `id`/`actor`, ya
   // resueltos) — antes se esperaba getTicket() solo y recién después se
   // lanzaban las demás, sumando un round-trip completo contra Turso en vano.
-  const [ticket, technicians, staffUsers, allInformes, ticketExpenses, originJobs] = await Promise.all([
+  const [ticket, technicians, staffUsers, allInformes, allPropuestas, ticketExpenses, originJobs] = await Promise.all([
     getTicket(actor, id),
     prisma.technician.findMany({
       where: { tenantId: actor.tenantId, active: true },
@@ -37,6 +41,14 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       select: { id: true, title: true, createdAt: true },
       orderBy: { createdAt: 'desc' },
     }),
+    // Propuestas vinculadas a este ticket — antes no se consultaban en esta
+    // página en absoluto (solo informes). Ahora que Cotizador exige ticket de
+    // origen (Etapa 1c), esto deja de estar vacío por diseño.
+    prisma.clientDocument.findMany({
+      where: { tenantId: actor.tenantId, type: 'propuesta', ticketId: id },
+      select: { id: true, title: true, createdAt: true, proposalStatus: true },
+      orderBy: { createdAt: 'desc' },
+    }),
     prisma.expense.findMany({
       where: { ticketId: id, tenantId: actor.tenantId },
       include: { technician: { select: { name: true } } },
@@ -44,7 +56,18 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     }),
     prisma.job.findMany({
       where: { originTicketId: id, tenantId: actor.tenantId },
-      select: { id: true, description: true, status: true, collectionStatus: true, netAmount: true, branch: { select: { name: true } } },
+      select: {
+        id: true, description: true, status: true, collectionStatus: true, netAmount: true, branch: { select: { name: true } },
+        purchaseOrder: true, purchaseOrderFileUrl: true, purchaseOrderStatus: true, invoiceNumber: true, invoiceFileUrl: true, invoiceStatus: true,
+        // Para TicketStateSummary (resumen de 4 estados) — reusa los mismos
+        // predicados de job-presets.ts, no reimplementa reglas de negocio.
+        commercialStage: true, financialStage: true, paymentDate: true, paymentAmount: true, invoiceDate: true, nonBillable: true, creditDays: true,
+        operationalStage: true, executionDate: true,
+        // Cuotas (informe #12) — si el trabajo se cobra en varias OC/factura,
+        // el resumen financiero Y el panel de documentos del ticket deben
+        // reflejar eso, no solo los campos planos de la cuota única.
+        installments: { select: { id: true, sequence: true, netAmount: true, purchaseOrder: true, purchaseOrderStatus: true, invoiceNumber: true, invoiceDate: true, invoiceStatus: true, creditDays: true, paymentDate: true, paymentAmount: true } },
+      },
       orderBy: { createdAt: 'desc' },
     }),
   ])
@@ -70,6 +93,11 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     title: d.title,
     createdAt: d.createdAt.toISOString(),
   }))
+  const linkedPropuestas = allPropuestas.map(d => ({
+    id: d.id,
+    title: d.title,
+    createdAt: d.createdAt.toISOString(),
+  }))
 
   const urgency = ticket.urgency as TicketUrgencyId
   const status = ticket.status as TicketStatusId
@@ -85,6 +113,10 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     ticketId: ticket.id,
   })
   if (ticket.branchId) crearTrabajoParams.set('sucursal', ticket.branchId)
+  // El Job hereda la modalidad ya elegida en el ticket (informe #2) en vez de
+  // arrancar siempre en el default del form ('pre_quote') sin relación con lo
+  // que el ticket realmente es — sigue editable ahí, esto es solo el prefill.
+  if (ticket.processFlow) crearTrabajoParams.set('processFlow', ticket.processFlow)
   const crearTrabajoHref = `/flujo/trabajos/new?${crearTrabajoParams}`
 
   return (
@@ -146,6 +178,11 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${URGENCY_COLOR[urgency]}`}>
               {URGENCY_LABEL[urgency]}
             </span>
+            {ticket.processFlow && (
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${PROCESS_FLOW_COLORS[ticket.processFlow]}`}>
+                {PROCESS_FLOW_LABELS[ticket.processFlow]}
+              </span>
+            )}
             {ticket.otNumber && (
               <span className="rounded-full bg-gray-100 px-3 py-1 font-mono text-xs text-gray-600">
                 OT: {ticket.otNumber}
@@ -191,6 +228,17 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             </p>
           </div>
         </div>
+
+        <TicketStateSummary
+          ticket={{ status: ticket.status, assignedToId: ticket.assignedToId, processFlow: ticket.processFlow }}
+          docs={{
+            hasOT: !!ticket.otFileUrl,
+            hasPhotos: ticket.documents.some((d) => d.mimeType?.startsWith('image/')),
+            hasInforme: linkedInformes.length > 0,
+          }}
+          job={originJobs[0] ?? null}
+          propuesta={allPropuestas[0] ?? null}
+        />
 
         {ticket.workSummary && (
           <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3">
@@ -263,6 +311,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
               internalNotes: ticket.internalNotes,
               folderKey: ticket.folderKey,
               showToClient: ticket.showToClient,
+              processFlow: ticket.processFlow,
               items: ticket.items,
               documents: ticket.documents,
             }}
@@ -281,6 +330,16 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           )}
         </div>
       </div>
+
+      <TicketDocumentsPanel
+        documents={ticket.documents}
+        otFileUrl={ticket.otFileUrl}
+        otNumber={ticket.otNumber}
+        propuestas={linkedPropuestas}
+        informes={linkedInformes}
+        jobs={originJobs}
+        expenses={ticketExpenses}
+      />
 
       {/* Jobs originated from this ticket */}
       {originJobs.length > 0 && (
@@ -364,6 +423,9 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
+                    {originJobs.length === 1 && (actor.role === 'super' || actor.role === 'supervisor') && (
+                      <ExpenseJobLink expenseId={e.id} jobId={originJobs[0].id} currentJobId={e.jobId} />
+                    )}
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_CLS[e.status] ?? ''}`}>
                       {STATUS_LBL[e.status] ?? e.status}
                     </span>

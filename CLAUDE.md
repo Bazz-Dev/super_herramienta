@@ -149,7 +149,10 @@ docs/
 - **UI en español, código/identificadores en inglés.**
 - **Rutas API**: `/api/[módulo]/[acción]` (sin `/v1/`).
 - **IDs de cotización**: `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`. **Código de trabajo (Flujo de Caja)**:
-  `YYMMDD-CLI-TT-NN` (importados: `IMP-CLI-NNNN`).
+  `YYMMDD-CLI-TT-NN` (importados: `IMP-CLI-NNNN`). Esto es el estado ACTUAL — hay una dirección
+  acordada (no implementada) hacia `Ticket` como raíz de todo trabajo, con sufijos `PPTO-N`/`FAC-N`
+  agregados a su referencia visible; ver `docs/ARQUITECTURA.md` § Ontología del dominio → Modelo
+  objetivo antes de tocar cualquier generador de ID.
 - **Commits**: inglés, Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`). Nunca push directo a
   `main`/ramas protegidas sin confirmación explícita.
 - **Componentes**: archivo enfocado, un propósito. Antes de escribir un botón/badge/modal/tabla a
@@ -164,3 +167,13 @@ docs/
 Estado de negocio y siguientes pasos acordados viven en `docs/ARQUITECTURA.md` y
 `docs/architecture/GAP_REGISTER.md` (evidencia por ítem, estados 🔴/🟡/🟢/⚪) — no se listan acá para
 evitar tres listas de pendientes divergiendo entre sí otra vez.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

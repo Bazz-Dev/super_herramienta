@@ -5,10 +5,12 @@ import { getJob, listBranches } from '@/lib/cashflow/queries'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { clp } from '@/lib/cashflow/format'
-import { jobTotal } from '@/lib/cashflow/metrics'
+import { jobTotal, jobDirectCostAndMargin } from '@/lib/cashflow/metrics'
 import { JobForm } from '@/components/cashflow/job-form'
 import { CostList } from '@/components/cashflow/cost-list'
 import { JobDocumentsGrid } from '@/components/cashflow/job-document-slots'
+import { InstallmentList } from '@/components/cashflow/installment-list'
+import { jobInstallmentsSummary } from '@/lib/cashflow/job-presets'
 import { FinancialStageChip } from '@/components/cashflow/job-status-chips'
 import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import { DeleteButton } from '@/components/resources/delete-button'
@@ -41,7 +43,7 @@ export default async function TrabajoDetailPage({
   const job = await getJob(actor, id)
   if (!job) notFound()
 
-  const [branches, technicianRows, clientDocs] = await Promise.all([
+  const [branches, technicianRows, clientDocs, directExpenses] = await Promise.all([
     listBranches(actor, job.clientId),
     prisma.technician.findMany({
       where: { ...tenantScope(actor), active: true },
@@ -67,11 +69,17 @@ export default async function TrabajoDetailPage({
           select: { id: true, title: true, type: true, createdAt: true },
         })
       : Promise.resolve([]),
+    // Gastos de técnico vinculados directamente a este trabajo (informe #14)
+    // — vía jobId explícito, nunca por ticketId solo (un ticket puede tener
+    // varios Job, ver Expense.jobId en el schema).
+    prisma.expense.findMany({
+      where: { jobId: id, ...tenantScope(actor) },
+      select: { amount: true, status: true },
+    }),
   ])
 
   const total = jobTotal(job)
-  const totalCosts = job.costs.reduce((s, c) => s + c.amount, 0)
-  const margin = job.netAmount != null ? job.netAmount - totalCosts : null
+  const { jobCostTotal, expenseTotal, directCost, margin, marginPct } = jobDirectCostAndMargin(job, directExpenses)
   const informeDoc = clientDocs.find((d) => d.type === 'informe')
 
   return (
@@ -138,6 +146,33 @@ export default async function TrabajoDetailPage({
           summary={`${job.costs.length} costo${job.costs.length === 1 ? '' : 's'} · Margen: ${margin != null ? clp(margin) : '—'}`}
         >
           <CostList costs={job.costs} jobId={job.id} netAmount={job.netAmount} />
+
+          {/* Costo directo real = costos del trabajo + gastos de técnico
+              vinculados (informe #14) — desglosado, no un solo número
+              ciego, para que se note si algo quedó cargado dos veces
+              (ej. una boleta que además se tipeó como costo manual). */}
+          {(job.costs.length > 0 || directExpenses.length > 0) && (
+            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs">
+              <p className="mb-1.5 font-semibold uppercase tracking-wide text-gray-500">Costo directo y margen real</p>
+              <div className="space-y-0.5 text-gray-600">
+                <div className="flex justify-between"><span>Costos del trabajo (arriba)</span><span className="tabular-nums">{clp(jobCostTotal)}</span></div>
+                <div className="flex justify-between">
+                  <span>Gastos de técnico vinculados (aprobados/pagados)</span>
+                  <span className="tabular-nums">{clp(expenseTotal)}</span>
+                </div>
+                <div className="mt-1 flex justify-between border-t border-gray-300 pt-1 font-semibold text-ink">
+                  <span>Costo directo total</span><span className="tabular-nums">{clp(directCost)}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-ink">
+                  <span>Margen bruto</span>
+                  <span className="tabular-nums">{margin != null ? `${clp(margin)}${marginPct != null ? ` (${Math.round(marginPct * 100)}%)` : ''}` : '—'}</span>
+                </div>
+              </div>
+              {directExpenses.length === 0 && (
+                <p className="mt-1.5 text-gray-400">Sin gastos de técnico vinculados — vincúlalos desde la ficha del ticket si corresponde.</p>
+              )}
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* 5. Documentos — OC/Factura/OT/Informe (adjuntar/vincular en
@@ -152,8 +187,10 @@ export default async function TrabajoDetailPage({
             jobId={job.id}
             purchaseOrder={job.purchaseOrder}
             purchaseOrderFileUrl={job.purchaseOrderFileUrl}
+            purchaseOrderStatus={job.purchaseOrderStatus}
             invoiceNumber={job.invoiceNumber}
             invoiceFileUrl={job.invoiceFileUrl}
+            invoiceStatus={job.invoiceStatus}
             otFileUrl={job.originTicket?.otFileUrl ?? null}
             originTicketId={job.originTicketId}
             informeDocId={informeDoc?.id ?? null}
@@ -195,6 +232,27 @@ export default async function TrabajoDetailPage({
               </div>
             )}
           </div>
+        </CollapsibleSection>
+
+        {/* 5b. Cuotas (informe #12) — solo relevante si el trabajo se cobra
+            en varias OC/factura separadas; oculta por defecto si no. */}
+        <CollapsibleSection
+          title="Cuotas"
+          forceOpen={section === 'cuotas'}
+          summary={
+            job.installments.length > 0
+              ? `${job.installments.length} cuota${job.installments.length !== 1 ? 's' : ''} · Saldo: ${clp(jobInstallmentsSummary(job.installments).balance)}`
+              : job.installmentsPlanned
+                ? `0 de ${job.installmentsPlanned} creadas`
+                : 'Pago único (sin cuotas)'
+          }
+        >
+          <InstallmentList
+            jobId={job.id}
+            netAmount={job.netAmount}
+            installmentsPlanned={job.installmentsPlanned}
+            installments={job.installments}
+          />
         </CollapsibleSection>
 
         {/* 6. Historial y auditoría — solo metadatos reales ya trackeados

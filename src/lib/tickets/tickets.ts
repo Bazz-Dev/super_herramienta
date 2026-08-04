@@ -65,7 +65,12 @@ export async function getTicket(actor: TenantActor, id: string) {
       createdBy: { select: { id: true, name: true } },
       collaborators: { include: { technician: { select: { id: true, name: true } } } },
       items: { orderBy: { order: 'asc' } },
-      documents: { orderBy: { uploadedAt: 'desc' } },
+      documents: {
+        orderBy: { uploadedAt: 'desc' },
+        // role del uploader → origen (cliente/técnico/administrador) en el
+        // panel de documentos unificado, sin agregar una columna nueva.
+        include: { uploadedBy: { select: { name: true, role: true } } },
+      },
       history: {
         orderBy: { createdAt: 'desc' },
         include: { user: { select: { id: true, name: true } } },

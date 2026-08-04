@@ -67,6 +67,7 @@ export default async function AppLayout({
           tenantSlug: user.tenantSlug,
           roleLabel: ROLE_LABELS[user.role] ?? user.role,
         }}
+        role={user.role}
         logout={<LogoutButton />}
         portalClients={portalClients}
         viewAsBar={

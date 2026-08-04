@@ -51,6 +51,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
 
   async function save() {
     if (!existingDocId && !clientId) { setErrorMsg('Selecciona un cliente'); return }
+    if (!existingDocId && !ticketId) { setErrorMsg('Selecciona un ticket de origen (o crea uno nuevo) antes de guardar.'); return }
     if (!title.trim()) { setErrorMsg('El título es obligatorio'); return }
     setStatus('saving')
     setErrorMsg('')

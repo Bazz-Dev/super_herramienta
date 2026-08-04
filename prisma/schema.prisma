@@ -84,6 +84,80 @@ model CompanyDocument {
   @@map("company_documents")
 }
 
+// Bóveda de credenciales empresariales (informe #21) — solo `super`. Sin
+// `responsables` por secreto (ACL granular): el propio gate de rol ya es el
+// control de acceso, agregar una segunda capa de responsables por fila sería
+// una abstracción sin necesidad real hoy (un solo tenant, pocos `super`).
+model Secret {
+  id          String   @id @default(cuid())
+  tenantId    String
+  serviceName String
+  url         String?
+  username    String?
+  notes       String?
+  // AES-256-GCM (node:crypto) — nunca texto plano. Formato "iv.authTag.data",
+  // cada segmento base64. Ver src/lib/secrets/crypto.ts.
+  ciphertext  String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy User           @relation("SecretCreatedBy", fields: [createdById], references: [id])
+  reveals   SecretReveal[]
+
+  @@index([tenantId])
+  @@map("secrets")
+}
+
+// Auditoría de "quién vio el secreto y cuándo" — nunca guarda el valor.
+model SecretReveal {
+  id         String   @id @default(cuid())
+  secretId   String
+  userId     String
+  revealedAt DateTime @default(now())
+
+  secret Secret @relation(fields: [secretId], references: [id], onDelete: Cascade)
+  user   User   @relation("SecretRevealedBy", fields: [userId], references: [id])
+
+  @@index([secretId])
+  @@map("secret_reveals")
+}
+
+// Auditoría transversal (informe #32B) — SOLO acciones sensibles con impacto
+// real (operativo/documental/comercial/financiero/administrativo/seguridad/
+// datos históricos), nunca navegación ni lecturas. Coexiste sin duplicar con
+// TicketHistory (cambios de status de ticket), SecretReveal (quién vio qué
+// secreto) y Job.legacyReviewedBy (triage legado) — cada uno sigue siendo la
+// fuente correcta para SU evento específico; esto es para todo lo demás que
+// no tenía ningún lugar central.
+// `actorId` nullable a propósito (cron/sistema no tiene actor humano).
+// `before`/`after` son JSON string de SOLO los campos que cambiaron — nunca
+// un dump de la fila completa (así nunca puede colarse un passwordHash/
+// ciphertext por accidente, el caller elige explícitamente qué campos loguear).
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String
+  actorId    String?
+  actorRole  String
+  action     String // ej: "user.create", "secret.update", "job.mark_paid"
+  entityType String // ej: "User", "Secret", "Job", "ClientDocument"
+  entityId   String
+  before     String? // JSON, sanitizado por el caller
+  after      String? // JSON, sanitizado por el caller
+  reason     String?
+  source     String // ej: "recursos/clientes/actions.ts:createPortalUser"
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@map("audit_logs")
+}
+
 enum ExpenseCategory {
   combustible
   estacionamiento
@@ -117,6 +191,8 @@ model Tenant {
   leaveRequests LeaveRequest[]
   payrolls      Payroll[]
   companyDocuments CompanyDocument[]
+  secrets       Secret[]
+  auditLogs     AuditLog[]
 
   @@map("tenants")
 }
@@ -155,6 +231,11 @@ model User {
   clientDocuments   ClientDocument[]
   signaturesCreated SignatureRequest[] @relation("SignatureCreatedBy")
   leaveApprovals    LeaveRequest[]     @relation("LeaveApprovals")
+  secretsCreated    Secret[]           @relation("SecretCreatedBy")
+  secretReveals     SecretReveal[]     @relation("SecretRevealedBy")
+  auditLogs         AuditLog[]         @relation("AuditLogActor")
+  jobLegacyReviews  Job[]              @relation("JobLegacyReviewedBy")
+  jobInstallmentsCreated JobInstallment[] @relation("JobInstallmentCreatedBy")
 
   @@index([tenantId])
   @@map("users")
@@ -422,6 +503,16 @@ enum ProcessFlow {
   post_execution // Flujo A: se ejecuta primero (emergencia), se valoriza después
 }
 
+// Estado de una OC en sí (informe #11) — ver Job.purchaseOrderStatus /
+// JobInstallment.purchaseOrderStatus. Deliberadamente 2 valores, no más:
+// "vigente" (default implícito cuando hay número de OC pero sin estado
+// elegido) y "anulada" (el cliente la canceló/reemplazó) — no se modela
+// "pendiente" acá porque ya lo cubre la ausencia de purchaseOrder.
+enum PurchaseOrderStatus {
+  vigente
+  anulada
+}
+
 enum CommercialStage {
   intake
   quote_draft
@@ -509,13 +600,31 @@ model Job {
   purchaseOrder     String?
   purchaseOrderFileUrl String? // R2 key — mismo patrón que Ticket.otFileUrl, reemplazo sobrescribe
   purchaseOrderDate DateTime?
+  // Estado de la OC en sí (informe #11) — separado de financialStage/
+  // collectionStatus (esos describen la etapa de cobranza del trabajo
+  // completo, esto describe si ESTA orden de compra sigue siendo válida).
+  // Nullable sin default: las OC históricas quedan sin estado (nunca se
+  // infiere "vigente" a la fuerza) — ver hasPurchaseOrder() en job-presets.ts,
+  // que trata null igual que antes de este campo existir.
+  purchaseOrderStatus PurchaseOrderStatus?
   invoiceNumber     String?
   invoiceFileUrl    String? // R2 key — mismo patrón que Ticket.otFileUrl, reemplazo sobrescribe
   invoiceDate       DateTime?
+  // Estado de la factura en sí (informe #13) — reusa el mismo enum que
+  // purchaseOrderStatus (mismos 2 valores: vigente/anulada), no crea un tipo
+  // paralelo solo por el nombre del campo. Nullable sin default, igual
+  // criterio que la OC: histórico sin este campo nunca se infiere.
+  invoiceStatus     PurchaseOrderStatus?
   creditDays        Int?
   paymentMethodRaw  String?
   collectionStatus  CollectionStatus @default(sin_oc)
   paymentDate       DateTime?
+  // Pago parcial (informe #13) — hasta ahora Job solo soportaba pago binario
+  // (markJobPaid/markJobPending). Nullable sin default: null = comportamiento
+  // exacto de siempre (paymentDate solo = pagado total). JobInstallment ya
+  // tenía su propio paymentAmount desde el informe #12 — este es el
+  // equivalente para el trabajo de factura única (sin cuotas).
+  paymentAmount     Int?
 
   originTicketId    String?
   originTicket      Ticket?          @relation("JobOrigins", fields: [originTicketId], references: [id], onDelete: SetNull)
@@ -547,7 +656,36 @@ model Job {
   nextContactDate    DateTime?
   contactNote        String?
 
+  // Triage del backlog "modelo anterior" (2026-08-02, informe #9/#4): trabajos
+  // reales del histórico que nunca tuvieron ticket y nunca lo tendrán (venían
+  // de antes del sistema de tickets). true = revisado por un humano y
+  // confirmado que no corresponde crear/vincular ticket — deja de contar como
+  // pendiente en /conciliacion sin forzar una relación falsa. Nunca se setea
+  // automáticamente.
+  legacyNoTicket     Boolean             @default(false)
+  // Quién marcó/desmarcó legado por última vez — no es el historial completo
+  // del punto 28 (deferido, feature grande aparte), solo accountability
+  // mínima para esta decisión puntual. `linkJobToExistingTicket` no se audita
+  // acá a propósito: es mecánico y auto-evidente (el Job aparece en la ficha
+  // del ticket), mismo criterio que ya aplica `linkJobToNewTicket` (tampoco
+  // auditado). Marcar legado sí es un juicio humano que vale la pena atribuir.
+  legacyReviewedById String?
+  legacyReviewedBy   User?               @relation("JobLegacyReviewedBy", fields: [legacyReviewedById], references: [id], onDelete: SetNull)
+  legacyReviewedAt   DateTime?
+
+  // Cuotas (informe #12) — "Activar pago en cuotas" es solo fijar este
+  // número; las cuotas en sí se crean de a una, cuando llega su OC (nunca
+  // se fuerza crear las futuras). Los campos planos de arriba
+  // (purchaseOrder/invoiceNumber/etc.) siguen siendo la fuente de verdad
+  // para el 100% de los trabajos que NUNCA activan cuotas — no se tocan,
+  // no se migran, se leen igual que siempre. Un trabajo con installments[]
+  // no vacío usa esa tabla para su resumen financiero en vez de los campos
+  // planos (ver src/lib/cashflow/job-presets.ts).
+  installmentsPlanned Int?
+  installments        JobInstallment[]
+
   costs             JobCost[]
+  expenses          Expense[] // gastos de técnico atribuidos directamente a este trabajo (informe #14) — ver Expense.jobId
   ticket            Ticket?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
@@ -611,6 +749,13 @@ model Ticket {
   urgency        TicketUrgency @default(no_urgente)
   category       String?
   status         TicketStatus  @default(nuevo)
+  // Modalidad comercial (informe #2): PP (pre_quote) exige propuesta aprobada
+  // antes de ejecutar; ED (post_execution) ejecuta primero y valoriza después.
+  // Nullable sin default — los 142 tickets históricos no tenían esta decisión
+  // y asignarles un valor a la fuerza sería inventar un dato que no existe.
+  // Reusa el enum ProcessFlow que ya vive en Job (mismo concepto, ver
+  // Job.processFlow) en vez de crear uno nuevo.
+  processFlow    ProcessFlow?
   otNumber       String?
   otFileUrl      String? // R2 key: foto/escaneo de la orden de trabajo firmada
   estimatedDate  DateTime?
@@ -721,28 +866,45 @@ model Expense {
   id            String          @id @default(cuid())
   tenantId      String
   technicianId  String
-  ticketId      String?         // trabajo asociado (opcional)
+  ticketId      String?         // ticket asociado (opcional) — directo si está seteado
+  // Trabajo específico de Flujo de Caja al que se atribuye este costo
+  // (informe #14) — deliberadamente separado de ticketId: un ticket puede
+  // tener varios Job, así que "directo" (ticketId) no basta para sumar el
+  // gasto al margen de un trabajo puntual sin adivinar cuál. Nunca se
+  // autoasigna — requiere una acción explícita (vincular/desvincular),
+  // nunca inferencia por fecha/monto/nombre.
+  jobId         String?
   assignmentId  String?         // asignación de cronograma asociada (opcional)
   category      ExpenseCategory @default(otro)
   amount        Int             // monto en CLP enteros
   description   String?
+  supplier      String?         // proveedor (informe #14) — mismo campo que JobCost.supplier
   receiptUrl    String?         // URL o data URI del comprobante
   date          DateTime
   status        ExpenseStatus   @default(pendiente)
   approvedById  String?         // usuario que aprobó/rechazó
   rejectedReason String?
   paidAt        DateTime?       // cuándo se pagó/reembolsó al técnico (status=pagado)
+  // Clasificación explícita SOLO relevante cuando ticketId es null (informe
+  // #14): true = general confirmado (revisado y decidido que no es de un
+  // ticket puntual); null = sin revisar — incluye el 100% del histórico
+  // antes de este campo. Nunca se infiere "general" a la fuerza; cuando
+  // ticketId está seteado la clasificación siempre es "directo" sin
+  // depender de este campo (ver expenseClassification()).
+  isGeneral     Boolean?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   technician  Technician   @relation(fields: [technicianId], references: [id], onDelete: Restrict)
   assignment  Assignment?  @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
   ticket      Ticket?      @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+  job         Job?         @relation(fields: [jobId], references: [id], onDelete: SetNull)
   approvedBy  User?        @relation(fields: [approvedById], references: [id])
 
   @@index([technicianId])
   @@index([tenantId, status])
   @@index([ticketId])
+  @@index([jobId])
   @@index([assignmentId])
   @@map("expenses")
 }
@@ -846,6 +1008,39 @@ model JobCost {
 
   @@index([jobId])
   @@map("job_costs")
+}
+
+// Una cuota real (informe #12): su propia OC — nunca autogenerada, la emite
+// el cliente — su propia factura (número SII manual) y su propio pago.
+// Crear una NO exige haber creado las anteriores/futuras. Saldo de la cuota
+// = netAmount - paymentAmount; saldo del trabajo = suma de saldos de sus
+// cuotas (ver job-presets.ts).
+model JobInstallment {
+  id                   String    @id @default(cuid())
+  jobId                String
+  job                  Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sequence             Int
+  netAmount            Int?
+  purchaseOrder        String?
+  purchaseOrderDate    DateTime?
+  purchaseOrderFileUrl String?
+  purchaseOrderStatus  PurchaseOrderStatus?
+  invoiceNumber        String?
+  invoiceDate          DateTime?
+  invoiceFileUrl       String?
+  invoiceStatus        PurchaseOrderStatus? // informe #13 — mismo enum que purchaseOrderStatus, ver Job.invoiceStatus
+  creditDays           Int?
+  paymentMethodRaw     String? // condiciones de pago de esta cuota (informe #11) — mismo campo que Job.paymentMethodRaw
+  paymentDate          DateTime?
+  paymentAmount        Int?
+  notes                String?
+  createdById          String
+  createdBy            User      @relation("JobInstallmentCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([jobId])
+  @@map("job_installments")
 }
 
 // ─── RR.HH. ────────────────────────────────────────────────────

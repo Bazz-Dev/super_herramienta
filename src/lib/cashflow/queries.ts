@@ -78,6 +78,7 @@ export async function getJob(actor: Actor, id: string) {
       branch: true,
       client: true,
       costs: { orderBy: { createdAt: 'desc' } },
+      installments: { orderBy: { sequence: 'asc' } },
       originTicket: { select: { id: true, ticketCode: true, title: true, status: true, otFileUrl: true } },
     },
   })

@@ -34,6 +34,7 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
   const [success, setSuccess] = useState(false)
   const [receiptDataUri, setReceiptDataUri] = useState<string | null>(null)
   const [receiptName, setReceiptName] = useState<string | null>(null)
+  const [ticketId, setTicketId] = useState('')
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -66,6 +67,7 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
         setSuccess(true)
         setReceiptDataUri(null)
         setReceiptName(null)
+        setTicketId('')
         formRef.current?.reset()
         onSuccess?.()
       }
@@ -116,11 +118,12 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
           />
         </div>
 
-        {/* Ticket (optional) */}
+        {/* Ticket (optional) — informe #14: presente = gasto directo de ese
+            ticket; ausente = general o sin clasificar (checkbox abajo) */}
         {tickets.length > 0 && (
           <div>
-            <label className={labelClass} htmlFor="ef-ticket">Trabajo (opcional)</label>
-            <select id="ef-ticket" name="ticketId" className={inputClass}>
+            <label className={labelClass} htmlFor="ef-ticket">Ticket (opcional)</label>
+            <select id="ef-ticket" name="ticketId" className={inputClass} value={ticketId} onChange={(e) => setTicketId(e.target.value)}>
               <option value="">— Sin asociar —</option>
               {tickets.map((t) => (
                 <option key={t.id} value={t.id}>{t.ticketCode} — {t.title}</option>
@@ -128,7 +131,30 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
             </select>
           </div>
         )}
+
+        {/* Proveedor */}
+        <div>
+          <label className={labelClass} htmlFor="ef-supplier">Proveedor (opcional)</label>
+          <input
+            id="ef-supplier"
+            name="supplier"
+            type="text"
+            placeholder="Ej: Copec, Ferretería Central…"
+            className={inputClass}
+          />
+        </div>
       </div>
+
+      {/* Gasto general (informe #14) — solo tiene sentido sin ticket: es la
+          clasificación explícita que evita dejarlo "sin revisar" para
+          siempre. Con ticket seleccionado, la clasificación ya es "directo"
+          sin ambigüedad, así que este checkbox no aplica. */}
+      {!ticketId && (
+        <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+          <input type="checkbox" name="isGeneral" className="rounded" />
+          Es un gasto general de la empresa (no corresponde a un ticket puntual)
+        </label>
+      )}
 
       {/* Description */}
       <div>

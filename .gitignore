@@ -13,7 +13,7 @@ next-env.d.ts
 /prisma/dev.db
 /prisma/dev.db-journal
 /prisma/*.db
-/prisma/*.db.bak
+/prisma/*.db.bak*
 /src/generated
 
 # env
@@ -58,3 +58,11 @@ justburger-ingegar/
 docs/usuarios-produccion.md
 CREDENCIALES.local.md
 backup-*.sql
+
+# graphify — grafo de conocimiento derivado del código (regenerable vía
+# `graphify extract . --code-only`), mismo criterio que src/generated/prisma/.
+graphify-out/
+
+# snapshots de Playwright MCP (verificación en vivo interactiva) — scratch,
+# nunca contenido a versionar.
+.playwright-mcp/

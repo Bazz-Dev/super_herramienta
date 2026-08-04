@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/ticket-alerts",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/cashflow-alerts",
+      "schedule": "0 14 * * *"
     }
   ]
 }

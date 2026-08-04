@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { listJobs } from '@/lib/cashflow/queries'
 import { computeMetrics, type JobLike } from '@/lib/cashflow/metrics'
-import { isNoPOJob, isOverdueV2 } from '@/lib/cashflow/job-presets'
+import { isNoPOJob, isOverdueV2, isPaidJob } from '@/lib/cashflow/job-presets'
 import { dateRange, pctDelta } from '@/lib/cashflow/period'
 import { clp } from '@/lib/cashflow/format'
 import { KpiCard } from '@/components/cashflow/kpi-card'
@@ -125,7 +125,7 @@ export default async function DashboardPage({
   const { from, to, prevFrom, prevTo, deltaLabel } = dateRange(desde, hasta)
 
   const [
-    technicians, vehicles, openTickets, cashflow, expenseStats, periodJobs, prevPeriodJobs,
+    technicians, vehicles, openTickets, expenseStats, periodJobs, prevPeriodJobs,
     resolvedCount, prevResolvedCount, attentionJobs, technicianDocs, pendingLeaveRequests,
   ] = await Promise.all([
     prisma.technician.findMany({
@@ -143,10 +143,6 @@ export default async function DashboardPage({
       // autoasignado, no siempre un técnico real. Se resuelve el link a la
       // ficha (y la especialidad) solo cuando technicianId existe.
       select: { id: true, status: true, urgency: true, estimatedDate: true, assignedToId: true, client: { select: { name: true } }, assignedTo: { select: { name: true, technicianId: true } } },
-    }),
-    prisma.job.aggregate({
-      where: { ...scope, collectionStatus: { in: ['pendiente_pago', 'sin_oc'] } },
-      _sum: { netAmount: true },
     }),
     prisma.expense.aggregate({
       where: { ...scope, status: 'pendiente' },
@@ -169,6 +165,14 @@ export default async function DashboardPage({
         financialStage: true, commercialStage: true, operationalStage: true, nonBillable: true,
         netAmount: true, purchaseOrder: true, invoiceNumber: true, invoiceDate: true,
         paymentDate: true, executionDate: true, creditDays: true,
+        // OC/factura anulada + monto de pago preciso (informe #11/#13) — sin
+        // esto hasPurchaseOrder()/hasInvoiceInfo()/isPaidJob() no pueden
+        // distinguir una OC/factura anulada de una vigente acá (bug real
+        // encontrado en la auditoría de consistencia del informe #25: esta
+        // tarjeta podía mostrar "sin pendientes" para una OC/factura que en
+        // realidad estaba anulada, porque estos 3 campos faltaban en el
+        // select mientras que /flujo, conciliación y el ticket sí los leen).
+        purchaseOrderStatus: true, invoiceStatus: true, paymentAmount: true,
         // Respaldo para trabajos importados con las etapas v2 sin poblar —
         // ver el comentario en job-presets.ts.
         status: true, collectionStatus: true,
@@ -227,7 +231,16 @@ export default async function DashboardPage({
   const overdueAmount = overdueJobs.reduce((s, j) => s + (j.netAmount ?? 0), 0)
   const noPOJobs = attentionJobs.filter(isNoPOJob)
 
-  const pendingCLP = cashflow._sum.netAmount ?? 0
+  // Antes: prisma.job.aggregate({ collectionStatus: { in: ['pendiente_pago','sin_oc'] } })
+  // — un query separado que duplicaba, con otra fuente, lo que
+  // isPaidJob()/isOverdueV2() (arriba) ya calculan sobre attentionJobs.
+  // Reemplazado (informe #25) por la suma sobre el mismo dataset canónico:
+  // elimina el cálculo duplicado y de paso excluye trabajos nonBillable
+  // (antes se sumaban igual como "por cobrar", inflando la cifra con dinero
+  // que nunca se iba a cobrar).
+  const pendingCLP = attentionJobs
+    .filter((j) => !j.nonBillable && !isPaidJob(j))
+    .reduce((s, j) => s + (j.netAmount ?? 0), 0)
   const pendingExpenseCount = expenseStats._count.id
   const pendingExpenseAmount = expenseStats._sum.amount ?? 0
 

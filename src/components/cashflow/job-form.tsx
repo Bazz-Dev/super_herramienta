@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useActionState, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button, Field, TextInput, Select, TextArea } from '@/components/quotes/ui'
 import { CollapsibleSection } from '@/components/ui/collapsible-section'
 import { BranchSelect } from '@/components/resources/branch-select'
@@ -12,6 +13,7 @@ import {
   OPERATIONAL_STAGE_LABELS,
   DOCUMENTATION_STAGE_LABELS,
   FINANCIAL_STAGE_LABELS,
+  PURCHASE_ORDER_STATUS_LABELS,
 } from '@/lib/cashflow/labels'
 import { toDateInput } from '@/lib/cashflow/dates'
 import { clp } from '@/lib/cashflow/format'
@@ -38,12 +40,15 @@ type JobInitial = {
   taxAmount?: number | null
   purchaseOrder?: string | null
   purchaseOrderDate?: Date | null
+  purchaseOrderStatus?: string | null
   invoiceNumber?: string | null
   invoiceDate?: Date | null
+  invoiceStatus?: string | null
   creditDays?: number | null
   paymentMethodRaw?: string | null
   collectionStatus?: string
   paymentDate?: Date | null
+  paymentAmount?: number | null
   originTicketId?: string | null
   originProposalId?: string | null
   processFlow?: string
@@ -88,6 +93,7 @@ export function JobForm({
   clientId,
   initial,
   openSection,
+  tickets = [],
 }: {
   action: (prev: FormState, formData: FormData) => Promise<FormState>
   branches: { id: string; name: string }[]
@@ -96,12 +102,16 @@ export function JobForm({
   clientId: string
   initial?: JobInitial
   openSection?: string
+  /** Tickets del cliente actual — solo se usa (y se exige) al crear un trabajo nuevo, ver `isNewJob`. */
+  tickets?: { id: string; ticketCode: string; title: string }[]
 }) {
+  const router = useRouter()
   const [state, formAction, pending] = useActionState(action, {})
   const err = (f: string) => state.fieldErrors?.[f]?.[0]
 
   const [branchId, setBranchId] = useState(initial?.branchId ?? '')
   const [branchName, setBranchName] = useState(branches.find((b) => b.id === initial?.branchId)?.name)
+  const [originTicketId, setOriginTicketId] = useState(initial?.originTicketId ?? '')
   const technicianName = technicians.find((t) => t.id === initial?.technicianId)?.name
   // Trabajo nuevo (sin id todavía): no hay nada que "reducir" — colapsar
   // Cobros/Estados por defecto en /flujo/trabajos/new solo escondía el
@@ -114,9 +124,7 @@ export function JobForm({
     <form action={formAction} className="flex max-w-4xl flex-col gap-4 pb-20">
       {/* Hidden ids */}
       <input type="hidden" name="clientId" value={clientId} />
-      {initial?.originTicketId && (
-        <input type="hidden" name="originTicketId" value={initial.originTicketId} />
-      )}
+      <input type="hidden" name="originTicketId" value={originTicketId} />
       {initial?.originProposalId && (
         <input type="hidden" name="originProposalId" value={initial.originProposalId} />
       )}
@@ -128,6 +136,34 @@ export function JobForm({
         forceOpen={openSection === 'datos'}
         summary={`${branchName ?? 'Sin sucursal'} · ${JOB_TYPE_LABELS[initial?.type ?? ''] ?? initial?.type ?? '—'} · ${technicianName ?? 'Sin técnico'}`}
       >
+        {isNewJob && (
+          <div className="mb-4 rounded-lg border border-brand/20 bg-brand/5 p-3">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label className="block text-xs font-semibold text-gray-600">
+                Ticket de origen <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-2 text-xs">
+                <a href="/tickets/new" target="_blank" rel="noopener" className="font-semibold text-brand-600 hover:underline">
+                  + Crear ticket nuevo
+                </a>
+                <button type="button" onClick={() => router.refresh()} className="text-gray-400 hover:text-gray-600" title="Refrescar lista de tickets">
+                  ↻ Refrescar
+                </button>
+              </div>
+            </div>
+            <select
+              value={originTicketId}
+              onChange={(e) => setOriginTicketId(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+            >
+              <option value="">— Seleccionar ticket —</option>
+              {tickets.map((t) => <option key={t.id} value={t.id}>{t.ticketCode} · {t.title}</option>)}
+            </select>
+            {tickets.length === 0 && (
+              <p className="mt-1.5 text-xs text-amber-700">Este cliente no tiene tickets disponibles — crea uno primero.</p>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {clients.length > 1 && (
             <Field label="Cliente *">
@@ -240,7 +276,7 @@ export function JobForm({
         title="Cobros y pago"
         defaultOpen={isNewJob}
         forceOpen={openSection === 'cobros'}
-        summary={`Neto: ${clp(initial?.netAmount ?? 0)} · OC: ${initial?.purchaseOrder || 'Falta'} · Factura: ${initial?.invoiceNumber || 'Falta'}`}
+        summary={`Neto: ${clp(initial?.netAmount ?? 0)} · OC: ${initial?.purchaseOrder || 'Falta'}${initial?.purchaseOrderStatus === 'anulada' ? ' (anulada)' : ''} · Factura: ${initial?.invoiceNumber || 'Falta'}${initial?.invoiceStatus === 'anulada' ? ' (anulada)' : ''}${initial?.paymentAmount != null ? ` · Pagado: ${clp(initial.paymentAmount)}` : ''}`}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Neto (CLP)">
@@ -275,6 +311,12 @@ export function JobForm({
               defaultValue={toDateInput(initial?.purchaseOrderDate)}
             />
           </Field>
+          <Field label="Estado OC">
+            <Select name="purchaseOrderStatus" defaultValue={initial?.purchaseOrderStatus ?? ''}>
+              <option value="">Sin definir</option>
+              {Object.entries(PURCHASE_ORDER_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </Field>
           <Field label="N° factura">
             <TextInput
               name="invoiceNumber"
@@ -288,6 +330,12 @@ export function JobForm({
               type="date"
               defaultValue={toDateInput(initial?.invoiceDate)}
             />
+          </Field>
+          <Field label="Estado factura">
+            <Select name="invoiceStatus" defaultValue={initial?.invoiceStatus ?? ''}>
+              <option value="">Sin definir</option>
+              {Object.entries(PURCHASE_ORDER_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
           </Field>
           <Field label="Días de crédito">
             <TextInput
@@ -310,6 +358,15 @@ export function JobForm({
               name="paymentDate"
               type="date"
               defaultValue={toDateInput(initial?.paymentDate)}
+            />
+          </Field>
+          <Field label="Monto pagado (CLP)">
+            <TextInput
+              name="paymentAmount"
+              type="number"
+              min={0}
+              defaultValue={initial?.paymentAmount ?? ''}
+              placeholder="Vacío = sin pago parcial registrado"
             />
           </Field>
         </div>
@@ -401,12 +458,15 @@ export function JobForm({
       </CollapsibleSection>
 
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {isNewJob && !originTicketId && (
+        <p className="text-xs text-amber-700">Selecciona un ticket de origen arriba (o crea uno nuevo) antes de guardar.</p>
+      )}
 
       {/* Barra sticky de guardado — la ficha se volvió larga (varias
           secciones plegables); sin esto había que scrollear hasta el final
           después de cada cambio. */}
       <div className="sticky bottom-0 -mx-4 mt-2 flex items-center gap-3 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <Button type="submit" disabled={pending} aria-busy={pending}>
+        <Button type="submit" disabled={pending || (isNewJob && !originTicketId)} aria-busy={pending}>
           {pending ? 'Guardando…' : 'Guardar trabajo'}
         </Button>
         <Link href="/flujo" className="text-sm text-gray-500 hover:text-gray-700">

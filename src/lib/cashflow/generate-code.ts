@@ -22,12 +22,11 @@ export function clientCodeFrom(name: string): string {
 // mismo prefijo en una sola corrida (ver scripts/reconcile-flujo-2026b.ts)
 // debe pasar un Map compartido entre llamadas, si no dos registros del mismo
 // día+cliente+tipo consultarían la misma "secuencia máxima actual" y
-// colisionarían. La app en vivo (un solo create a la vez) no lo necesita.
-// ponytail: sin lock — dos creates concurrentes para el mismo cliente+tipo+
-// día podrían calcular el mismo código antes de que ninguno se guarde; el
-// segundo create fallaría por la constraint @unique de `code` (error visible,
-// no duplicado silencioso). Aceptado: equipo interno chico, no tráfico
-// público concurrente. Si algún día importa, un lock por prefijo lo resuelve.
+// colisionarían. La app en vivo (un solo create a la vez) no lo necesita —
+// usa generateJobCodeWithRetry(), que reintenta sobre la constraint @unique
+// real de `code` en vez de calcular una sola vez y confiar en que no choque
+// (mismo criterio Turso/libSQL que createTicketWithUniqueCode, ver
+// docs/ARQUITECTURA.md § Modelo objetivo, guardrail 4).
 export async function generateJobCode(
   clientCode: string,
   typeCode: string,
@@ -45,4 +44,29 @@ export async function generateJobCode(
   seq += 1
   seqCache?.set(prefix, seq)
   return `${prefix}${String(seq).padStart(width, '0')}`
+}
+
+const MAX_CODE_ATTEMPTS = 5
+
+// Wrapper para el create en vivo (un job a la vez, sin seqCache): si dos
+// creates concurrentes calculan el mismo código, el segundo choca contra la
+// constraint @unique de `code` — acá se recalcula (ve el registro recién
+// insertado) y se reintenta, en vez de dejar que el error crudo de Prisma
+// llegue al usuario.
+export async function generateJobCodeWithRetry<T>(
+  clientCode: string,
+  typeCode: string,
+  dateStr: string | null,
+  create: (code: string) => Promise<T>,
+): Promise<T> {
+  for (let attempt = 1; attempt <= MAX_CODE_ATTEMPTS; attempt++) {
+    const code = await generateJobCode(clientCode, typeCode, dateStr)
+    try {
+      return await create(code)
+    } catch (e) {
+      const isCodeConflict = typeof e === 'object' && e !== null && 'code' in e && e.code === 'P2002'
+      if (!isCodeConflict || attempt === MAX_CODE_ATTEMPTS) throw e
+    }
+  }
+  throw new Error('unreachable')
 }

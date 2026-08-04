@@ -34,9 +34,12 @@ type Job = JobLike & {
   quoteRef: string | null
   purchaseOrder: string | null
   purchaseOrderFileUrl: string | null
+  purchaseOrderStatus: string | null
   invoiceNumber: string | null
   invoiceFileUrl: string | null
   invoiceDate: Date | null
+  invoiceStatus: string | null
+  paymentAmount: number | null
   originTicketId: string | null
   otFileUrl: string | null
   informeDocId: string | null
@@ -529,6 +532,13 @@ function MarkPaidForm({ job, onDone }: { job: Job; onDone: () => void }) {
         <input name="paymentDate" type="date" defaultValue={today} className={inputCls} required />
       </div>
       <div>
+        {/* Informe #13: precargado con el neto total — dejarlo tal cual
+            equivale al "pago total" de siempre; reducirlo registra un pago
+            parcial (el trabajo queda "Pendiente de pago", no "Pagado"). */}
+        <label className={labelCls}>Monto pagado (CLP)</label>
+        <input name="paymentAmount" type="number" min={0} defaultValue={job.netAmount ?? ''} className={inputCls} />
+      </div>
+      <div>
         <label className={labelCls}>Medio de pago</label>
         <input name="paymentMethodRaw" placeholder="Transferencia, cheque…" className={inputCls} />
       </div>
@@ -659,8 +669,10 @@ function QuickEditForm({
           jobId={job.id}
           purchaseOrder={job.purchaseOrder}
           purchaseOrderFileUrl={job.purchaseOrderFileUrl}
+          purchaseOrderStatus={job.purchaseOrderStatus}
           invoiceNumber={job.invoiceNumber}
           invoiceFileUrl={job.invoiceFileUrl}
+          invoiceStatus={job.invoiceStatus}
           otFileUrl={job.otFileUrl}
           originTicketId={job.originTicketId}
           informeDocId={job.informeDocId}

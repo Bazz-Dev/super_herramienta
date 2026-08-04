@@ -45,7 +45,7 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 
 ---
 
-## Módulos actuales (v1.10.0)
+## Módulos actuales (v1.11.0)
 
 ### Cronograma (`/cronograma`)
 **Para qué**: Calendario de trabajos en terreno.
@@ -62,6 +62,8 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Aprobación de sucursal**: un usuario de portal con `branchId` (no admin) crea tickets en `pendiente_aprobacion`; un admin del cliente los aprueba (→`nuevo`, notifica staff) o rechaza (→`cancelado`) desde `/portal/[slug]/tickets` (`approvePortalTicket`). Staff y usuarios de portal sin `branchId`/con `isClientAdmin` crean directo en `nuevo`.
 **Fusión**: exclusiva del portal cliente (admin del cliente) — INGEGAR One no tiene esta opción en su selector de Estado. Fusionar es confirmación explícita e irreversible por acción; desfusionar restaura el `status` exacto previo a la fusión (leído de `TicketHistory`, no un default fijo). Cerrados en INGEGAR One incluye `fusionado` (antes era invisible en toda vista interna).
 **Eliminar**: disponible en Activos y Cerrados (mismo `deleteTicket`, gate `super`/`supervisor`).
+**Correlativo de `ticketCode`** (`createTicketWithUniqueCode`, `src/lib/tickets/ticket-code.ts`): la colisión (mismo día+cliente+urgencia+sucursal) ya no se maneja con un check previo + sufijo `Date.now()` — reintenta la creación real sobre la constraint única (`P2002`) con un sufijo determinístico (`-2`, `-3`…), correcto bajo el modelo de concurrencia de Turso/libSQL (MVCC, conflictos al commit). Mismo patrón para `Job.code` (`generateJobCodeWithRetry`, `src/lib/cashflow/generate-code.ts`).
+**Documentos del trabajo** (`ticket-documents-panel.tsx`, en la ficha): vista de solo lectura que agrupa Fotografías/Videos/Otros (con origen cliente/técnico/administrador, derivado de `TicketDocument.uploadedBy.role`), OT, Propuestas, Informes, OC, Facturas y Boletas — extiende el mismo patrón de `/documentacion` (lee fuentes reales en paralelo, no fusiona tablas ni copia archivos). Ver Ontología del dominio § Modelo objetivo.
 
 ### Flujo de Caja (`/flujo`, `/flujo/reportes`, `/flujo/trabajos/[id]`)
 **Para qué**: Control financiero de trabajos ejecutados — facturación, cobranza, márgenes. Rediseñado 2026-07-28 contra `flujo de caja produccion/*.html` (prototipo de referencia del dueño).
@@ -71,10 +73,12 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Predicados de negocio**: `src/lib/cashflow/job-presets.ts` — única fuente de verdad para "vencido"/"sin OC"/"pagado"/etc., con fallback a campos clásicos (ver Taxonomía). No reimplementar estas reglas en un componente.
 **`recordDate()`** (`group-by-client-period.ts`): fecha de agrupación con fallback `executionDate → parseada del código YYMMDD → createdAt` — sin esto, jobs sin `executionDate` (todo el histórico importado) desaparecían de la lista.
 **Carga histórica**: `scripts/import-flujo.ts` (JB: 205 jobs, Decathlon: 1, Unity: 1) — ya aplicada a Turso prod.
+**Ticket de origen obligatorio para trabajos nuevos** (2026-08-02, cierra el punto #1 del informe): `/flujo/trabajos/new` exige seleccionar un ticket del cliente antes de guardar (mismo patrón que Cotizador/Informe) — antes de este fix, un trabajo creado directo acá quedaba sin `originTicketId` igual que los 328 del histórico, así que el backlog de "Triage legado" en Conciliación se habría seguido llenando. `updateJob` es una función separada — editar trabajos existentes sin ticket (históricos) no se ve afectado.
 
 ### Cotizador (`/cotizador`) + Informes Técnicos (`/informe`)
 **Para qué**: Generar propuestas/informes en PDF y guardarlos en carpeta del cliente — el cliente ve los documentos consolidados dentro del portal, en el menú Informes (`/portal/[slug]/informes`) para informes técnicos y Propuestas para comerciales. Soporta tanto documentos JSON editables (generados desde el editor) como archivos reales subidos a R2 (informes históricos vinculados desde evidencia de ticket) — ambos casos descargables desde el portal.
 **Flujo**: Editor → preview vivo → guardar como JSON editable en `ClientDocument` → PDF generado on-demand.
+**Ticket de origen obligatorio** (2026-08-02, informe #1 del plan de ordenamiento): ambos editores exigen elegir un ticket antes de guardar (validado en cliente y en servidor, `POST /api/client-documents` — no aplica a `type:'otro'`, el upload libre de `/documentos`). El servidor deriva `clientId` del ticket, no del dropdown del modal, para que no puedan quedar desincronizados. "+ Crear ticket nuevo" abre `/tickets/new` en pestaña nueva (no pierde el formulario) + botón "Refrescar" para traer la lista sin recargar. Antes del 2026-08-02, Cotizador no tenía ningún vínculo a ticket e Informe lo tenía pero roto: el botón Guardar mandaba el `ticketId` de la URL en vez del seleccionado en el dropdown — corregido.
 **Re-editar**: `/cotizador?docId=xxx` carga el JSON guardado en el editor.
 **No requiere R2**: el JSON se guarda en `ClientDocument.dataJson` (DB). `fileKey="inline"`.
 **Templates activos**: `clasico`, `basica` (variante CSS liviana del clásico), `pro` (layout propio: hero negro, grilla meta, condiciones en tabla). Docs legados con template `minimal` se mapean a `basica`.
@@ -102,6 +106,12 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Ficha de cliente** (`/recursos/clientes/[id]`): además del form de edición, gestiona sucursales (`BranchManager`) y usuarios de portal (`PortalUserManager`, `super`-only: crear, editar email/username, resetear password, activar/desactivar). Ambas listas van dentro de `CollapsibleSection` (colapsadas por defecto si hay más de 6 filas — Just Burger tiene 27 sucursales y 15 usuarios) para no dominar la página.
 **Ficha de sucursal** (`/recursos/clientes/[id]/sucursales/[branchId]`): datos editables (dirección/ciudad/contacto, reusa `updateBranch`/`toggleBranch`), usuarios de portal con ese `branchId` (solo lectura — editar sigue viviendo en la ficha del cliente), tickets de esa sucursal. Link "Ver ficha →" desde `BranchManager`.
 
+### Bóveda de credenciales (`/recursos/credenciales`) — solo `super`
+**Para qué**: Accesos a servicios externos de la empresa (informe #21) — cifrados en reposo (AES-256-GCM, `src/lib/secrets/crypto.ts`), ocultos por defecto.
+**Modelos**: `Secret`, `SecretReveal` (auditoría de quién reveló y cuándo — nunca guarda el valor).
+**Revelar**: exige reautenticación (password del propio usuario, `bcrypt.compare`) y queda bloqueado bajo "ver como" (mismo criterio identity-bound que RR.HH./FES, ver G32 en el gap register).
+**Permisos**: único link del nav que se filtra por rol — invisible para `supervisor` (antes el nav de INGEGAR One mostraba lo mismo a super y supervisor por igual, confiando solo en el gate de la página).
+
 ### Documentación y acreditación (`/documentacion`)
 **Para qué**: vista cruzada de solo-lectura sobre documentos ya existentes (técnicos, empresa, OT de tickets) para preparar rápido un paquete de acreditación — NO es una biblioteca de archivos nueva, no duplica ningún archivo.
 **Fuentes leídas** (`src/lib/resources/documentacion.ts`): `TechnicianDocument`, `CompanyDocument`, `Ticket.otFileUrl` (la OT vive en `Ticket`, no en `ClientDocument` — son documentos con dueño y ciclo de vida distintos, ver `.claude/rules/data.md`).
@@ -110,6 +120,7 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 
 ### Conciliación (`/conciliacion`)
 **Para qué**: compara cada `Job` contra su `Ticket` de origen (`originTicketId`), y ese ticket contra su OT (`Ticket.otFileUrl`) e informe técnico (`ClientDocument` type=`informe`). Cada estado con problema (sin ticket / sin OT / sin IT) tiene una acción directa a resolverlo, no solo una etiqueta.
+**Dos pestañas** (2026-08-02, informe #4/#9): "Conciliación" (día a día, todos los estados) y **"Triage legado"** — espacio de trabajo separado para el backlog real del modelo anterior (328 de 386 `Job` sin `originTicketId` al momento de esta sesión, ver `scripts/check-ticket-doc-linking.ts`). Selección múltiple + "Vincular a ticket existente" (dropdown scopeado por cliente del `Job`, nunca cross-cliente) o "Marcar como legado" (`Job.legacyNoTicket`, nuevo campo — deja de contar como pendiente sin forzar un ticket falso, reversible con "Deshacer"). Nunca vincula ni marca automáticamente — cada fila o selección es una decisión humana explícita.
 
 ### Gastos (`/gastos`)
 **Para qué**: Control de gastos operacionales por técnico (combustible, viáticos, materiales).
@@ -156,7 +167,10 @@ Tenant ──< User (role: super|supervisor|tecnico|client)
                 ──< Expense
        ──< Assignment ──< AssignmentAssignee (técnico+rol)
                       ──< Expense
+       ──< Secret ──< SecretReveal (bóveda de credenciales, solo super)
 ```
+
+> No muestra `Job.originTicketId`, `Job.originProposalId` ni `ClientDocument.ticketId` — son FK reales pero opcionales, omitidas aquí por brevedad. Ver "Relaciones clave y sus invariantes" § Modelo objetivo para el diagrama de destino donde pasan a ser obligatorias.
 
 ---
 
@@ -393,6 +407,10 @@ Vehicle    ──< Asset      1:N  — instrumentos en esa camioneta
 
 Assignment ──< AssignmentAssignee M:N — técnico principal (tecnico) + ayudantes
 Assignment ──? Ticket      opt — un trabajo puede referenciar un ticket
+
+Job            ──? Ticket opt — Job.originTicketId, 1:1 vía Ticket.jobId (@unique)
+Job            ──? ClientDocument opt — Job.originProposalId (trazabilidad pipeline→Job)
+ClientDocument ──? Ticket opt — ClientDocument.ticketId, FK real pero nullable
 ```
 
 **Invariantes de integridad:**
@@ -401,6 +419,47 @@ Assignment ──? Ticket      opt — un trabajo puede referenciar un ticket
 - `portalSlug` es único en `Client` — solo un cliente puede tener ese portal URL.
 - `plate` es único en `Vehicle` dentro del tenant.
 - El rol `client` siempre tiene `clientId != null`; el rol `tecnico` siempre tiene `technicianId != null`.
+- `Job.originTicketId`/`ClientDocument.ticketId` son **nullable hoy** y no se exigen en la creación — ver "Modelo objetivo" abajo para el criterio de hacia dónde va esto y por qué no se cambia sin plan.
+
+### 🎯 Modelo objetivo — Ticket como raíz de agregación (dirección acordada, NO implementado)
+
+> Acordado 2026-08-02 a partir de "Informe Final INGEGAR ONE v4" (`INGEGAR UPGRADE/Informe_Final_INGEGAR_ONE_v4_COMPLETO.html`, 33 cambios evaluados contra este código). Esta sección es **criterio de diseño para futuras sesiones**, no una descripción del código actual — no asumir que nada de esto ya existe. Antes de tocar una sola línea de esto, releer "Job — dos sistemas de estado en paralelo" más abajo: ya se vivió una vez el costo de no hacer backfill al extender un modelo de estados, y el mismo error es fácil de repetir con `Ticket`.
+
+**Qué cambia respecto al diagrama de arriba:**
+- Hoy `Job` y `ClientDocument` cuelgan de `Client`/`Branch` como hermanos de `Ticket`, con un link opcional de vuelta. Ambas FK (`originTicketId`, `ticketId`) **ya existen y son reales** — el trabajo pendiente es de *validación de servidor* (hacerlas obligatorias en la creación de registros nuevos), no de schema.
+- Objetivo: `Ticket` es el punto de partida de todo trabajo. Desde el ticket se crean, anidados, los demás números del expediente: OT (ya vive en `Ticket.otFileUrl`, sin cambio de tabla), Informe Técnico ("IT", `ClientDocument` type=`informe`), Propuesta/Cotización (`ClientDocument` type=`propuesta`, hoy es lo mismo que alimenta Pipeline), y el `Job` de Flujo de Caja con su OC/factura/pagos.
+- Los tres generadores de ID actuales (`ticket-code.ts`, `quote-id.ts`, `generate-code.ts` de Job) **no se fusionan en uno**. El ticket conserva su correlativo diario propio; propuesta y factura le agregan sufijos `PPTO-N`/`FAC-N` a la referencia visible solo cuando existen, sin reemplazar el ID interno de cada entidad. Ningún ID ya emitido cambia retroactivamente.
+
+**Diagrama objetivo** (contraste con el actual, arriba):
+```
+Client ──< Branch
+Client ──< Ticket (raíz — todo lo demás nace desde acá)
+              ├──< ClientDocument (propuesta, ticketId NOT NULL para registros nuevos) [PPTO-N]
+              ├──< ClientDocument (informe, ticketId NOT NULL para registros nuevos)   [IT]
+              ├──< Job (originTicketId NOT NULL para registros nuevos)
+              │        ├──< JobCost
+              │        └──< JobInstallment[]  ← YA IMPLEMENTADO (2026-08-02, punto #12): una fila por
+              │                                  cuota con su propia OC/factura/crédito/pago
+              │                                  ([FAC-N] por cuota), en vez de las 3 tablas separadas
+              │                                  originalmente imaginadas acá (PurchaseOrder/Invoice/
+              │                                  Payment) — una cuota agrupa naturalmente su OC+factura
+              │                                  +pago como un solo evento de cobro, no tres FKs sueltas.
+              │                                  `Job.installments` sigue siendo opcional en cualquier
+              │                                  query — los campos planos (`purchaseOrder`,
+              │                                  `invoiceNumber`, etc.) siguen siendo la fuente de
+              │                                  verdad para trabajos de pago único (la mayoría).
+              └──< TicketDocument (OT, fotos, videos — misma tabla de hoy, sin fusionar)
+```
+
+**Guardrails no negociables al implementar cualquier pieza de esto** (para no contradecir invariantes ya probadas en este proyecto):
+1. **No forzar relaciones históricas.** Un `Job`/`ClientDocument` viejo sin `ticket_id` no se le asigna uno por similitud de nombre/fecha — va a bandeja de regularización, decisión humana (misma disciplina que `production-safety.md` exige para duplicados; ver el caso real de las 13 sucursales duplicadas reconciliadas por `scripts/reconcile-2026-phase3-dedupe-branches.ts`).
+2. **Backfill en el mismo commit, no "después" — o mejor, evitarlo calculando en vez de guardando.** Resuelto en la práctica (2026-08-02, punto 3 del informe): en vez de replicar los 5 enums de etapa de `Job` como columnas nuevas en `Ticket` (que sí habría exigido backfill de los tickets existentes), el resumen de 4 estados se **calcula** desde `Ticket` + su `Job`/`Propuesta` vinculados (`src/lib/tickets/ticket-state-summary.ts`) — cero campo nuevo, cero backfill, cero segundo lugar donde el dato pueda desincronizarse. Si en el futuro se necesita un campo *guardado* (no solo mostrado) en `Ticket`, sigue aplicando la regla original: backfill en el mismo commit, nunca "después" — ver "Job — dos sistemas de estado en paralelo".
+   Mismo criterio aplicado en la práctica al punto #12 (cuotas, 2026-08-02): `Job.installments` es un campo **opcional** en el tipo compartido de `job-presets.ts` — presente solo cuando el caller lo selecciona explícitamente en su query Prisma. Los 386 trabajos existentes (todos de pago único) y el código que no fue tocado esta sesión (dashboard, `/flujo/reportes`) siguen leyendo los campos planos de siempre, byte-idéntico a antes — cero backfill porque no hace falta: un trabajo sin cuotas simplemente nunca puebla ese array.
+3. **"Documento único" = vista, no tabla nueva.** Unificar OT/fotos/informe se hace extendiendo el patrón de solo-lectura que ya usa `/documentacion` (lee `TechnicianDocument`+`CompanyDocument`+`Ticket.otFileUrl` en paralelo sin fusionar). Fusionar `ClientDocument`/`TicketDocument`/`Ticket.otFileUrl` en una tabla nueva rompe la regla ya escrita en `.claude/rules/data.md` ("OT vs Carpetas de clientes — no son lo mismo, no se fusionan").
+4. **Corrección de colisión de correlativo, patrón correcto para Turso/libSQL**: `ticket-code.ts` hoy resuelve colisiones con un sufijo `Date.now()` (parche); `generate-code.ts` de Job usa `MAX(existing)+1` sin lock a propósito (comentado `ponytail: equipo chico`). Turso/libSQL usa MVCC bajo `BEGIN CONCURRENT` — los conflictos se resuelven al hacer commit, no con locks pesimistas. El fix correcto es constraint única `(clientId, dateKey)` + captura de conflicto (P2002) + reintento, nunca un lock de aplicación.
+5. **Todo migra aditivo, vía el camino ya establecido.** `prisma migrate dev` local → `scripts/turso-migrate.ts` contra Turso, con backup previo (`scripts/backup-turso-tables.ts`) — igual que cualquier otro schema change (ver "Flujo SEGURO para schema changes" más abajo). Nunca `prisma db push`/CLI directo contra Turso.
+
+**Pendiente de proceso**: fusionar los 33 puntos del informe en `docs/architecture/GAP_REGISTER.md` (cruzados con G2, G20, G25, G31, G32, G34, G37, G41, G43, G45, que ya son evidencia real de varios de estos problemas) antes de implementar cualquier etapa — para no mantener esta lista y el gap register divergiendo, tal como `CLAUDE.md` ya pide evitar.
 
 ---
 
@@ -428,6 +487,8 @@ Assignment ──? Ticket      opt — un trabajo puede referenciar un ticket
 | `fusionado` | Fusionado | Solo cliente — admin del cliente (fusionar/desfusionar), con confirmación explícita | Exclusivamente portal cliente — no existe en el selector de Estado de INGEGAR One |
 
 **Regla portal**: cliente puede **agregar sub-tareas** solo si `status ∈ {nuevo, en_revision}`.
+
+**Resumen de 4 estados (2026-08-02, informe #3)**: `src/lib/tickets/ticket-state-summary.ts` — operativo/documental/comercial/financiero, mostrados en la ficha del ticket. Implementado **calculado, no como columnas nuevas**: a diferencia de lo que este documento planteaba antes de revisar el modelo real de `Job` en profundidad, no se replicaron los 5 enums de etapa de `Job` en `Ticket` — se deriva del `Ticket` + su `Job`/`Propuesta` vinculados (reusando los predicados de `job-presets.ts`). Cero backfill porque no hay campo nuevo que backfillear. Este `status` clásico sigue siendo la fuente real del estado operativo, no se reemplaza.
 
 ### Ticket — `urgency`
 

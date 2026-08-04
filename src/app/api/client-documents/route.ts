@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { deleteFromR2, getPresignedUrl, isR2Key } from '@/lib/r2'
 import { tenantScope } from '@/lib/tenant'
 import type { ClientDocType } from '@/generated/prisma/enums'
+import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
 
@@ -23,8 +24,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields: clientId, title, dataJson or fileKey' }, { status: 400 })
   }
 
+  // Toda propuesta o informe nace desde un ticket (informe #1 del plan de
+  // ordenamiento) — no aplica a 'otro' (repositorio de documentos libres de
+  // /documentos, un caso de uso distinto: no todo documento de cliente es
+  // trabajo trazable a un ticket).
+  if ((type === 'propuesta' || type === 'informe') && !metadata?.ticketId) {
+    return NextResponse.json({ error: 'Selecciona un ticket de origen antes de guardar.' }, { status: 400 })
+  }
+
+  // Si viene un ticket, es la fuente de verdad del cliente — evita que el
+  // dropdown de cliente del modal (selección independiente) quede
+  // desincronizado del ticket realmente elegido en el editor.
+  let resolvedClientId = clientId
+  if (metadata?.ticketId) {
+    const ticket = await prisma.ticket.findFirst({
+      where: { id: metadata.ticketId, tenantId: session.user.tenantId ?? '' },
+      select: { clientId: true },
+    })
+    if (!ticket) return NextResponse.json({ error: 'Ticket no encontrado.' }, { status: 404 })
+    resolvedClientId = ticket.clientId
+  }
+
   const client = await prisma.client.findFirst({
-    where: { id: clientId, tenantId: session.user.tenantId ?? '' },
+    where: { id: resolvedClientId, tenantId: session.user.tenantId ?? '' },
     select: { id: true },
   })
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -32,7 +54,7 @@ export async function POST(req: NextRequest) {
   const doc = await prisma.clientDocument.create({
     data: {
       tenantId: session.user.tenantId ?? '',
-      clientId,
+      clientId: resolvedClientId,
       type: (type ?? 'otro') as ClientDocType,
       title: title.trim(),
       fileKey: fileKey && !dataJson ? fileKey : 'inline',
@@ -42,6 +64,14 @@ export async function POST(req: NextRequest) {
       ticketId: metadata?.ticketId ?? undefined,
       createdById: session.user.id,
     },
+  })
+  // Cubre "propuesta creada" y "informe creado/generado" (informe #32B punto
+  // 4/5) — mismo evento genérico, el campo `type` distingue cuál es cuál.
+  await logAudit({
+    tenantId: session.user.tenantId ?? '', actorId: session.user.id, actorRole: session.user.role,
+    action: 'client_document.create', entityType: 'ClientDocument', entityId: doc.id,
+    after: { type: doc.type, title: doc.title, clientId: resolvedClientId, ticketId: metadata?.ticketId ?? null },
+    source: 'api/client-documents/route.ts:POST',
   })
 
   return NextResponse.json({ success: true, id: doc.id })
@@ -60,7 +90,7 @@ export async function PATCH(req: NextRequest) {
 
   const doc = await prisma.clientDocument.findFirst({
     where: { id, tenantId: session.user.tenantId ?? '' },
-    select: { id: true },
+    select: { id: true, type: true, title: true, ticketId: true },
   })
   if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -71,6 +101,16 @@ export async function PATCH(req: NextRequest) {
       ...(dataJson ? { dataJson: typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson) } : {}),
       ...(metadata ? { metadata: JSON.stringify(metadata) } : {}),
     },
+  })
+  // Cubre "propuesta versionada" (un cambio de metadata.version es solo un
+  // campo más dentro de esta misma edición — no existe un mecanismo de
+  // versión real por fila, ver GAP_REGISTER) e "informe editado".
+  await logAudit({
+    tenantId: session.user.tenantId ?? '', actorId: session.user.id, actorRole: session.user.role,
+    action: 'client_document.update', entityType: 'ClientDocument', entityId: id,
+    before: { title: doc.title },
+    after: { title: title?.trim() || doc.title, type: doc.type, ticketId: doc.ticketId },
+    source: 'api/client-documents/route.ts:PATCH',
   })
 
   return NextResponse.json({ success: true })
@@ -137,12 +177,18 @@ export async function DELETE(req: NextRequest) {
 
   const doc = await prisma.clientDocument.findFirst({
     where: { id, tenantId: session.user.tenantId ?? '' },
-    select: { fileKey: true },
+    select: { fileKey: true, title: true, type: true, clientId: true, ticketId: true },
   })
   if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   if (isR2Key(doc.fileKey)) await deleteFromR2(doc.fileKey)
   await prisma.clientDocument.delete({ where: { id } })
+  await logAudit({
+    tenantId: session.user.tenantId ?? '', actorId: session.user.id, actorRole: session.user.role,
+    action: 'client_document.delete', entityType: 'ClientDocument', entityId: id,
+    before: { title: doc.title, type: doc.type, clientId: doc.clientId, ticketId: doc.ticketId },
+    source: 'api/client-documents/route.ts:DELETE',
+  })
 
   return NextResponse.json({ success: true })
 }

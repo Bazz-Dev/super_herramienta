@@ -13,19 +13,6 @@ export const JOB_STATUS_LABELS: Record<string, string> = {
   anulado: 'Anulado',
 }
 
-export const COLLECTION_LABELS: Record<string, string> = {
-  sin_oc: 'Sin OC',
-  pendiente_pago: 'Pendiente pago',
-  pagado: 'Pagado',
-}
-
-// Tailwind classes for status chips.
-export const COLLECTION_COLORS: Record<string, string> = {
-  sin_oc: 'bg-gray-100 text-gray-600',
-  pendiente_pago: 'bg-amber-100 text-amber-700',
-  pagado: 'bg-green-100 text-green-700',
-}
-
 export const COST_CATEGORY_LABELS: Record<string, string> = {
   materiales: 'Materiales',
   mano_obra: 'Mano de obra',
@@ -52,6 +39,16 @@ export const PROCESS_FLOW_LABELS: Record<string, string> = {
 export const PROCESS_FLOW_COLORS: Record<string, string> = {
   pre_quote: 'bg-blue-50 text-blue-700 border-blue-200',
   post_execution: 'bg-orange-50 text-orange-700 border-orange-200',
+}
+
+// Estado de la OC en sí (informe #11) — ver Job.purchaseOrderStatus.
+export const PURCHASE_ORDER_STATUS_LABELS: Record<string, string> = {
+  vigente: 'Vigente',
+  anulada: 'Anulada',
+}
+export const PURCHASE_ORDER_STATUS_COLORS: Record<string, string> = {
+  vigente: 'bg-green-50 text-green-700 border-green-200',
+  anulada: 'bg-red-50 text-red-700 border-red-200',
 }
 
 export const COMMERCIAL_STAGE_LABELS: Record<string, string> = {

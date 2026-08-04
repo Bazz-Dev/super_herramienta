@@ -6,24 +6,44 @@ import { tenantScope } from '@/lib/tenant'
 import { quoteDataSchema, type QuoteData } from '@/lib/quotes/types'
 
 interface Props {
-  searchParams: Promise<{ docId?: string }>
+  searchParams: Promise<{ docId?: string; ticketId?: string }>
 }
 
 export default async function CotizadorPage({ searchParams }: Props) {
   const actor = await requireActor()
-  const { docId } = await searchParams
+  const { docId, ticketId } = await searchParams
 
-  const [clients, savedDoc] = await Promise.all([
+  const [clients, tickets, savedDoc] = await Promise.all([
     prisma.client.findMany({
       where: { ...tenantScope(actor) },
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
+    }),
+    prisma.ticket.findMany({
+      where: { ...tenantScope(actor), deletedAt: null, status: { notIn: ['cancelado', 'fusionado'] } },
+      select: {
+        id: true, ticketCode: true, title: true,
+        client: { select: { id: true, name: true, rut: true } },
+        branch: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 150,
     }),
     docId ? prisma.clientDocument.findFirst({
       where: { id: docId, ...tenantScope(actor), type: 'propuesta' },
       select: { dataJson: true, title: true },
     }) : null,
   ])
+
+  const ticketOptions = tickets.map(t => ({
+    id: t.id,
+    ticketCode: t.ticketCode,
+    title: t.title,
+    clientId: t.client.id,
+    clientName: t.client.name,
+    clientRut: t.client.rut ?? '',
+    branchName: t.branch?.name ?? '',
+  }))
 
   let initialData: QuoteData = sampleQuote
   if (savedDoc?.dataJson) {
@@ -49,7 +69,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
           <a href="/cotizador" className="text-xs text-gray-400 hover:text-gray-600 mt-1">+ Nueva propuesta</a>
         )}
       </div>
-      <QuoteEditor initial={initialData} clients={clients} docId={docId} />
+      <QuoteEditor initial={initialData} clients={clients} tickets={ticketOptions} docId={docId} ticketId={ticketId} />
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { requireActor } from '@/lib/tenant'
 import { clientInputSchema } from '@/lib/resources/schemas'
 import { canAccessTenant } from '@/lib/tenant'
 import { generatePassword } from '@/lib/password'
+import { logAudit } from '@/lib/audit'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]>; branch?: { id: string; name: string } }
 
@@ -249,7 +250,7 @@ export async function createPortalUser(
 
   const password = generatePassword()
   const passwordHash = await bcrypt.hash(password, 10)
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
       email: parsed.data.email,
       username,
@@ -261,6 +262,12 @@ export async function createPortalUser(
       branchId,
       isClientAdmin: parsed.data.isClientAdmin,
     },
+  })
+  await logAudit({
+    tenantId: client.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: 'user.create', entityType: 'User', entityId: created.id,
+    after: { email: parsed.data.email, role: 'client', clientId, branchId, isClientAdmin: parsed.data.isClientAdmin },
+    source: 'recursos/clientes/actions.ts:createPortalUser',
   })
   revalidatePath(`/recursos/clientes/${clientId}`)
   return { success: { email: parsed.data.email, username, password } }
@@ -283,7 +290,7 @@ export async function updatePortalUser(
   const actor = await requireActor(['super'])
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { tenantId: true, role: true, clientId: true },
+    select: { tenantId: true, role: true, clientId: true, email: true, branchId: true, isClientAdmin: true },
   })
   if (!user || user.role !== 'client' || !canAccessTenant(actor, user.tenantId)) {
     return { error: 'No encontrado o sin permiso.' }
@@ -328,6 +335,13 @@ export async function updatePortalUser(
     where: { id: userId },
     data: { email: parsed.data.email, username, branchId, isClientAdmin: parsed.data.isClientAdmin },
   })
+  await logAudit({
+    tenantId: user.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: 'user.update', entityType: 'User', entityId: userId,
+    before: { email: user.email, branchId: user.branchId, isClientAdmin: user.isClientAdmin },
+    after: { email: parsed.data.email, branchId, isClientAdmin: parsed.data.isClientAdmin },
+    source: 'recursos/clientes/actions.ts:updatePortalUser',
+  })
   if (user.clientId) revalidatePath(`/recursos/clientes/${user.clientId}`)
   return { success: true }
 }
@@ -347,6 +361,12 @@ export async function resetPortalUserPassword(userId: string): Promise<{ passwor
     where: { id: userId },
     data: { passwordHash, sessionVersion: { increment: 1 } },
   })
+  // Nunca la password nueva/vieja en el log — solo el hecho del reset.
+  await logAudit({
+    tenantId: user.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: 'user.reset_password', entityType: 'User', entityId: userId,
+    source: 'recursos/clientes/actions.ts:resetPortalUserPassword',
+  })
   if (user.clientId) revalidatePath(`/recursos/clientes/${user.clientId}`)
   return { password }
 }
@@ -355,12 +375,18 @@ export async function togglePortalUserActive(userId: string, active: boolean): P
   const actor = await requireActor(['super'])
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { tenantId: true, role: true, clientId: true },
+    select: { tenantId: true, role: true, clientId: true, active: true },
   })
   if (!user || user.role !== 'client' || !canAccessTenant(actor, user.tenantId)) return
   await prisma.user.update({
     where: { id: userId },
     data: { active, sessionVersion: { increment: 1 } },
+  })
+  await logAudit({
+    tenantId: user.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: active ? 'user.activate' : 'user.deactivate', entityType: 'User', entityId: userId,
+    before: { active: user.active }, after: { active },
+    source: 'recursos/clientes/actions.ts:togglePortalUserActive',
   })
   if (user.clientId) revalidatePath(`/recursos/clientes/${user.clientId}`)
 }

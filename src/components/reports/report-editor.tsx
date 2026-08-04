@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ReportData } from '@/lib/reports/types'
 import { renderReportHTML } from '@/lib/reports/template'
 import { fileToDataUrl } from '@/lib/quotes/image-data-url'
@@ -22,6 +23,7 @@ interface TicketOption {
 }
 
 export function ReportEditor({ initial, clients = [], tickets = [], docId, ticketId }: { initial: ReportData; clients?: ClientOption[]; tickets?: TicketOption[]; docId?: string; ticketId?: string }) {
+  const router = useRouter()
   // Derive initial ticket selection synchronously so SaveDocumentButton gets the right clientId on first render
   const initialTicket = ticketId ? tickets.find(t => t.id === ticketId) : undefined
 
@@ -180,40 +182,52 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
       {/* ---------- Editor ---------- */}
       <div className="flex flex-col gap-4">
         <SectionCard title="Identificación" description="Datos de cabecera del informe">
-          {/* Ticket link — autocompletes client, branch and OT */}
-          {tickets.length > 0 && (
-            <div className="mb-4 rounded-lg border border-brand/20 bg-brand/5 p-3">
-              <label className="mb-1.5 block text-xs font-semibold text-gray-600">
-                Vincular a ticket existente
+          {/* Ticket link — autocompletes client, branch and OT. Obligatorio para
+              guardar (informe #1 del plan): todo informe nace desde un ticket. */}
+          <div className="mb-4 rounded-lg border border-brand/20 bg-brand/5 p-3">
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label className="block text-xs font-semibold text-gray-600">
+                Ticket de origen <span className="text-red-500">*</span>
                 <span className="ml-1.5 font-normal text-gray-400">(autocompletará cliente, sucursal y OT)</span>
               </label>
-              <select
-                value={selectedTicketId}
-                onChange={(e) => {
-                  setSelectedTicketId(e.target.value)
-                  const t = tickets.find(t => t.id === e.target.value)
-                  if (!t) { setSelectedClientId(''); set({ otImageUrl: '' }); return }
-                  setSelectedClientId(t.clientId)
-                  set({
-                    client: t.clientName,
-                    branch: t.branchName,
-                    workOrder: t.otNumber ?? '',
-                    subject: t.title,
-                  })
-                  loadTicketOT(t)
-                  loadTicketPhotos(t)
-                }}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
-              >
-                <option value="">— Seleccionar ticket (opcional) —</option>
-                {tickets.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.ticketCode} · {t.title}{t.otNumber ? ` (OT: ${t.otNumber})` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2 text-xs">
+                <a href="/tickets/new" target="_blank" rel="noopener" className="font-semibold text-brand-600 hover:underline">
+                  + Crear ticket nuevo
+                </a>
+                <button type="button" onClick={() => router.refresh()} className="text-gray-400 hover:text-gray-600" title="Refrescar lista de tickets">
+                  ↻ Refrescar
+                </button>
+              </div>
             </div>
-          )}
+            <select
+              value={selectedTicketId}
+              onChange={(e) => {
+                setSelectedTicketId(e.target.value)
+                const t = tickets.find(t => t.id === e.target.value)
+                if (!t) { setSelectedClientId(''); set({ otImageUrl: '' }); return }
+                setSelectedClientId(t.clientId)
+                set({
+                  client: t.clientName,
+                  branch: t.branchName,
+                  workOrder: t.otNumber ?? '',
+                  subject: t.title,
+                })
+                loadTicketOT(t)
+                loadTicketPhotos(t)
+              }}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40"
+            >
+              <option value="">— Seleccionar ticket —</option>
+              {tickets.map(t => (
+                <option key={t.id} value={t.id}>
+                  {t.ticketCode} · {t.title}{t.otNumber ? ` (OT: ${t.otNumber})` : ''}
+                </option>
+              ))}
+            </select>
+            {tickets.length === 0 && (
+              <p className="mt-1.5 text-xs text-amber-700">No hay tickets disponibles — crea uno primero.</p>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="N° / Código de reporte">
               <TextInput value={data.reportId} onChange={(e) => set({ reportId: e.target.value })} />
@@ -345,7 +359,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
                 defaultTitle={data.reportId ? `Informe ${data.reportId}` : 'Informe Técnico'}
                 documentType="informe"
                 existingDocId={docId}
-                ticketId={ticketId}
+                ticketId={selectedTicketId}
                 defaultClientId={selectedClientId}
               />
             </div>

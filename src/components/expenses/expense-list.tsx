@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { updateExpenseStatus, deleteExpense } from '@/app/(app)/gastos/actions'
+import { updateExpenseStatus, updateExpense, deleteExpense } from '@/app/(app)/gastos/actions'
 import { Modal } from '@/components/resources/modal'
 import { EmptyState } from '@/components/ui/empty-state'
+import { expenseClassification, EXPENSE_CLASSIFICATION_LABELS, EXPENSE_CLASSIFICATION_COLORS } from '@/lib/expenses/expense-presets'
 
 const CATEGORY_LABELS: Record<string, string> = {
   combustible: 'Combustible',
@@ -35,9 +36,13 @@ interface ExpenseRow {
   category: string
   status: string
   description: string | null
+  supplier: string | null
   receiptUrl: string | null
   rejectedReason: string | null
   paidAt: Date | null
+  ticketId: string | null
+  jobId: string | null
+  isGeneral: boolean | null
   technician: { name: string }
   ticket: { ticketCode: string; title: string } | null
   approvedBy: { name: string } | null
@@ -47,6 +52,10 @@ interface ExpenseListProps {
   expenses: ExpenseRow[]
   canApprove: boolean
   canDelete: boolean
+  /** Puede editar cualquier gasto en cualquier estado — staff. Sin esto, solo
+   * el propio técnico puede editar y solo mientras sigue "pendiente"
+   * (aplicado igual server-side en updateExpense, esto es solo la UI). */
+  canEditAny?: boolean
 }
 
 function formatClp(n: number) {
@@ -57,11 +66,12 @@ function formatDate(d: Date) {
   return new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProps) {
+export function ExpenseList({ expenses, canApprove, canDelete, canEditAny = false }: ExpenseListProps) {
   const [isPending, startTransition] = useTransition()
   const [actionId, setActionId] = useState<string | null>(null)
   const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [editModal, setEditModal] = useState<ExpenseRow | null>(null)
 
   function approve(id: string) {
     setActionId(id)
@@ -134,6 +144,8 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
         </div>
       </Modal>
 
+      <EditExpenseModal expense={editModal} onClose={() => setEditModal(null)} />
+
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -142,10 +154,11 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
               <th className="px-4 py-3 text-left">Técnico</th>
               <th className="px-4 py-3 text-left">Categoría</th>
               <th className="px-4 py-3 text-right">Monto</th>
-              <th className="px-4 py-3 text-left">Trabajo</th>
+              <th className="px-4 py-3 text-left">Ticket</th>
+              <th className="px-4 py-3 text-left">Clasificación</th>
               <th className="px-4 py-3 text-left">Estado</th>
               <th className="px-4 py-3 text-left">Comprobante</th>
-              {(canApprove || canDelete) && <th className="px-4 py-3 text-right">Acciones</th>}
+              <th className="px-4 py-3 text-right">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -163,6 +176,16 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
                     ) : (
                       <span className="text-gray-300">—</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(() => {
+                      const cls = expenseClassification(exp)
+                      return (
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${EXPENSE_CLASSIFICATION_COLORS[cls]}`}>
+                          {EXPENSE_CLASSIFICATION_LABELS[cls]}
+                        </span>
+                      )
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[exp.status] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -192,9 +215,20 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
                       <span className="text-gray-300 text-xs">—</span>
                     )}
                   </td>
-                  {(canApprove || canDelete) && (
+                  {(() => {
+                    const canEdit = canEditAny || exp.status === 'pendiente'
+                    return (
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {canEdit && (
+                          <button
+                            onClick={() => setEditModal(exp)}
+                            disabled={loading}
+                            className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
+                          >
+                            Editar
+                          </button>
+                        )}
                         {canApprove && exp.status === 'pendiente' && (
                           <>
                             <button
@@ -233,7 +267,8 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
                         )}
                       </div>
                     </td>
-                  )}
+                    )
+                  })()}
                 </tr>
               )
             })}
@@ -241,5 +276,78 @@ export function ExpenseList({ expenses, canApprove, canDelete }: ExpenseListProp
         </table>
       </div>
     </>
+  )
+}
+
+// Edición completa (informe #14) — el ticket queda como texto de solo
+// lectura acá (reasignar a otro ticket es una decisión mayor, no un typo de
+// captura); lo editable es lo que realmente se corrige seguido: monto,
+// categoría, proveedor, descripción, fecha, y la clasificación "general"
+// cuando no tiene ticket.
+function EditExpenseModal({ expense, onClose }: { expense: ExpenseRow | null; onClose: () => void }) {
+  const [isPending, startTransition] = useTransition()
+
+  if (!expense) return null
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const fd = new FormData(e.currentTarget)
+    startTransition(async () => {
+      await updateExpense(expense!.id, fd)
+      onClose()
+    })
+  }
+
+  const inputCls = 'w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/50'
+  const labelCls = 'block text-xs font-medium text-gray-600 mb-1'
+
+  return (
+    <Modal open={!!expense} onClose={onClose} title="Editar gasto">
+      <form onSubmit={onSubmit} className="space-y-3">
+        <input type="hidden" name="ticketId" value={expense.ticketId ?? ''} />
+        <input type="hidden" name="jobId" value={expense.jobId ?? ''} />
+        {expense.ticket && (
+          <p className="text-xs text-gray-500">Ticket: <span className="font-medium text-gray-700">{expense.ticket.ticketCode}</span> (no editable acá)</p>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Categoría</label>
+            <select name="category" defaultValue={expense.category} className={inputCls}>
+              {Object.entries(CATEGORY_LABELS).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Monto (CLP)</label>
+            <input name="amount" type="number" min={1} defaultValue={expense.amount} className={inputCls} required />
+          </div>
+          <div>
+            <label className={labelCls}>Fecha</label>
+            <input name="date" type="date" defaultValue={new Date(expense.date).toISOString().slice(0, 10)} className={inputCls} required />
+          </div>
+          <div>
+            <label className={labelCls}>Proveedor</label>
+            <input name="supplier" type="text" defaultValue={expense.supplier ?? ''} className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Descripción</label>
+          <textarea name="description" rows={2} defaultValue={expense.description ?? ''} className={inputCls} />
+        </div>
+        {!expense.ticketId && (
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input type="checkbox" name="isGeneral" defaultChecked={expense.isGeneral === true} className="rounded" />
+            Es un gasto general de la empresa (no corresponde a un ticket puntual)
+          </label>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onClose} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer">
+            Cancelar
+          </button>
+          <button type="submit" disabled={isPending} className="rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-50 cursor-pointer">
+            {isPending ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </div>
+      </form>
+    </Modal>
   )
 }

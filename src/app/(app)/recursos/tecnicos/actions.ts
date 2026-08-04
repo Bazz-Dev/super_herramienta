@@ -11,6 +11,7 @@ import { canAccessTenant } from '@/lib/tenant'
 import { fromDateInput } from '@/lib/cashflow/dates'
 import { CONTRACT_TYPE_TERMINATED } from '@/lib/resources/labels'
 import { generatePassword } from '@/lib/password'
+import { logAudit } from '@/lib/audit'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -160,7 +161,7 @@ export async function createTechnicianAccount(
 
   const password = generatePassword()
   const passwordHash = await bcrypt.hash(password, 10)
-  await prisma.user.create({
+  const created = await prisma.user.create({
     data: {
       email: parsed.data.email,
       username,
@@ -170,6 +171,12 @@ export async function createTechnicianAccount(
       tenantId: tech.tenantId,
       technicianId,
     },
+  })
+  await logAudit({
+    tenantId: tech.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: 'user.create', entityType: 'User', entityId: created.id,
+    after: { email: parsed.data.email, role: 'tecnico', technicianId },
+    source: 'recursos/tecnicos/actions.ts:createTechnicianAccount',
   })
   revalidatePath(`/recursos/tecnicos/${technicianId}`)
   return { success: { email: parsed.data.email, username, password } }
@@ -190,6 +197,11 @@ export async function resetTechnicianPassword(userId: string): Promise<{ passwor
     where: { id: userId },
     data: { passwordHash, sessionVersion: { increment: 1 } },
   })
+  await logAudit({
+    tenantId: user.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: 'user.reset_password', entityType: 'User', entityId: userId,
+    source: 'recursos/tecnicos/actions.ts:resetTechnicianPassword',
+  })
   if (user.technicianId) revalidatePath(`/recursos/tecnicos/${user.technicianId}`)
   return { password }
 }
@@ -198,12 +210,18 @@ export async function toggleTechnicianAccountActive(userId: string, active: bool
   const actor = await requireActor(['super'])
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { tenantId: true, role: true, technicianId: true },
+    select: { tenantId: true, role: true, technicianId: true, active: true },
   })
   if (!user || user.role !== 'tecnico' || !canAccessTenant(actor, user.tenantId)) return
   await prisma.user.update({
     where: { id: userId },
     data: { active, sessionVersion: { increment: 1 } },
+  })
+  await logAudit({
+    tenantId: user.tenantId, actorId: actor.id, actorRole: actor.role,
+    action: active ? 'user.activate' : 'user.deactivate', entityType: 'User', entityId: userId,
+    before: { active: user.active }, after: { active },
+    source: 'recursos/tecnicos/actions.ts:toggleTechnicianAccountActive',
   })
   if (user.technicianId) revalidatePath(`/recursos/tecnicos/${user.technicianId}`)
 }

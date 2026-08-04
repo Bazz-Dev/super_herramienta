@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { requireActor } from '@/lib/tenant'
 import { notifyTenantStaff } from '@/lib/push'
 import { TECNICO_TRANSITIONS } from '@/lib/tickets/labels'
+import { isProposalApproved, canStartExecution } from '@/lib/tickets/ticket-state-summary'
 import type { TicketStatus } from '@/generated/prisma/enums'
 
 // G23 — acciones del técnico sobre SUS tickets. Toda verificación es server-side:
@@ -14,7 +15,7 @@ async function ownedTicket(ticketId: string) {
   const actor = await requireActor(['tecnico'])
   const ticket = await prisma.ticket.findFirst({
     where: { id: ticketId, tenantId: actor.tenantId, assignedToId: actor.effectiveId, deletedAt: null },
-    select: { id: true, status: true, ticketCode: true, title: true },
+    select: { id: true, status: true, ticketCode: true, title: true, processFlow: true },
   })
   return { actor, ticket }
 }
@@ -26,6 +27,26 @@ export async function tecnicoAdvanceStatus(ticketId: string, newStatus: string) 
   const allowed = TECNICO_TRANSITIONS[ticket.status] ?? []
   if (!allowed.includes(newStatus as never)) {
     return { success: false, error: `Transición ${ticket.status} → ${newStatus} no permitida.` }
+  }
+
+  // Gate PP (informe #2): mismo límite que updateTicketStatus del lado staff
+  // — modalidad Presupuesto previo no arranca ejecución sin propuesta aprobada.
+  if (newStatus === 'en_ejecucion') {
+    const [job, propuesta] = await Promise.all([
+      prisma.job.findFirst({
+        where: { originTicketId: ticketId, tenantId: actor.tenantId },
+        orderBy: { createdAt: 'desc' },
+        select: { commercialStage: true },
+      }),
+      prisma.clientDocument.findFirst({
+        where: { tenantId: actor.tenantId, type: 'propuesta', ticketId },
+        orderBy: { createdAt: 'desc' },
+        select: { proposalStatus: true },
+      }),
+    ])
+    if (!canStartExecution(ticket.processFlow, isProposalApproved(job, propuesta))) {
+      return { success: false, error: 'Este ticket requiere una propuesta aprobada antes de iniciar ejecución (modalidad Presupuesto previo).' }
+    }
   }
 
   await prisma.ticket.update({ where: { id: ticket.id }, data: { status: newStatus as TicketStatus } })
