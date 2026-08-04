@@ -200,7 +200,7 @@ export default async function TrabajoDetailPage({
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Carpeta del cliente</h3>
               <div className="flex items-center gap-3">
-                <Link href="/cotizador" className="text-xs font-semibold text-brand hover:underline">+ Propuesta</Link>
+                <Link href="/cotizador?new=1" className="text-xs font-semibold text-brand hover:underline">+ Propuesta</Link>
                 <Link href="/informe" className="text-xs font-semibold text-brand hover:underline">+ Informe</Link>
                 <Link href="/documentos" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Ver carpeta →</Link>
               </div>
@@ -211,7 +211,7 @@ export default async function TrabajoDetailPage({
                   ? 'Sin documentos vinculados a este trabajo todavía.'
                   : 'Este trabajo no tiene ticket ni propuesta de origen — no hay documentos que vincular automáticamente.'}
                 {' '}
-                <Link href="/cotizador" className="font-semibold text-brand hover:underline">Crear propuesta →</Link>
+                <Link href="/cotizador?new=1" className="font-semibold text-brand hover:underline">Crear propuesta →</Link>
                 {' '}o{' '}
                 <Link href="/informe" className="font-semibold text-brand hover:underline">Crear informe →</Link>
               </div>

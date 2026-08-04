@@ -259,10 +259,10 @@ function ActivoTab({
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-2.5 font-medium">Trabajo</th>
+                <th className="px-4 py-2.5 font-medium">Ticket</th>
                 <th className="px-4 py-2.5 font-medium">Cliente / sucursal</th>
                 <th className="px-4 py-2.5 font-medium">Descripción</th>
-                <th className="px-4 py-2.5 font-medium">Ticket</th>
+                <th className="px-4 py-2.5 font-medium">Flujo de Caja</th>
                 <th className="px-4 py-2.5 font-medium">Estado</th>
                 <th className="px-4 py-2.5 font-medium">Financiero</th>
                 <th className="px-4 py-2.5 font-medium">Vence</th>
@@ -274,12 +274,12 @@ function ActivoTab({
             <tbody>
               {pageRows.map(({ job, estados, fin: rowFin, overdue, due, saldo, cuotas }) => (
                 <tr key={job.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
-                  <td className="px-4 py-2.5"><Link href={`/flujo/trabajos/${job.id}`} className="font-mono text-xs text-brand hover:underline">{job.code ?? job.id.slice(0, 8)}</Link></td>
-                  <td className="px-4 py-2.5"><div className="font-medium text-ink">{job.client.name}</div><div className="text-xs text-gray-400">{job.branch?.name ?? 'Sin sucursal'}</div></td>
-                  <td className="max-w-xs truncate px-4 py-2.5 text-gray-600">{job.description}</td>
                   <td className="px-4 py-2.5">
                     {job.originTicket ? <Link href={`/tickets/${job.originTicket.id}`} className="text-brand hover:underline">{job.originTicket.ticketCode}</Link> : <span className="text-gray-300">—</span>}
                   </td>
+                  <td className="px-4 py-2.5"><div className="font-medium text-ink">{job.client.name}</div><div className="text-xs text-gray-400">{job.branch?.name ?? 'Sin sucursal'}</div></td>
+                  <td className="max-w-xs truncate px-4 py-2.5 text-gray-600">{job.description}</td>
+                  <td className="px-4 py-2.5"><Link href={`/flujo/trabajos/${job.id}`} className="text-xs text-brand hover:underline">Ir a flujo de caja →</Link></td>
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
                       {estados.map((e) => <span key={e} className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${ESTADO_BADGE[e]}`}>{ESTADO_LABEL[e]}</span>)}

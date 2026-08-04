@@ -14,6 +14,7 @@ import { TicketDocumentsPanel } from '@/components/tickets/ticket-documents-pane
 import { TicketStateSummary } from '@/components/tickets/ticket-state-summary'
 import { PROCESS_FLOW_LABELS, PROCESS_FLOW_COLORS } from '@/lib/cashflow/labels'
 import { ExpenseJobLink } from '@/components/tickets/expense-job-link'
+import { withProposalReference, withReportReference } from '@/lib/tickets/reference'
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   // requireActor aplica "ver como" (viewas) — no usar session.user directo aquí
@@ -88,16 +89,16 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     }),
   ])
 
-  const linkedInformes = allInformes.map(d => ({
+  const linkedInformes = withReportReference(ticket.ticketCode, allInformes.map(d => ({
     id: d.id,
     title: d.title,
     createdAt: d.createdAt.toISOString(),
-  }))
-  const linkedPropuestas = allPropuestas.map(d => ({
+  })))
+  const linkedPropuestas = withProposalReference(ticket.ticketCode, allPropuestas.map(d => ({
     id: d.id,
     title: d.title,
     createdAt: d.createdAt.toISOString(),
-  }))
+  })))
 
   const urgency = ticket.urgency as TicketUrgencyId
   const status = ticket.status as TicketStatusId

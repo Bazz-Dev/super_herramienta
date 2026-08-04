@@ -2,7 +2,7 @@ import { FilePreviewButton } from '@/components/ui/file-preview-modal'
 import Link from 'next/link'
 
 type TicketDoc = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date; uploadedBy: { name: string; role: string } | null }
-type DocLink = { id: string; title: string; createdAt: string }
+type DocLink = { id: string; title: string; createdAt: string; reference: string }
 type JobInstallmentDoc = { id: string; sequence: number; purchaseOrder: string | null; invoiceNumber: string | null }
 type JobDocSummary = {
   id: string; description: string
@@ -90,12 +90,12 @@ export function TicketDocumentsPanel({
         )}
         {propuestas.length > 0 && (
           <DocGroup title={`Propuestas (${propuestas.length})`}>
-            {propuestas.map(d => <LinkRow key={d.id} name={d.title} href={`/cotizador?docId=${d.id}`} />)}
+            {propuestas.map(d => <LinkRow key={d.id} name={`${d.reference} · ${d.title}`} href={`/cotizador?docId=${d.id}`} />)}
           </DocGroup>
         )}
         {informes.length > 0 && (
           <DocGroup title={`Informes (${informes.length})`}>
-            {informes.map(d => <LinkRow key={d.id} name={d.title} href={`/informe?docId=${d.id}`} />)}
+            {informes.map(d => <LinkRow key={d.id} name={`${d.reference} · ${d.title}`} href={`/informe?docId=${d.id}`} />)}
           </DocGroup>
         )}
         {ocEntries.length > 0 && (

@@ -453,6 +453,45 @@ function DocSection({
   )
 }
 
+// ─── Ticket sub-folder within a client folder — un ticket = una carpeta ───────
+// (agrupación virtual, no tabla nueva: mismo Doc[] ya cargado, solo se
+// reparte por ticketId — ver .claude/rules/data.md "OT vs. Carpetas de
+// clientes... no se fusionan")
+
+function TicketDocSection({
+  ticketId, ticketCode, docs, onPreview, onDeleted,
+}: {
+  ticketId: string
+  ticketCode: string
+  docs: Doc[]
+  onPreview: (doc: Doc) => void
+  onDeleted: (id: string) => void
+}) {
+  if (docs.length === 0) return null
+  return (
+    <details open>
+      <summary className="mb-1 flex cursor-pointer select-none items-center gap-2 text-xs font-bold uppercase tracking-widest text-gray-400">
+        <FolderIcon size={14} />
+        {ticketCode}
+        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500">{docs.length}</span>
+      </summary>
+      <div className="mb-3 flex justify-end">
+        <a
+          href={`/tickets/${ticketId}`}
+          className="text-[11px] font-semibold text-brand hover:underline"
+        >
+          Ver ticket completo (documentación + historial) →
+        </a>
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {docs.map(doc => (
+          <DocCard key={doc.id} doc={doc} onPreview={onPreview} onDeleted={onDeleted} />
+        ))}
+      </div>
+    </details>
+  )
+}
+
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export function DocumentsView({ clientFolders: initial }: { clientFolders: ClientFolder[] }) {
@@ -534,10 +573,22 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
     if (search && !d.title.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
-  const informes = visibleDocs.filter(d => d.type === 'informe')
-  const propuestas = visibleDocs.filter(d => d.type === 'propuesta')
-  const ordenesTrabajo = visibleDocs.filter(d => d.type === 'ot')
-  const otros = visibleDocs.filter(d => d.type !== 'informe' && d.type !== 'propuesta' && d.type !== 'ot')
+  // Carpeta por ticket: el ticket es la raíz de agregación (ARQUITECTURA.md
+  // § Modelo objetivo) — todo documento con ticketId cae en la carpeta de su
+  // ticket; lo que no tiene ticket (subidas libres previas al flujo, tipo
+  // "otro") queda en un balde aparte, no se inventa un ticket para forzarlo.
+  const byTicket = new Map<string, { ticketId: string; ticketCode: string; docs: Doc[] }>()
+  const sinTicket: Doc[] = []
+  for (const d of visibleDocs) {
+    if (d.ticketId && d.ticketCode) {
+      const key = d.ticketId
+      if (!byTicket.has(key)) byTicket.set(key, { ticketId: key, ticketCode: d.ticketCode, docs: [] })
+      byTicket.get(key)!.docs.push(d)
+    } else {
+      sinTicket.push(d)
+    }
+  }
+  const ticketFolders = [...byTicket.values()]
 
   if (folders.length === 0) {
     return (
@@ -642,10 +693,10 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
             </div>
           ) : (
             <div className="flex flex-col gap-8">
-              <DocSection title="Órdenes de trabajo" docs={ordenesTrabajo} onPreview={handlePreview} onDeleted={removeDoc} />
-              <DocSection title="Informes técnicos" docs={informes} onPreview={handlePreview} onDeleted={removeDoc} />
-              <DocSection title="Propuestas comerciales" docs={propuestas} onPreview={handlePreview} onDeleted={removeDoc} />
-              <DocSection title="Otros documentos" docs={otros} onPreview={handlePreview} onDeleted={removeDoc} />
+              {ticketFolders.map(tf => (
+                <TicketDocSection key={tf.ticketId} ticketId={tf.ticketId} ticketCode={tf.ticketCode} docs={tf.docs} onPreview={handlePreview} onDeleted={removeDoc} />
+              ))}
+              <DocSection title="Sin ticket asignado" docs={sinTicket} onPreview={handlePreview} onDeleted={removeDoc} />
             </div>
           )}
 

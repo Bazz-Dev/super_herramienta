@@ -55,6 +55,7 @@ export default async function DocumentosPage() {
     proposalAmount: null,
     source: 'ticket' as const,
     ticketId: t.id,
+    ticketCode: t.ticketCode,
   }))
 
   const allDocs = [...serialized, ...otDocs]
