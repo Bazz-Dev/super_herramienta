@@ -112,6 +112,15 @@ export type QuoteChip = z.infer<typeof quoteChipSchema>
 export type QuoteScope = z.infer<typeof quoteScopeSchema>
 export type QuoteData = z.infer<typeof quoteDataSchema>
 
+// Único normalizador de "alcance de trabajo" — un ítem sin título (vacío o
+// solo espacios) no cuenta como contenido real. Usado en el mismo punto por
+// persistencia (quote-editor.tsx antes de guardar) y renderizado (template.ts,
+// vista previa + PDF) para que ambos coincidan siempre, sin condiciones
+// duplicadas entre editor y PDF.
+export function normalizeScope(scope: QuoteScope[]): QuoteScope[] {
+  return scope.filter((s) => s.title.trim().length > 0)
+}
+
 export type AdjustmentLine = { label: string; percent: number; amount: number }
 
 export type QuoteTotals = {

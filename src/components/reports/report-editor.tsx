@@ -39,6 +39,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
 
   const [selectedTicketId, setSelectedTicketId] = useState(initialTicket?.id ?? '')
   const [selectedClientId, setSelectedClientId] = useState(initialTicket?.clientId ?? '')
+  const selectedTicket = tickets.find(t => t.id === selectedTicketId)
 
   // OT (orden de trabajo): los técnicos la escanean en terreno como PDF —
   // ese PDF original se guarda tal cual en el ticket (visible/descargable
@@ -360,6 +361,7 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
                 documentType="informe"
                 existingDocId={docId}
                 ticketId={selectedTicketId}
+                ticketCode={selectedTicket?.ticketCode}
                 defaultClientId={selectedClientId}
               />
             </div>

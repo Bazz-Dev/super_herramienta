@@ -20,11 +20,14 @@ interface Props {
   // Link the saved document to a ticket — sent as metadata.ticketId, the API
   // promotes it to the real ClientDocument.ticketId FK column (ver G2)
   ticketId?: string
+  // Solo para mostrar en el copy ("se archiva en la carpeta del ticket X") —
+  // no participa en la persistencia, esa la resuelve ticketId/metadata.
+  ticketCode?: string
   // Pre-select a client (e.g. when creating from a ticket context)
   defaultClientId?: string
 }
 
-export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentType, existingDocId, ticketId, defaultClientId }: Props) {
+export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentType, existingDocId, ticketId, ticketCode, defaultClientId }: Props) {
   const [open, setOpen] = useState(false)
   const [clientId, setClientId] = useState(defaultClientId ?? '')
 
@@ -117,12 +120,12 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
       <button
         onClick={openModal}
         className="interactive flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
-        title={`Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'} en carpeta del cliente`}
+        title={isUpdate ? 'Guardar cambios' : `Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'}`}
       >
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
           <path d="M2 2.5h4l1.5 1.5H11a.5.5 0 01.5.5v5.5a.5.5 0 01-.5.5H2a.5.5 0 01-.5-.5V3a.5.5 0 01.5-.5z"/>
         </svg>
-        {isUpdate ? 'Guardar cambios' : 'Guardar en cliente'}
+        {isUpdate ? 'Guardar cambios' : `Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'}`}
       </button>
 
       {open && (
@@ -135,7 +138,11 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
               {isUpdate ? 'Guardar cambios' : `Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'}`}
             </h3>
             <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '18px' }}>
-              {isUpdate ? 'El documento guardado se actualizará. Puedes descargarlo como PDF desde la carpeta del cliente.' : 'El documento se guardará en la carpeta del cliente. Podrás editarlo o descargarlo como PDF en cualquier momento.'}
+              {isUpdate
+                ? 'El documento guardado se actualizará. Puedes descargarlo como PDF en cualquier momento.'
+                : ticketCode
+                  ? `Quedará disponible automáticamente en la carpeta del ticket ${ticketCode} — sin ningún paso adicional. Podrás editarlo o descargarlo como PDF en cualquier momento.`
+                  : 'Quedará disponible automáticamente en la carpeta del ticket seleccionado — sin ningún paso adicional. Podrás editarlo o descargarlo como PDF en cualquier momento.'}
             </p>
 
             {status === 'ok' ? (

@@ -4,7 +4,7 @@
  */
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { computeTotals, defaultAdjustments, type QuoteData } from '../../src/lib/quotes/types.ts'
+import { computeTotals, defaultAdjustments, normalizeScope, type QuoteData } from '../../src/lib/quotes/types.ts'
 
 // Minimal valid QuoteData factory — only overrides what each test needs.
 function makeQuote(overrides: Partial<QuoteData> = {}): QuoteData {
@@ -250,5 +250,26 @@ describe('rounding edge cases', () => {
     const t = computeTotals(q)
     assert.equal(t.tax, 0)
     assert.equal(t.total, t.net)
+  })
+})
+
+describe('normalizeScope()', () => {
+  it('drops items whose title is empty or whitespace-only', () => {
+    const result = normalizeScope([
+      { title: '', detail: 'sin título' },
+      { title: '   ', detail: 'solo espacios' },
+      { title: 'Real', detail: '' },
+    ])
+    assert.equal(result.length, 1)
+    assert.equal(result[0].title, 'Real')
+  })
+
+  it('empty array in, empty array out', () => {
+    assert.deepEqual(normalizeScope([]), [])
+  })
+
+  it('keeps all items when every title is real', () => {
+    const input = [{ title: 'A', detail: '' }, { title: 'B', detail: 'x' }]
+    assert.deepEqual(normalizeScope(input), input)
   })
 })

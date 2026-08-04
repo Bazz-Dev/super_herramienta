@@ -332,6 +332,20 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         </div>
       </div>
 
+      {/* Entry point para crear propuesta/informe con el ticket preseleccionado
+          (informe #1/#3 del plan): TicketDocumentsPanel no renderiza nada si
+          el ticket todavía no tiene ningún documento (return null), así que
+          este link vive afuera del panel, no adentro — es el único punto
+          visible para arrancar el primer documento de un ticket nuevo. */}
+      <div className="flex items-center justify-end gap-3">
+        <Link href={`/cotizador?new=1&ticketId=${ticket.id}`} className="text-xs font-semibold text-brand hover:underline">
+          + Crear propuesta
+        </Link>
+        <Link href={`/informe?ticketId=${ticket.id}`} className="text-xs font-semibold text-brand hover:underline">
+          + Crear informe
+        </Link>
+      </div>
+
       <TicketDocumentsPanel
         documents={ticket.documents}
         otFileUrl={ticket.otFileUrl}

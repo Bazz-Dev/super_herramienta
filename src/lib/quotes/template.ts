@@ -1,4 +1,4 @@
-import { computeTotals, type QuoteData } from './types'
+import { computeTotals, normalizeScope, type QuoteData } from './types'
 import { esc, formatDate, formatMoney } from './format'
 
 // Parameterized HTML template — single source of truth shared by the in-app
@@ -269,20 +269,24 @@ function renderProTemplate(data: QuoteData): string {
     ? `<div class="cover-banner" style="background-image:url('${data.coverImageUrl}')"></div>`
     : ''
 
-  // Hero title: first scope title, or the quoteId as fallback
-  const heroTitle = data.scope.length > 0 ? data.scope[0].title : data.quoteId
+  const validScope = normalizeScope(data.scope)
+  // Hero title: first valid scope title, or the quoteId as fallback
+  const heroTitle = validScope.length > 0 ? validScope[0].title : data.quoteId
   // Hero eyebrow: short factual summary of the proposal scope
   const heroEyebrow = [
-    data.scope.length > 1 ? `${data.scope.length} actividades en alcance` : '',
+    validScope.length > 1 ? `${validScope.length} actividades en alcance` : '',
     data.items.length > 0 ? `${data.items.length} ítem${data.items.length > 1 ? 's' : ''} cotizado${data.items.length > 1 ? 's' : ''}` : '',
   ].filter(Boolean).join(' · ')
 
-  const scopeItems = data.scope.length
-    ? data.scope.map((s) => `<div class="pro-scope-item">
+  const scopeSection = validScope.length
+    ? `<section class="block">
+      ${sectionHeader('Alcance del servicio')}
+      <div class="pro-scope">${validScope.map((s) => `<div class="pro-scope-item">
         <span class="st">${esc(s.title)}</span>
-        ${s.detail ? `<span>${esc(s.detail)}</span>` : ''}
-      </div>`).join('')
-    : '<div class="pro-scope-item"><span class="muted">Sin alcance definido.</span></div>'
+        ${s.detail.trim() ? `<span>${esc(s.detail)}</span>` : ''}
+      </div>`).join('')}</div>
+    </section>`
+    : ''
 
   // Conditions: detect "Label: value" format for table layout
   const conditionRows = data.commercialConditions.length
@@ -336,7 +340,7 @@ function renderProTemplate(data: QuoteData): string {
     </div>
     <div class="pro-proposal">
       <strong>PROPUESTA DE SERVICIO</strong>
-      <span>${esc(data.scope.length > 0 ? data.scope[0].title : 'Propuesta de servicio técnico')}</span>
+      <span>${esc(validScope.length > 0 ? validScope[0].title : 'Propuesta de servicio técnico')}</span>
       <span>${esc(data.contact.company)}</span>
     </div>
   </div>
@@ -359,10 +363,7 @@ function renderProTemplate(data: QuoteData): string {
   </div>
 
   <div class="body-pad">
-    <section class="block">
-      ${sectionHeader('Alcance del servicio')}
-      <div class="pro-scope">${scopeItems}</div>
-    </section>
+    ${scopeSection}
 
     <section class="block">
       ${sectionHeader('Detalle de precios')}
@@ -412,14 +413,18 @@ export function renderQuoteHTML(data: QuoteData): string {
   const totals = computeTotals(data)
   const taxPct = Math.round(data.taxRate * 100)
 
-  const scope = data.scope.length
-    ? data.scope
+  const validScope = normalizeScope(data.scope)
+  const scopeSection = validScope.length
+    ? `<section class="block">
+      ${sectionHeader('Alcance de trabajo')}
+      ${validScope
         .map(
           (s) =>
-            `<div class="scope-item"><div class="scope-title">${esc(s.title)}</div>${s.detail ? `<div class="scope-detail">${esc(s.detail)}</div>` : ''}</div>`,
+            `<div class="scope-item"><div class="scope-title">${esc(s.title)}</div>${s.detail.trim() ? `<div class="scope-detail">${esc(s.detail)}</div>` : ''}</div>`,
         )
-        .join('')
-    : '<p class="muted">—</p>'
+        .join('')}
+    </section>`
+    : ''
 
   const exclusions = data.exclusions.length
     ? `<ol class="exclusions">${data.exclusions.map((e) => `<li>${esc(e)}</li>`).join('')}</ol>`
@@ -449,10 +454,7 @@ export function renderQuoteHTML(data: QuoteData): string {
       <p class="lead">${esc(data.executiveSummary || '—')}</p>
     </section>
 
-    <section class="block">
-      ${sectionHeader('Alcance de trabajo')}
-      ${scope}
-    </section>
+    ${scopeSection}
 
     <section class="block">
       ${sectionHeader('Detalle de precios')}

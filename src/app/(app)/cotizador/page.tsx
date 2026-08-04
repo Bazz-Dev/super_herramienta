@@ -213,8 +213,14 @@ async function CotizadorEditor({ actor, docId, ticketId }: { actor: Awaited<Retu
       const raw = JSON.parse(savedDoc.dataJson)
       // Sanitize via Zod: catches malformed taxRate (e.g. 19 instead of 0.19),
       // missing fields from older schema versions, and applies current defaults.
+      // Si faltan campos obligatorios (client/quoteId/date, un doc realmente
+      // legado) el safeParse falla — en ese caso, fusionar sobre los defaults
+      // del sample en vez de entregar el objeto crudo tal cual evita que el
+      // editor o el renderer exploten con "Cannot read properties of
+      // undefined" en un array que el schema espera pero el doc no tiene
+      // (mismo bug real encontrado y corregido en informe/page.tsx).
       const result = quoteDataSchema.safeParse(raw)
-      initialData = result.success ? result.data : (raw as QuoteData)
+      initialData = result.success ? result.data : { ...sampleQuote, ...raw }
     } catch { /* keep sampleQuote */ }
   }
 

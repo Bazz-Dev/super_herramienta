@@ -101,3 +101,22 @@ test('PDF: la OT (si existe) agrega una página final sin romper el resto', { ti
   const withOTPages = await pageCount(withOT)
   assert.ok(withOTPages > basePages, 'la OT debe sumar al menos una página al informe')
 })
+
+test('HTML: informe legado sin sections/photos (undefined) no revienta el render', () => {
+  // Bug real: un doc guardado antes de que el schema actual existiera puede
+  // llegar con solo un subconjunto de campos — JSON.parse crudo no aplica
+  // los defaults de Zod. renderReportHTML no debe asumir que sections/photos
+  // son arrays.
+  const legacy = { ...sampleReport, sections: undefined, photos: undefined } as unknown as ReportData
+  const html = renderReportHTML(legacy)
+  assert.ok(html.startsWith('<!DOCTYPE html>'))
+})
+
+test('HTML: sección sin bullets (undefined) no revienta el render', () => {
+  const legacy: ReportData = {
+    ...sampleReport,
+    sections: [{ title: 'Solo título', body: '', bullets: undefined } as unknown as ReportData['sections'][number]],
+  }
+  const html = renderReportHTML(legacy)
+  assert.match(html, /Solo título/)
+})

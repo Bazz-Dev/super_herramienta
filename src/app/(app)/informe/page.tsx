@@ -3,7 +3,7 @@ import { sampleReport } from '@/lib/reports/sample'
 import { requireActor } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
-import type { ReportData } from '@/lib/reports/types'
+import { reportDataSchema, type ReportData } from '@/lib/reports/types'
 
 interface Props {
   searchParams: Promise<{ docId?: string; ticketId?: string }>
@@ -44,7 +44,21 @@ export default async function InformePage({ searchParams }: Props) {
 
   let initialData: ReportData = sampleReport
   if (savedDoc?.dataJson) {
-    try { initialData = JSON.parse(savedDoc.dataJson) } catch { /* keep sampleReport */ }
+    try {
+      const raw = JSON.parse(savedDoc.dataJson)
+      // Sanitize via Zod (mismo patrón que cotizador/page.tsx). Bug real
+      // encontrado en vivo: un informe legado con dataJson = solo {photos:[]}
+      // (le faltan reportId/date/client, campos obligatorios sin default)
+      // hace fallar el safeParse — el fallback anterior ("raw as ReportData")
+      // entregaba ese objeto crudo tal cual al editor, y CADA componente que
+      // asume `sections`/`photos` como array (el renderer Y el formulario,
+      // SectionsEditor) explotaba con "Cannot read properties of undefined".
+      // Fix real: en vez de "datos crudos o nada", el fallback fusiona sobre
+      // los defaults del sample — todo campo ausente en el doc legado queda
+      // con un valor seguro, todo campo presente se conserva tal cual.
+      const result = reportDataSchema.safeParse(raw)
+      initialData = result.success ? result.data : { ...sampleReport, ...raw }
+    } catch { /* keep sampleReport */ }
   }
 
   const ticketOptions = tickets.map(t => ({

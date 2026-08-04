@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   computeTotals,
+  normalizeScope,
   TEMPLATES,
   TEMPLATE_DESCRIPTIONS,
   TEMPLATE_LABELS,
@@ -38,6 +39,7 @@ export function QuoteEditor({ initial, clients = [], tickets = [], docId, ticket
 
   const [selectedTicketId, setSelectedTicketId] = useState(initialTicket?.id ?? '')
   const [selectedClientId, setSelectedClientId] = useState(initialTicket?.clientId ?? '')
+  const selectedTicket = tickets.find(t => t.id === selectedTicketId)
 
   const totals = useMemo(() => computeTotals(data), [data])
 
@@ -297,11 +299,12 @@ export function QuoteEditor({ initial, clients = [], tickets = [], docId, ticket
             <DownloadPdfButton data={data} />
             <SaveDocumentButton
               clients={clients}
-              dataJson={() => data}
+              dataJson={() => ({ ...data, scope: normalizeScope(data.scope) })}
               defaultTitle={data.client?.name ? `Propuesta ${data.client.name}` : 'Propuesta'}
               documentType="propuesta"
               existingDocId={docId}
               ticketId={selectedTicketId}
+              ticketCode={selectedTicket?.ticketCode}
               defaultClientId={selectedClientId}
             />
           </div>

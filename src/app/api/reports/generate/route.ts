@@ -5,7 +5,10 @@ import { reportDataSchema, reportFilename } from '@/lib/reports/types'
 
 // Playwright needs the Node.js runtime (not Edge).
 export const runtime = 'nodejs'
-export const maxDuration = 60
+// Mismo ajuste que quotes/generate: 60s era insuficiente bajo cold start
+// real en serverless (chromium + render con fotos embebidas), causa más
+// probable de descargas que fallaban sin error visible.
+export const maxDuration = 120
 
 export async function POST(request: Request) {
   const session = await auth()

@@ -5,7 +5,13 @@ import { quoteDataSchema } from '@/lib/quotes/types'
 
 // Playwright needs the Node.js runtime (not Edge).
 export const runtime = 'nodejs'
-export const maxDuration = 60
+// 60s era insuficiente en cold start real (extracción del binario de
+// @sparticuz/chromium + lanzamiento + render de una propuesta con varias
+// imágenes embebidas en base64) — causa más probable de las descargas que
+// "a veces" fallaban en producción sin ningún otro error visible. Vercel
+// permite hasta 300s por defecto; 120s da margen real sin acercarse a ese
+// techo.
+export const maxDuration = 120
 
 export async function POST(request: Request) {
   const session = await auth()

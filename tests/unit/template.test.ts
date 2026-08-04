@@ -109,3 +109,28 @@ test('quoteDataSchema: mapea el template legacy "minimal" a "basica"', () => {
   const parsed = quoteDataSchema.parse({ ...sampleQuote, template: 'minimal' })
   assert.equal(parsed.template, 'basica')
 })
+
+test('renderQuoteHTML: sin alcance no renderiza título ni sección "Alcance de trabajo"', () => {
+  const html = renderQuoteHTML({ ...sampleQuote, scope: [] })
+  assert.ok(!html.includes('Alcance de trabajo'), 'la sección vacía no debe dejar título residual')
+})
+
+test('renderQuoteHTML: alcance solo con títulos en blanco cuenta como vacío (ignora espacios)', () => {
+  const html = renderQuoteHTML({ ...sampleQuote, scope: [{ title: '   ', detail: 'detalle sin título real' }] })
+  assert.ok(!html.includes('Alcance de trabajo'), 'un título solo con espacios no debe contar como contenido real')
+})
+
+test('renderQuoteHTML: alcance mixto — descarta los ítems en blanco, conserva los válidos', () => {
+  const html = renderQuoteHTML({
+    ...sampleQuote,
+    scope: [{ title: '  ', detail: '' }, { title: 'Punto real', detail: '' }],
+  })
+  assert.ok(html.includes('Alcance de trabajo'), 'con al menos un ítem válido, la sección debe aparecer')
+  assert.ok(html.includes('Punto real'), 'el ítem con título real debe renderizarse')
+})
+
+test('renderQuoteHTML (pro): sin alcance no renderiza título ni sección "Alcance del servicio"', () => {
+  const html = renderQuoteHTML({ ...sampleQuote, template: 'pro', scope: [] })
+  assert.ok(!html.includes('Alcance del servicio'), 'la sección vacía no debe dejar título residual en la plantilla pro')
+  assert.ok(html.includes(sampleQuote.quoteId), 'el hero debe caer al quoteId cuando no hay alcance')
+})

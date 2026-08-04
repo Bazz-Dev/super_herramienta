@@ -140,11 +140,15 @@ function renderIdCard(data: ReportData): string {
 }
 
 function renderSections(data: ReportData): string {
-  return data.sections
+  // Documentos legados guardados antes de que `sections`/`bullets` existieran
+  // en el schema llegan sin estos campos (JSON.parse crudo, sin sanitizar vía
+  // Zod) — nunca asumir el shape completo acá, solo en el formulario nuevo.
+  return (data.sections ?? [])
     .map((s, i) => {
       const body = s.body ? `<p>${esc(s.body).replace(/\n/g, '<br />')}</p>` : ''
-      const bullets = s.bullets.length
-        ? `<ul class="bullets">${s.bullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`
+      const sectionBullets = s.bullets ?? []
+      const bullets = sectionBullets.length
+        ? `<ul class="bullets">${sectionBullets.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>`
         : ''
       return `<section class="section">
         <div class="section-header"><span class="n">${i + 1}.</span>${esc(s.title)}</div>
@@ -155,8 +159,9 @@ function renderSections(data: ReportData): string {
 }
 
 function renderPhotos(data: ReportData): string {
-  if (!data.photos.length) return ''
-  const grid = data.photos
+  const photos = data.photos ?? []
+  if (!photos.length) return ''
+  const grid = photos
     .map(
       (p) =>
         `<figure class="photo"><img src="${p.url}" alt="${esc(p.caption || 'Registro fotográfico')}" />${p.caption ? `<figcaption class="caption">${esc(p.caption)}</figcaption>` : ''}</figure>`,
