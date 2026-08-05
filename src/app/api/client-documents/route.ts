@@ -28,6 +28,21 @@ function computeProposalAmount(dataJson: unknown): number | undefined {
   }
 }
 
+// A diferencia de proposalAmount (dos dueños posibles, ver comentario en
+// PATCH más abajo), quoteId es el MISMO dato en dataJson y en esta columna
+// — nunca diverge, así que sí se espeja en cada guardado (create Y edit).
+// Columna real agregada porque N° de cotización necesitaba filtrarse y
+// calcular un correlativo sin traer el dataJson completo de cada propuesta.
+function computeQuoteId(dataJson: unknown): string | undefined {
+  try {
+    const parsed = typeof dataJson === 'string' ? JSON.parse(dataJson) : dataJson
+    const id = (parsed as QuoteData).quoteId
+    return typeof id === 'string' && id.trim() ? id.trim() : undefined
+  } catch {
+    return undefined
+  }
+}
+
 // POST /api/client-documents — save editor data (JSON) in DB, no R2 upload
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -83,7 +98,7 @@ export async function POST(req: NextRequest) {
       // FK real (G2) además del legado en metadata — el legado se mantiene por compat
       ticketId: metadata?.ticketId ?? undefined,
       createdById: session.user.id,
-      ...(type === 'propuesta' && dataJson ? { proposalAmount: computeProposalAmount(dataJson) } : {}),
+      ...(type === 'propuesta' && dataJson ? { proposalAmount: computeProposalAmount(dataJson), quoteId: computeQuoteId(dataJson) } : {}),
     },
   })
   // Cubre "propuesta creada" y "informe creado/generado" (informe #32B punto
@@ -121,6 +136,10 @@ export async function PATCH(req: NextRequest) {
       ...(title?.trim() ? { title: title.trim() } : {}),
       ...(dataJson ? { dataJson: typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson) } : {}),
       ...(metadata ? { metadata: JSON.stringify(metadata) } : {}),
+      // quoteId sí se espeja también en edición (a diferencia de
+      // proposalAmount, ver abajo) — es el mismo dato en dataJson y acá,
+      // nunca diverge.
+      ...(doc.type === 'propuesta' && dataJson ? { quoteId: computeQuoteId(dataJson) } : {}),
       // Nunca se pisa acá a propósito: `proposalAmount` también es el monto
       // de Pipeline, editable a mano vía updatePipelineAmount() (una cifra
       // de negociación, deliberadamente distinta del total de línea de

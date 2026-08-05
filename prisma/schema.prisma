@@ -942,6 +942,14 @@ model ClientDocument {
   // Pipeline fields (solo para type = propuesta)
   proposalStatus  ProposalStatus?
   proposalAmount  Int?            // CLP bruto de la propuesta
+  // N° de cotización (solo type = propuesta) — antes vivía SOLO dentro de
+  // dataJson (QuoteData.quoteId), sin poder filtrarse ni calcular un
+  // correlativo real sin traer el JSON completo de cada propuesta. Columna
+  // real, espejada desde dataJson.quoteId al guardar (POST/PATCH de
+  // /api/client-documents) — mismo criterio que proposalAmount: se
+  // actualiza en creación y edición porque acá SÍ es el mismo dato, nunca
+  // dos fuentes de verdad divergentes como proposalAmount/Pipeline.
+  quoteId         String?
   sentAt          DateTime?       // cuando se marcó como enviada
   viewedAt        DateTime?       // cuando el cliente la vio
   responseAt      DateTime?       // cuando respondió (aceptada/rechazada)
@@ -957,6 +965,7 @@ model ClientDocument {
   @@index([clientId])
   @@index([ticketId])
   @@index([proposalStatus])
+  @@index([quoteId])
   @@map("client_documents")
 }
 

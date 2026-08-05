@@ -17,11 +17,13 @@ import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE } from '@/lib/pipeline/la
 import { formatMoney } from '@/lib/quotes/format'
 import type { ProposalStatus } from '@/generated/prisma/enums'
 import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
+import { QuoteNumberFilter } from '@/components/quotes/quote-number-filter'
 
 interface Props {
   searchParams: Promise<{
     docId?: string; ticketId?: string; new?: string
     cliente?: string; estado?: string; ticket?: string; desde?: string; hasta?: string; page?: string
+    numero?: string
   }>
 }
 
@@ -46,6 +48,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
     ...(sp.cliente ? { clientId: sp.cliente } : {}),
     ...(estado ? { proposalStatus: estado } : {}),
     ...(sp.ticket === 'sin' ? { ticketId: null } : sp.ticket === 'con' ? { ticketId: { not: null } } : {}),
+    ...(sp.numero ? { quoteId: { contains: sp.numero } } : {}),
     ...((sp.desde || sp.hasta) ? {
       createdAt: {
         ...(sp.desde ? { gte: new Date(sp.desde) } : {}),
@@ -62,7 +65,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       select: {
-        id: true, title: true, createdAt: true, proposalStatus: true, proposalAmount: true,
+        id: true, title: true, quoteId: true, createdAt: true, proposalStatus: true, proposalAmount: true,
         // dataJson solo para esta página (máx. PAGE_SIZE filas) — resuelve el
         // Monto real cuando proposalAmount todavía no se asignó a mano en
         // Pipeline (bug real reportado: el listado mostraba "—" pese a que
@@ -103,12 +106,13 @@ export default async function CotizadorPage({ searchParams }: Props) {
     if (sp.cliente) p.set('cliente', sp.cliente)
     if (estado) p.set('estado', estado)
     if (sp.ticket) p.set('ticket', sp.ticket)
+    if (sp.numero) p.set('numero', sp.numero)
     if (sp.desde) p.set('desde', sp.desde)
     if (sp.hasta) p.set('hasta', sp.hasta)
     Object.entries(overrides).forEach(([k, v]) => (v ? p.set(k, v) : p.delete(k)))
     return `/cotizador?${p.toString()}`
   }
-  const hasFilters = !!(sp.cliente || estado || sp.ticket || sp.desde || sp.hasta)
+  const hasFilters = !!(sp.cliente || estado || sp.ticket || sp.numero || sp.desde || sp.hasta)
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -124,6 +128,9 @@ export default async function CotizadorPage({ searchParams }: Props) {
         <FilterBar action={hasFilters ? <FilterClear href="/cotizador" /> : undefined}>
           <Suspense fallback={null}>
             <ClientFilter clients={clients} basePath="/cotizador" />
+          </Suspense>
+          <Suspense fallback={null}>
+            <QuoteNumberFilter basePath="/cotizador" />
           </Suspense>
           {(Object.entries(PROPOSAL_STATUS_LABELS) as [ProposalStatus, string][]).map(([value, label]) => (
             <FilterPill
@@ -170,6 +177,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
               <Tr key={d.id}>
                 <Td>
                   <DocumentQuickPreview docId={d.id} title={d.title} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} />
+                  {d.quoteId && <p className="mt-0.5 text-[11px] text-gray-400">{d.quoteId}</p>}
                 </Td>
                 <Td>{d.client.name}</Td>
                 <Td>
