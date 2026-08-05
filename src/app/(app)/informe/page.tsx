@@ -13,7 +13,7 @@ export default async function InformePage({ searchParams }: Props) {
   const actor = await requireActor()
   const { docId, ticketId } = await searchParams
 
-  const [clients, tickets, savedDoc] = await Promise.all([
+  const [clients, tickets, savedDoc, ticketsWithInformeRaw] = await Promise.all([
     prisma.client.findMany({
       where: { ...tenantScope(actor) },
       select: { id: true, name: true },
@@ -38,8 +38,19 @@ export default async function InformePage({ searchParams }: Props) {
     }),
     docId ? prisma.clientDocument.findFirst({
       where: { id: docId, ...tenantScope(actor), type: 'informe' },
-      select: { dataJson: true, title: true },
+      select: { dataJson: true, title: true, ticketId: true },
     }) : null,
+    // Tickets que ya tienen al menos un informe — se usa para no ensuciar el
+    // desplegable con tickets ya cubiertos (pedido explícito del dueño). Un
+    // ticket puede legítimamente tener más de un informe (varias visitas
+    // técnicas, ver referencia IT/IT-2 en tickets/[id]/page.tsx) — por eso
+    // esto NO bloquea crear un segundo informe, solo deja de sugerirlo por
+    // defecto; el entry point "+ Crear informe" de la ficha del ticket sigue
+    // funcionando igual porque pasa ?ticketId= explícito (ver excepción abajo).
+    prisma.clientDocument.findMany({
+      where: { ...tenantScope(actor), type: 'informe', ticketId: { not: null } },
+      select: { ticketId: true },
+    }),
   ])
 
   let initialData: ReportData = sampleReport
@@ -61,17 +72,26 @@ export default async function InformePage({ searchParams }: Props) {
     } catch { /* keep sampleReport */ }
   }
 
-  const ticketOptions = tickets.map(t => ({
-    id: t.id,
-    ticketCode: t.ticketCode,
-    title: t.title,
-    otNumber: t.otNumber,
-    otFileUrl: t.otFileUrl,
-    clientId: t.client.id,
-    clientName: t.client.name,
-    branchName: t.branch?.name ?? '',
-    photos: t.documents,
-  }))
+  const ticketsWithInforme = new Set(ticketsWithInformeRaw.map(d => d.ticketId!))
+  // Excepciones: el ticket pasado por ?ticketId= (deep-link "+ Crear informe"
+  // desde la ficha del ticket) y el ticket del propio doc que se está
+  // editando — ninguno de los dos debe desaparecer del desplegable aunque ya
+  // tengan un informe.
+  const keepEvenWithInforme = new Set([ticketId, savedDoc?.ticketId].filter((v): v is string => !!v))
+
+  const ticketOptions = tickets
+    .filter(t => !ticketsWithInforme.has(t.id) || keepEvenWithInforme.has(t.id))
+    .map(t => ({
+      id: t.id,
+      ticketCode: t.ticketCode,
+      title: t.title,
+      otNumber: t.otNumber,
+      otFileUrl: t.otFileUrl,
+      clientId: t.client.id,
+      clientName: t.client.name,
+      branchName: t.branch?.name ?? '',
+      photos: t.documents,
+    }))
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -86,7 +106,7 @@ export default async function InformePage({ searchParams }: Props) {
           <a href="/informe" className="text-xs text-gray-400 hover:text-gray-600 mt-1">+ Nuevo informe</a>
         )}
       </div>
-      <ReportEditor initial={initialData} clients={clients} tickets={ticketOptions} docId={docId} ticketId={ticketId} />
+      <ReportEditor initial={initialData} clients={clients} tickets={ticketOptions} docId={docId} ticketId={ticketId ?? savedDoc?.ticketId ?? undefined} />
     </div>
   )
 }

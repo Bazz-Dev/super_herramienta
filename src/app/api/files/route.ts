@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { getPresignedUrl, isR2Key } from '@/lib/r2'
+import { getPresignedUrl, getObjectBuffer, isR2Key } from '@/lib/r2'
 import { ticketFileFilter } from '@/lib/files-access'
+import { contentDispositionHeader } from '@/lib/content-disposition'
 
 export const runtime = 'nodejs'
+
+const CONTENT_TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
+}
 
 /**
  * GET /api/files?key=tickets/abc/file.pdf&type=ticket|technician
@@ -12,6 +18,15 @@ export const runtime = 'nodejs'
  * Validates the caller owns access to the resource that contains this key,
  * then issues a 307 redirect to a 1-hour presigned R2 URL.
  * Never exposes the signed URL to the browser URL bar (redirect, not JSON).
+ *
+ * &download=1&filename=... — bug real reportado en vivo: el botón
+ * "Descargar" de FilePreviewButton hacía `fetch()` sobre esta ruta para
+ * armar un blob: URL (mismo patrón que DownloadPdfButton) — pero al ser un
+ * redirect 307 a otro origen (R2), el navegador bloquea el fetch por CORS
+ * (R2 nunca respondió pensado para ser consumido así, solo navegado/
+ * embebido). Con `download=1` esta ruta baja los bytes server-side
+ * (mismo `getObjectBuffer` que ya arma los ZIP) y los devuelve directo,
+ * mismo origen de punta a punta — sin CORS, sin exponer la URL firmada.
  */
 export async function GET(req: NextRequest) {
   const session = await auth()
@@ -76,6 +91,19 @@ export async function GET(req: NextRequest) {
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   } else {
     return NextResponse.json({ error: 'Unknown type' }, { status: 400 })
+  }
+
+  if (searchParams.get('download') === '1') {
+    const filename = searchParams.get('filename') || key.split('/').pop() || 'archivo'
+    const ext = key.split('.').pop()?.toLowerCase() ?? ''
+    const buffer = await getObjectBuffer(key)
+    return new NextResponse(new Uint8Array(buffer), {
+      headers: {
+        'Content-Type': CONTENT_TYPES[ext] ?? 'application/octet-stream',
+        'Content-Disposition': contentDispositionHeader('attachment', filename),
+        'Cache-Control': 'no-store',
+      },
+    })
   }
 
   const url = await getPresignedUrl(key, 3600)

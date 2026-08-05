@@ -9,7 +9,7 @@ import type { ReactNode } from 'react'
 export { Button } from '@/components/ui/button'
 
 const inputBase =
-  'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-ink placeholder:text-gray-400 outline-none transition-colors duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30'
+  'w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm text-ink placeholder:text-gray-400 outline-none transition-colors duration-150 focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-500'
 
 export function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (

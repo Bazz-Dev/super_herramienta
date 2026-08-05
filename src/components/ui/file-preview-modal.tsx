@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Modal } from '@/components/resources/modal'
 import { buttonClass } from './button'
 import { EmptyState } from './empty-state'
@@ -42,15 +42,58 @@ export function FilePreviewButton({
   name?: string
   /** Rows shown above the preview: categoría, dueño/entidad, fechas, etc. */
   meta?: FilePreviewMeta[]
-  label?: string
+  /** Trigger content — texto por defecto, pero acepta un ícono (ver conciliacion/doc-status-icon.tsx). */
+  label?: ReactNode
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState(false)
   const displayName = name || fileUrl.split('/').pop() || 'archivo'
   // Guess from fileUrl (the real key, e.g. "technicians/x/y.png"), NOT
   // displayName — that's a human label ("Contrato") with no extension.
   const kind = guessKind(fileUrl)
   const src = resolveFileSrc(fileUrl, type)
+
+  // Bug real reportado en vivo: `<a href={src} download>` con src=/api/files
+  // parecía "no hacer nada" — /api/files responde 307 a una URL firmada de
+  // R2 (otro origen); el atributo download del navegador se ignora al
+  // cruzar de origen sin que la respuesta final traiga
+  // Content-Disposition:attachment, así que el clic navegaba la pestaña
+  // entera fuera de la app hacia la URL cruda de R2 en vez de descargar.
+  // Mismo fix ya probado en DownloadPdfButton/DocumentQuickPreview: bajar
+  // los bytes por fetch (mismo origen hasta ahí) y disparar la descarga
+  // desde un blob: URL, que sí respeta `download` siempre.
+  async function download() {
+    setDownloading(true)
+    setDownloadError(false)
+    try {
+      // Para keys de R2, src=/api/files?... normalmente 307-redirige a la URL
+      // firmada de R2 (otro origen) — fetch() no puede seguir ese salto por
+      // CORS. &download=1 hace que la ruta devuelva los bytes directo, mismo
+      // origen de punta a punta (ver api/files/route.ts). Para fuentes no-R2
+      // (data:/http: ya resueltas por resolveFileSrc) src ya es descargable tal cual.
+      const downloadSrc = src.startsWith('/api/files')
+        ? `${src}&download=1&filename=${encodeURIComponent(displayName)}`
+        : src
+      const res = await fetch(downloadSrc)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = displayName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch {
+      setDownloadError(true)
+      setTimeout(() => setDownloadError(false), 4000)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <>
@@ -88,9 +131,9 @@ export function FilePreviewButton({
           <a href={src} target="_blank" rel="noopener noreferrer" className={buttonClass('secondary', 'sm')}>
             Abrir original ↗
           </a>
-          <a href={src} download={displayName} className={buttonClass('primary', 'sm')}>
-            Descargar
-          </a>
+          <button type="button" onClick={download} disabled={downloading} className={buttonClass('primary', 'sm')}>
+            {downloading ? 'Descargando…' : downloadError ? 'Error, reintentar' : 'Descargar'}
+          </button>
         </div>
       </Modal>
     </>

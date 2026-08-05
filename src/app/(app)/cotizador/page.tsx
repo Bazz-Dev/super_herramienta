@@ -5,15 +5,18 @@ import { sampleQuote } from '@/lib/quotes/sample'
 import { requireActor } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
-import { quoteDataSchema, type QuoteData } from '@/lib/quotes/types'
+import { quoteDataSchema, computeTotals, type QuoteData } from '@/lib/quotes/types'
+import { PROCESS_FLOW_LABELS, PROCESS_FLOW_COLORS } from '@/lib/cashflow/labels'
 import { Button } from '@/components/ui/button'
 import { Table, THead, TBody, Tr, Th, Td, TableEmptyRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { FilterBar, FilterPill, FilterClear } from '@/components/ui/filter-bar'
 import { ClientFilter } from '@/components/cashflow/client-filter'
 import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE, formatCLP } from '@/lib/pipeline/labels'
+import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE } from '@/lib/pipeline/labels'
+import { formatMoney } from '@/lib/quotes/format'
 import type { ProposalStatus } from '@/generated/prisma/enums'
+import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
 
 interface Props {
   searchParams: Promise<{
@@ -60,14 +63,40 @@ export default async function CotizadorPage({ searchParams }: Props) {
       take: PAGE_SIZE,
       select: {
         id: true, title: true, createdAt: true, proposalStatus: true, proposalAmount: true,
+        // dataJson solo para esta página (máx. PAGE_SIZE filas) — resuelve el
+        // Monto real cuando proposalAmount todavía no se asignó a mano en
+        // Pipeline (bug real reportado: el listado mostraba "—" pese a que
+        // el documento sí tiene un total calculado). Nunca se muestra en el
+        // listado como texto, solo se usa para computeTotals().
+        dataJson: true,
         client: { select: { id: true, name: true } },
-        ticket: { select: { id: true, ticketCode: true } },
+        ticket: { select: { id: true, ticketCode: true, processFlow: true } },
         createdBy: { select: { name: true } },
       },
     }),
     prisma.client.findMany({ where: tenantScope(actor), select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ])
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Fallback de Monto: proposalAmount es también el monto de Pipeline
+  // (editable a mano, decisión ya tomada en G54 — nunca se sobreescribe al
+  // guardar, siempre en CLP) — si nadie lo tocó todavía, se muestra el
+  // total real calculado del documento, respetando SU moneda (CLP/UF/USD) —
+  // formatear un total en UF como si fuera CLP fue un bug real detectado en
+  // la propia verificación de este fix (ej. "UF 11,9" mostrándose "$12").
+  const docsWithAmount = docs.map((d) => {
+    if (d.proposalAmount != null) return { ...d, displayAmount: d.proposalAmount, displayCurrency: 'CLP' as const }
+    try {
+      const parsed = d.dataJson ? JSON.parse(d.dataJson) : null
+      return {
+        ...d,
+        displayAmount: parsed ? computeTotals(parsed).total : null,
+        displayCurrency: (parsed?.currency ?? 'CLP') as 'CLP' | 'UF' | 'USD',
+      }
+    } catch {
+      return { ...d, displayAmount: null, displayCurrency: 'CLP' as const }
+    }
+  })
 
   const qs = (overrides: Record<string, string | undefined>) => {
     const p = new URLSearchParams()
@@ -124,6 +153,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
             <Th>Propuesta</Th>
             <Th>Cliente</Th>
             <Th>Ticket</Th>
+            <Th>PP/ED</Th>
             <Th>Estado</Th>
             <Th className="text-right">Monto</Th>
             <Th>Creada</Th>
@@ -131,15 +161,15 @@ export default async function CotizadorPage({ searchParams }: Props) {
           </Tr>
         </THead>
         <TBody>
-          {docs.length === 0 ? (
-            <TableEmptyRow colSpan={7}>
+          {docsWithAmount.length === 0 ? (
+            <TableEmptyRow colSpan={8}>
               {hasFilters ? 'Sin resultados para estos filtros' : 'Sin propuestas creadas todavía'}
             </TableEmptyRow>
           ) : (
-            docs.map(d => (
+            docsWithAmount.map(d => (
               <Tr key={d.id}>
                 <Td>
-                  <Link href={`/cotizador?docId=${d.id}`} className="font-medium text-brand hover:underline">{d.title}</Link>
+                  <DocumentQuickPreview docId={d.id} title={d.title} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} />
                 </Td>
                 <Td>{d.client.name}</Td>
                 <Td>
@@ -148,11 +178,18 @@ export default async function CotizadorPage({ searchParams }: Props) {
                   ) : <span className="text-gray-300">—</span>}
                 </Td>
                 <Td>
+                  {d.ticket?.processFlow ? (
+                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PROCESS_FLOW_COLORS[d.ticket.processFlow] ?? 'border-gray-200 bg-gray-50 text-gray-500'}`}>
+                      {PROCESS_FLOW_LABELS[d.ticket.processFlow] ?? d.ticket.processFlow}
+                    </span>
+                  ) : <span className="text-gray-300">—</span>}
+                </Td>
+                <Td>
                   {d.proposalStatus ? (
                     <Badge {...PROPOSAL_STATUS_BADGE[d.proposalStatus]}>{PROPOSAL_STATUS_LABELS[d.proposalStatus]}</Badge>
                   ) : <span className="text-gray-300">—</span>}
                 </Td>
-                <Td className="text-right tabular-nums">{d.proposalAmount ? formatCLP(d.proposalAmount) : '—'}</Td>
+                <Td className="text-right tabular-nums">{d.displayAmount ? formatMoney(d.displayAmount, d.displayCurrency) : '—'}</Td>
                 <Td className="text-gray-500">{d.createdAt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</Td>
                 <Td className="text-gray-500">{d.createdBy?.name ?? '—'}</Td>
               </Tr>
@@ -193,7 +230,7 @@ async function CotizadorEditor({ actor, docId, ticketId }: { actor: Awaited<Retu
     }),
     docId ? prisma.clientDocument.findFirst({
       where: { id: docId, ...tenantScope(actor), type: 'propuesta' },
-      select: { dataJson: true, title: true },
+      select: { dataJson: true, title: true, ticketId: true },
     }) : null,
   ])
 
@@ -235,7 +272,7 @@ async function CotizadorEditor({ actor, docId, ticketId }: { actor: Awaited<Retu
         </div>
         <Link href="/cotizador" className="text-xs text-gray-400 hover:text-gray-600 mt-1">← Ver todas las propuestas</Link>
       </div>
-      <QuoteEditor initial={initialData} clients={clients} tickets={ticketOptions} docId={docId} ticketId={ticketId} />
+      <QuoteEditor initial={initialData} clients={clients} tickets={ticketOptions} docId={docId} ticketId={ticketId ?? savedDoc?.ticketId ?? undefined} />
     </div>
   )
 }

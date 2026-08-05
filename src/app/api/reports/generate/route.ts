@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { generateReportPdf } from '@/lib/reports/pdf'
 import { reportDataSchema, reportFilename } from '@/lib/reports/types'
+import { contentDispositionHeader } from '@/lib/content-disposition'
 
 // Playwright needs the Node.js runtime (not Edge).
 export const runtime = 'nodejs'
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${reportFilename(parsed.data)}.pdf"`,
+        'Content-Disposition': contentDispositionHeader('inline', `${reportFilename(parsed.data)}.pdf`),
         'Cache-Control': 'no-store',
       },
     })

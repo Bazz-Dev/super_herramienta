@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { generateQuotePdf } from '@/lib/quotes/pdf'
 import { quoteDataSchema } from '@/lib/quotes/types'
+import { contentDispositionHeader } from '@/lib/content-disposition'
 
 // Playwright needs the Node.js runtime (not Edge).
 export const runtime = 'nodejs'
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${parsed.data.quoteId}.pdf"`,
+        'Content-Disposition': contentDispositionHeader('inline', `${parsed.data.quoteId}.pdf`),
         'Cache-Control': 'no-store',
       },
     })

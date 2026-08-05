@@ -5,8 +5,28 @@ import { deleteFromR2, getPresignedUrl, isR2Key } from '@/lib/r2'
 import { tenantScope } from '@/lib/tenant'
 import type { ClientDocType } from '@/generated/prisma/enums'
 import { logAudit } from '@/lib/audit'
+import { computeTotals, type QuoteData } from '@/lib/quotes/types'
 
 export const runtime = 'nodejs'
+
+// Bug real reportado en vivo: el listado de /cotizador mostraba "—" en
+// Monto para propuestas recién creadas — `proposalAmount` solo se escribía
+// al agregar la propuesta al Pipeline (pipeline/actions.ts), nunca al
+// crearla desde el editor. Se inicializa acá SOLO en el create (POST) con
+// el total real (computeTotals, la misma función que ya usa el editor/
+// PDF) — es seguro porque en creación nunca puede haber un monto de
+// Pipeline ya asignado a mano que se pise (el doc no existía todavía). En
+// PATCH (edición) deliberadamente NO se toca este campo — ver comentario
+// ahí. Fail-soft: un dataJson que no calza con QuoteData no debe bloquear
+// el guardado.
+function computeProposalAmount(dataJson: unknown): number | undefined {
+  try {
+    const parsed = typeof dataJson === 'string' ? JSON.parse(dataJson) : dataJson
+    return computeTotals(parsed as QuoteData).total
+  } catch {
+    return undefined
+  }
+}
 
 // POST /api/client-documents — save editor data (JSON) in DB, no R2 upload
 export async function POST(req: NextRequest) {
@@ -63,6 +83,7 @@ export async function POST(req: NextRequest) {
       // FK real (G2) además del legado en metadata — el legado se mantiene por compat
       ticketId: metadata?.ticketId ?? undefined,
       createdById: session.user.id,
+      ...(type === 'propuesta' && dataJson ? { proposalAmount: computeProposalAmount(dataJson) } : {}),
     },
   })
   // Cubre "propuesta creada" y "informe creado/generado" (informe #32B punto
@@ -100,6 +121,13 @@ export async function PATCH(req: NextRequest) {
       ...(title?.trim() ? { title: title.trim() } : {}),
       ...(dataJson ? { dataJson: typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson) } : {}),
       ...(metadata ? { metadata: JSON.stringify(metadata) } : {}),
+      // Nunca se pisa acá a propósito: `proposalAmount` también es el monto
+      // de Pipeline, editable a mano vía updatePipelineAmount() (una cifra
+      // de negociación, deliberadamente distinta del total de línea de
+      // ítems — decisión ya tomada en G54). Sobreescribirlo en cada
+      // guardado del editor perdería un ajuste manual real. El listado de
+      // /cotizador resuelve el monto a mostrar con un fallback al total
+      // calculado, no reescribiendo este campo.
     },
   })
   // Cubre "propuesta versionada" (un cambio de metadata.version es solo un

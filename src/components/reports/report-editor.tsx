@@ -239,14 +239,14 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
             <Field label="Contacto (responsable)">
               <TextInput value={data.contact} onChange={(e) => set({ contact: e.target.value })} />
             </Field>
-            <Field label="Cliente">
-              <TextInput value={data.client} onChange={(e) => set({ client: e.target.value })} />
+            <Field label="Cliente" hint={selectedTicketId ? 'Se hereda del ticket — corrígelo ahí si está mal.' : undefined}>
+              <TextInput value={data.client} disabled={!!selectedTicketId} onChange={(e) => set({ client: e.target.value })} />
             </Field>
-            <Field label="Sucursal">
-              <TextInput value={data.branch} onChange={(e) => set({ branch: e.target.value })} />
+            <Field label="Sucursal" hint={selectedTicketId ? 'Se hereda del ticket.' : undefined}>
+              <TextInput value={data.branch} disabled={!!selectedTicketId} onChange={(e) => set({ branch: e.target.value })} />
             </Field>
-            <Field label="N° Orden de Trabajo (opcional)">
-              <TextInput value={data.workOrder} onChange={(e) => set({ workOrder: e.target.value })} />
+            <Field label="N° Orden de Trabajo (opcional)" hint={selectedTicketId ? 'Se hereda del ticket.' : undefined}>
+              <TextInput value={data.workOrder} disabled={!!selectedTicketId} onChange={(e) => set({ workOrder: e.target.value })} />
             </Field>
           </div>
 
