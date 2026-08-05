@@ -2,8 +2,11 @@ import Link from 'next/link'
 import { requireActor, tenantScope } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { ExpenseList } from '@/components/expenses/expense-list'
-import { StaffNewExpense } from '@/components/expenses/staff-new-expense'
-import { ExpenseForm } from '@/components/expenses/expense-form'
+import { ClientFilter } from '@/components/cashflow/client-filter'
+import { TechnicianFilter } from '@/components/expenses/technician-filter'
+import { TicketSearchFilter } from '@/components/expenses/ticket-search-filter'
+import { ExportExpensesButton } from '@/components/expenses/export-expenses-button'
+import { FilterBar, FilterPill, FilterClear } from '@/components/ui/filter-bar'
 
 function formatClp(n: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(n)
@@ -13,10 +16,19 @@ type StatusFilter = 'all' | 'pendiente' | 'aprobado' | 'pagado' | 'rechazado'
 
 const VALID_STATUSES = ['pendiente', 'aprobado', 'pagado', 'rechazado'] as const
 
+// Solo lectura + filtros + informe exportable (informe #14, cierre): antes
+// esta página era también el único punto de ingreso (StaffNewExpense/
+// ExpenseForm para staff y técnico). El ingreso real ahora vive donde
+// corresponde — un técnico registra el suyo en /mi-panel/gastos (ya
+// funcionaba así), y staff lo registra desde la ficha del ticket
+// (RegisterExpenseButton, nuevo) — nunca acá. Esta página queda para ver el
+// panorama general, filtrar, y exportar; la gestión de gastos ya
+// registrados (aprobar/rechazar/pagar/editar/eliminar) se mantiene intacta
+// en ExpenseList — eso es gestión, no ingreso.
 export default async function GastosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>
+  searchParams: Promise<{ status?: string; tecnico?: string; cliente?: string; ticket?: string }>
 }) {
   const actor = await requireActor()
   const params = await searchParams
@@ -26,25 +38,46 @@ export default async function GastosPage({
   const statusWhere = isValidStatus
     ? { status: statusFilter as (typeof VALID_STATUSES)[number] }
     : {}
+  const technicianWhere = params.tecnico ? { technicianId: params.tecnico } : {}
+  const clientWhere = params.cliente ? { ticket: { clientId: params.cliente } } : {}
+  const ticketSearch = params.ticket?.trim()
+  const ticketSearchWhere = ticketSearch
+    ? { ticket: { OR: [{ ticketCode: { contains: ticketSearch } }, { title: { contains: ticketSearch } }] } }
+    : {}
 
-  const expenses = await prisma.expense.findMany({
-    where: {
-      ...tenantScope(actor),
-      ...statusWhere,
-    },
-    include: {
-      technician: { select: { name: true } },
-      ticket: { select: { ticketCode: true, title: true } },
-      approvedBy: { select: { name: true } },
-    },
-    orderBy: { date: 'desc' },
-  })
-
-  // KPIs from all expenses (no status filter)
-  const allExpenses = await prisma.expense.findMany({
-    where: { ...tenantScope(actor) },
-    select: { amount: true, status: true, paidAt: true },
-  })
+  const [expenses, allExpenses, technicians, clients] = await Promise.all([
+    prisma.expense.findMany({
+      where: {
+        ...tenantScope(actor),
+        ...statusWhere,
+        ...technicianWhere,
+        ...clientWhere,
+        ...ticketSearchWhere,
+      },
+      include: {
+        technician: { select: { name: true } },
+        ticket: { select: { ticketCode: true, title: true, client: { select: { name: true } } } },
+        approvedBy: { select: { name: true } },
+      },
+      orderBy: { date: 'desc' },
+    }),
+    // KPIs — siempre sobre el total, no sobre lo filtrado (mismo criterio de
+    // siempre: son montos accionables globales, no un subtotal de la vista).
+    prisma.expense.findMany({
+      where: { ...tenantScope(actor) },
+      select: { amount: true, status: true, paidAt: true },
+    }),
+    prisma.technician.findMany({
+      where: { ...tenantScope(actor), active: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.client.findMany({
+      where: tenantScope(actor),
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+  ])
 
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -57,26 +90,9 @@ export default async function GastosPage({
     .filter((e) => e.status === 'pagado' && e.paidAt && new Date(e.paidAt) >= startOfMonth)
     .reduce((s, e) => s + e.amount, 0)
 
-  // Technicians for the staff expense form
-  const technicians = await prisma.technician.findMany({
-    where: { ...tenantScope(actor), active: true },
-    select: { id: true, name: true },
-    orderBy: { name: 'asc' },
-  })
-
-  // Tickets para asociar el gasto directo (informe #14) — mismo criterio de
-  // exclusión que /flujo/trabajos/new (cancelado/fusionado no son destinos
-  // válidos para nada nuevo).
-  const tickets = await prisma.ticket.findMany({
-    where: { ...tenantScope(actor), deletedAt: null, status: { notIn: ['cancelado', 'fusionado'] } },
-    select: { id: true, ticketCode: true, title: true },
-    orderBy: { createdAt: 'desc' },
-  })
-
   const canApprove = actor.role === 'super' || actor.role === 'supervisor'
   const canDelete = actor.role === 'super'
   const isStaff = actor.role === 'super' || actor.role === 'supervisor'
-  const isTecnico = actor.role === 'tecnico'
 
   const TAB_FILTERS: { value: StatusFilter; label: string }[] = [
     { value: 'all', label: 'Todos' },
@@ -86,13 +102,29 @@ export default async function GastosPage({
     { value: 'rechazado', label: 'Rechazados' },
   ]
 
+  // Preserva tecnico/cliente/ticket al cambiar de pestaña de estado — antes
+  // el link de estado los descartaba (no existían todavía).
+  function statusHref(value: StatusFilter) {
+    const qs = new URLSearchParams()
+    if (value !== 'all') qs.set('status', value)
+    if (params.tecnico) qs.set('tecnico', params.tecnico)
+    if (params.cliente) qs.set('cliente', params.cliente)
+    if (params.ticket) qs.set('ticket', params.ticket)
+    const s = qs.toString()
+    return s ? `/gastos?${s}` : '/gastos'
+  }
+
+  const hasFilters = isValidStatus || !!params.tecnico || !!params.cliente || !!ticketSearch
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Gastos de terreno</h1>
-          <p className="mt-1 text-sm text-gray-500">Gestión de gastos reportados por técnicos</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Vista general de gastos reportados por técnicos — el registro se hace desde el ticket o desde /mi-panel/gastos.
+          </p>
         </div>
         <Link href="/dashboard" className="text-sm text-gray-500 hover:text-ink">← Dashboard</Link>
       </div>
@@ -113,36 +145,27 @@ export default async function GastosPage({
         </div>
       </div>
 
-      {/* New expense form */}
-      {isStaff && technicians.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-ink">Registrar gasto para un técnico</h2>
-          <StaffNewExpense technicians={technicians} tickets={tickets} />
-        </div>
-      )}
-      {isTecnico && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-base font-semibold text-ink">Registrar mi gasto</h2>
-          <ExpenseForm tickets={tickets} />
-        </div>
-      )}
+      {/* Filtros + exportar */}
+      <div className="space-y-2.5">
+        <FilterBar action={isStaff ? <ExportExpensesButton expenses={expenses} /> : undefined}>
+          <TechnicianFilter technicians={technicians} />
+          <ClientFilter clients={clients} basePath="/gastos" />
+          <TicketSearchFilter />
+          {hasFilters && <FilterClear href="/gastos" />}
+        </FilterBar>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        {TAB_FILTERS.map(({ value, label }) => (
-          <Link
-            key={value}
-            href={value === 'all' ? '/gastos' : `/gastos?status=${value}`}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              statusFilter === value
-                ? 'border-brand text-ink'
-                : 'border-transparent text-gray-500 hover:text-ink'
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
+        <div className="flex flex-wrap gap-1.5">
+          {TAB_FILTERS.map(({ value, label }) => (
+            <FilterPill key={value} active={statusFilter === value} href={statusHref(value)}>
+              {label}
+            </FilterPill>
+          ))}
+        </div>
       </div>
+
+      <p className="text-xs font-medium text-gray-500">
+        {expenses.length} resultado{expenses.length !== 1 ? 's' : ''}
+      </p>
 
       {/* Expense table */}
       <ExpenseList

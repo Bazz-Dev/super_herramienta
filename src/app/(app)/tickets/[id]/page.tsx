@@ -14,6 +14,7 @@ import { TicketDocumentsPanel } from '@/components/tickets/ticket-documents-pane
 import { TicketStateSummary } from '@/components/tickets/ticket-state-summary'
 import { PROCESS_FLOW_LABELS, PROCESS_FLOW_COLORS } from '@/lib/cashflow/labels'
 import { ExpenseJobLink } from '@/components/tickets/expense-job-link'
+import { RegisterExpenseButton } from '@/components/expenses/register-expense-button'
 import { withProposalReference, withReportReference } from '@/lib/tickets/reference'
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -250,13 +251,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
 
         {/* Quick actions */}
         <div className="mt-3 border-t border-gray-100 pt-3 flex flex-wrap gap-4">
-          <Link
-            href={`/gastos?ticketRef=${ticket.id}`}
-            className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline font-medium"
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M8 3v10M3 8h10"/></svg>
-            Registrar gasto →
-          </Link>
+          <RegisterExpenseButton ticketId={ticket.id} ticketCode={ticket.ticketCode} title={ticket.title} technicians={technicians} />
           {(actor.role === 'super' || actor.role === 'supervisor') && !(status === 'resuelto' && originJobs.length === 0) && (
             <Link
               href={crearTrabajoHref}

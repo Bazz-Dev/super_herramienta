@@ -25,16 +25,21 @@ interface ExpenseFormProps {
   tickets?: Ticket[]
   onSuccess?: () => void
   compact?: boolean
+  /** Formulario embebido en la ficha de un ticket puntual (informe #14 — "no
+   * ingreso en /gastos, se ingresa desde el ticket"): fija el ticketId vía
+   * campo oculto, sin dropdown ni checkbox de "gasto general" (siempre es
+   * directo cuando viene de acá). */
+  lockedTicket?: { id: string; ticketCode: string; title: string }
 }
 
-export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = false }: ExpenseFormProps) {
+export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = false, lockedTicket }: ExpenseFormProps) {
   const formRef = useRef<HTMLFormElement>(null)
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [receiptDataUri, setReceiptDataUri] = useState<string | null>(null)
   const [receiptName, setReceiptName] = useState<string | null>(null)
-  const [ticketId, setTicketId] = useState('')
+  const [ticketId, setTicketId] = useState(lockedTicket?.id ?? '')
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -118,9 +123,19 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
           />
         </div>
 
-        {/* Ticket (optional) — informe #14: presente = gasto directo de ese
-            ticket; ausente = general o sin clasificar (checkbox abajo) */}
-        {tickets.length > 0 && (
+        {/* Ticket — bloqueado cuando el form se abre desde la ficha del
+            ticket (informe #14: "se ingresan del ticket"); si no, dropdown
+            opcional: presente = gasto directo de ese ticket, ausente =
+            general o sin clasificar (checkbox abajo). */}
+        {lockedTicket ? (
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Ticket</label>
+            <input type="hidden" name="ticketId" value={lockedTicket.id} />
+            <p className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+              {lockedTicket.ticketCode} — {lockedTicket.title}
+            </p>
+          </div>
+        ) : tickets.length > 0 && (
           <div>
             <label className={labelClass} htmlFor="ef-ticket">Ticket (opcional)</label>
             <select id="ef-ticket" name="ticketId" className={inputClass} value={ticketId} onChange={(e) => setTicketId(e.target.value)}>
@@ -149,7 +164,7 @@ export function ExpenseForm({ technicianId, tickets = [], onSuccess, compact = f
           clasificación explícita que evita dejarlo "sin revisar" para
           siempre. Con ticket seleccionado, la clasificación ya es "directo"
           sin ambigüedad, así que este checkbox no aplica. */}
-      {!ticketId && (
+      {!ticketId && !lockedTicket && (
         <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
           <input type="checkbox" name="isGeneral" className="rounded" />
           Es un gasto general de la empresa (no corresponde a un ticket puntual)
