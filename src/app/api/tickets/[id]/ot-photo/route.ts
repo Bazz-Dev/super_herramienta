@@ -6,6 +6,12 @@ import { rasterizePdfFirstPage } from '@/lib/pdf-rasterize'
 import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
+// Mismo motivo exacto que quotes/generate y reports/generate (G59): esta
+// ruta también lanza Chromium completo (rasterizePdfFirstPage → launchBrowser),
+// mismo costo de cold start, pero se quedó en el default de la plataforma
+// cuando esas dos se subieron a 120s — confirmado en vivo en producción real:
+// 500/503 reproducidos dos veces seguidas contra un ticket real con OT en PDF.
+export const maxDuration = 120
 
 async function loadTicketForActor(
   ticketId: string,
@@ -80,10 +86,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const isPdf = ticket.otFileUrl.toLowerCase().endsWith('.pdf')
 
   if (wantsImage && isPdf) {
-    const shortUrl = isR2Key(ticket.otFileUrl) ? await getPresignedUrl(ticket.otFileUrl, 300) : ticket.otFileUrl
-    const res = await fetch(shortUrl)
-    const page1 = await rasterizePdfFirstPage(new Uint8Array(await res.arrayBuffer()))
-    return new NextResponse(new Uint8Array(page1), { headers: { 'Content-Type': 'image/png' } })
+    // Antes sin try/catch: cualquier falla acá (Chromium, fetch a R2, pdf.js)
+    // devolvía un 500 vacío sin detalle — imposible de diagnosticar desde
+    // afuera, y el catch de loadTicketOT() en el editor solo mostraba un
+    // mensaje genérico. Mismo criterio que quotes/generate: detalle real en
+    // la respuesta para poder diagnosticar sin depender de logs de Vercel.
+    try {
+      const shortUrl = isR2Key(ticket.otFileUrl) ? await getPresignedUrl(ticket.otFileUrl, 300) : ticket.otFileUrl
+      const res = await fetch(shortUrl)
+      if (!res.ok) throw new Error(`No se pudo descargar la OT desde R2 (${res.status})`)
+      const page1 = await rasterizePdfFirstPage(new Uint8Array(await res.arrayBuffer()))
+      return new NextResponse(new Uint8Array(page1), { headers: { 'Content-Type': 'image/png' } })
+    } catch (err) {
+      console.error('OT PDF rasterization failed:', err)
+      const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+      return NextResponse.json({ error: 'No se pudo generar la vista previa de la OT.', detail }, { status: 500 })
+    }
   }
 
   const url = isR2Key(ticket.otFileUrl) ? await getPresignedUrl(ticket.otFileUrl, 3600) : ticket.otFileUrl

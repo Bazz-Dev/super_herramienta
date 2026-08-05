@@ -52,10 +52,18 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
     setOpen(true)
   }
 
-  async function save() {
-    if (!existingDocId && !clientId) { setErrorMsg('Selecciona un cliente'); return }
+  // Bug real reportado: el modal pedía cliente+título SIEMPRE, incluso
+  // cuando el documento nace de un ticket — cliente y título ya se conocen
+  // ahí (autocompletados desde el ticket), así que preguntarlos era un paso
+  // sin sentido. El modal ahora queda solo para el único caso donde de
+  // verdad hace falta una decisión humana: crear un documento sin ticket
+  // vinculado (no hay cliente ni título derivable de ningún lado).
+  const canSaveDirect = !!existingDocId || (!!ticketId && !!clientId)
+
+  async function save(titleToSave: string, clientIdToSave: string) {
+    if (!existingDocId && !clientIdToSave) { setErrorMsg('Selecciona un cliente'); return }
     if (!existingDocId && !ticketId) { setErrorMsg('Selecciona un ticket de origen (o crea uno nuevo) antes de guardar.'); return }
-    if (!title.trim()) { setErrorMsg('El título es obligatorio'); return }
+    if (!titleToSave.trim()) { setErrorMsg('El título es obligatorio'); return }
     setStatus('saving')
     setErrorMsg('')
 
@@ -68,7 +76,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
         res = await fetch('/api/client-documents', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: existingDocId, title: title.trim(), dataJson: data }),
+          body: JSON.stringify({ id: existingDocId, title: titleToSave.trim(), dataJson: data }),
         })
       } else {
         // Create new document
@@ -78,7 +86,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            clientId, type: documentType, title: title.trim(), dataJson: data,
+            clientId: clientIdToSave, type: documentType, title: titleToSave.trim(), dataJson: data,
             ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
           }),
         })
@@ -115,18 +123,38 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
     fontWeight: '600', cursor: 'pointer', border: 'none',
   }
 
+  function handleClick() {
+    if (canSaveDirect) {
+      setStatus('saving')
+      setErrorMsg('')
+      startTransition(() => save(defaultTitle, clientId))
+    } else {
+      openModal()
+    }
+  }
+
+  const label = isUpdate ? 'Guardar cambios' : `Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'}`
+
   return (
     <>
       <button
-        onClick={openModal}
-        className="interactive flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
-        title={isUpdate ? 'Guardar cambios' : `Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'}`}
+        onClick={handleClick}
+        disabled={canSaveDirect && (isPending || status === 'saving')}
+        className="interactive flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
+        title={label}
       >
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 2.5h4l1.5 1.5H11a.5.5 0 01.5.5v5.5a.5.5 0 01-.5.5H2a.5.5 0 01-.5-.5V3a.5.5 0 01.5-.5z"/>
-        </svg>
-        {isUpdate ? 'Guardar cambios' : `Guardar ${documentType === 'propuesta' ? 'propuesta' : 'informe'}`}
+        {canSaveDirect && (isPending || status === 'saving') ? (
+          <Spinner size={13} />
+        ) : (
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 2.5h4l1.5 1.5H11a.5.5 0 01.5.5v5.5a.5.5 0 01-.5.5H2a.5.5 0 01-.5-.5V3a.5.5 0 01.5-.5z"/>
+          </svg>
+        )}
+        {canSaveDirect ? (status === 'saving' ? 'Guardando…' : status === 'ok' ? '✓ Guardado' : label) : label}
       </button>
+      {canSaveDirect && status === 'error' && (
+        <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }}>{errorMsg}</p>
+      )}
 
       {open && (
         <div
@@ -196,7 +224,7 @@ export function SaveDocumentButton({ clients, dataJson, defaultTitle, documentTy
                     Cancelar
                   </button>
                   <button
-                    onClick={() => startTransition(save)}
+                    onClick={() => startTransition(() => save(title, clientId))}
                     disabled={isPending || status === 'saving' || (!isUpdate && clients.length === 0)}
                     style={{ ...btnBase, background: '#f5b100', color: '#111', opacity: (isPending || status === 'saving' || (!isUpdate && clients.length === 0)) ? 0.5 : 1 }}
                   >

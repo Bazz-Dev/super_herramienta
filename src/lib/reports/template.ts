@@ -175,10 +175,14 @@ function renderPhotos(data: ReportData): string {
 
 function renderOTAnnex(data: ReportData): string {
   if (!data.otImageUrl) return ''
-  const title = data.workOrder ? `Orden de trabajo · N° ${esc(data.workOrder)}` : 'Orden de trabajo'
+  // Título más identificable (pedido explícito del dueño) — "Orden de
+  // trabajo en terreno" deja claro que es el documento firmado en sitio,
+  // distinto del campo "N° Orden de Trabajo" de la cabecera. Vale igual si
+  // el origen fue PDF escaneado o foto — ambos llegan acá como imagen.
+  const title = data.workOrder ? `Orden de trabajo en terreno · N° ${esc(data.workOrder)}` : 'Orden de trabajo en terreno'
   return `<section class="annex">
     <div class="annex-header"><span class="eyebrow">Anexo</span><span class="title">${title}</span></div>
-    <div class="photo-grid"><figure class="photo ot-photo"><img src="${data.otImageUrl}" alt="Orden de trabajo" /></figure></div>
+    <div class="photo-grid"><figure class="photo ot-photo"><img src="${data.otImageUrl}" alt="Orden de trabajo en terreno" /></figure></div>
   </section>`
 }
 

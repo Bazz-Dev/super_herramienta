@@ -1,4 +1,5 @@
 import { FilePreviewButton } from '@/components/ui/file-preview-modal'
+import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
 import Link from 'next/link'
 
 type TicketDoc = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date; uploadedBy: { name: string; role: string } | null }
@@ -90,12 +91,16 @@ export function TicketDocumentsPanel({
         )}
         {propuestas.length > 0 && (
           <DocGroup title={`Propuestas (${propuestas.length})`}>
-            {propuestas.map(d => <LinkRow key={d.id} name={`${d.reference} · ${d.title}`} href={`/cotizador?docId=${d.id}`} />)}
+            {propuestas.map(d => (
+              <PreviewRow key={d.id} name={`${d.reference} · ${d.title}`} docId={d.id} title={`${d.reference} · ${d.title}`} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} />
+            ))}
           </DocGroup>
         )}
         {informes.length > 0 && (
           <DocGroup title={`Informes (${informes.length})`}>
-            {informes.map(d => <LinkRow key={d.id} name={`${d.reference} · ${d.title}`} href={`/informe?docId=${d.id}`} />)}
+            {informes.map(d => (
+              <PreviewRow key={d.id} name={`${d.reference} · ${d.title}`} docId={d.id} title={`${d.reference} · ${d.title}`} documentType="informe" editHref={`/informe?docId=${d.id}`} />
+            ))}
           </DocGroup>
         )}
         {ocEntries.length > 0 && (
@@ -155,6 +160,24 @@ function LinkRow({ name, href }: { name: string; href: string }) {
     <div className="flex items-center justify-between gap-2 text-xs">
       <span className="truncate text-gray-600">{name}</span>
       <Link href={href} className="shrink-0 font-semibold text-brand hover:underline">Ver →</Link>
+    </div>
+  )
+}
+
+// Propuestas/informes son documentos JSON (no archivos), así que en vez de
+// navegar afuera (bug real reportado: "algunos se abren en pantalla
+// completa") reusan DocumentQuickPreview — mismo patrón ya establecido en
+// /informe, /cotizador y la lista de Tickets (badges OT/IT/PT).
+function PreviewRow({ name, docId, title, documentType, editHref }: {
+  name: string; docId: string; title: string; documentType: 'propuesta' | 'informe'; editHref: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs">
+      <span className="truncate text-gray-600">{name}</span>
+      <DocumentQuickPreview
+        docId={docId} title={title} documentType={documentType} editHref={editHref}
+        trigger="Ver →" triggerClassName="shrink-0 font-semibold text-brand hover:underline"
+      />
     </div>
   )
 }

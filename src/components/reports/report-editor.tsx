@@ -60,10 +60,28 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
   const [otError, setOtError] = useState<string | null>(null)
   const [otIsPdf, setOtIsPdf] = useState(false)
 
-  async function persistOTAsR2Key(ticketId: string, clientId: string): Promise<string> {
+  async function fetchOTImage(ticketId: string): Promise<Blob> {
     const res = await fetch(`/api/tickets/${ticketId}/ot-photo?as=image`)
-    if (!res.ok) throw new Error()
-    const blob = await res.blob()
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}) as { error?: string; detail?: string })
+      throw new Error(body.detail ?? body.error ?? `Error ${res.status}`)
+    }
+    return res.blob()
+  }
+
+  async function persistOTAsR2Key(ticketId: string, clientId: string): Promise<string> {
+    // La rasterización server-side (Chromium + pdf.js, ver ot-photo/route.ts)
+    // falla intermitentemente bajo carga real — confirmado en vivo en
+    // producción (500/503 dos veces seguidas contra un ticket real). Un
+    // reintento simple absorbe eso sin necesitar tocar la infraestructura;
+    // si sigue fallando en el segundo intento sí es un error real, no ruido.
+    let blob: Blob
+    try {
+      blob = await fetchOTImage(ticketId)
+    } catch {
+      await new Promise((r) => setTimeout(r, 1500))
+      blob = await fetchOTImage(ticketId)
+    }
     const file = new File([blob], 'ot.png', { type: blob.type || 'image/png' })
     const { key } = await uploadDirect('/api/client-documents/upload-url', file, { clientId })
     return key
@@ -77,8 +95,8 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
       const key = await persistOTAsR2Key(ticket.id, ticket.clientId)
       set({ otImageUrl: key })
       setOtIsPdf(ticket.otFileUrl.toLowerCase().endsWith('.pdf'))
-    } catch {
-      setOtError('No se pudo cargar la OT guardada en el ticket.')
+    } catch (e) {
+      setOtError(`No se pudo cargar la OT guardada en el ticket. ${e instanceof Error ? e.message : ''}`.trim())
     } finally {
       setOtBusy(false)
     }

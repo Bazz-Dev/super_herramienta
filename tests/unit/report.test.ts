@@ -50,7 +50,7 @@ test('HTML: sin foto de OT no agrega la página de Orden de trabajo', () => {
 
 test('HTML: con foto de OT agrega su página con el N° de OT en el título', () => {
   const html = renderReportHTML({ ...sampleReport, otImageUrl: IMG, workOrder: '0320' })
-  assert.match(html, /Orden de trabajo · N° 0320/)
+  assert.match(html, /Orden de trabajo en terreno · N° 0320/)
   assert.match(html, /class="photo ot-photo"><img src="data:image\/png/)
 })
 

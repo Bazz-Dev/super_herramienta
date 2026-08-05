@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState, useTransition } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { updateTicketFields, updateTicketStatus, addTicketComment, promoteDocumentToOT } from '@/app/(app)/tickets/actions'
 import { SELECTABLE_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { PROCESS_FLOW_LABELS } from '@/lib/cashflow/labels'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
 import { uploadDirect } from '@/lib/upload-direct'
+import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
+import { FilePreviewButton } from '@/components/ui/file-preview-modal'
 
 type Item    = { id: string; title: string; status: string; description: string | null }
 type Doc     = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date }
@@ -451,8 +452,14 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             {ticket.otNumber && <span className="font-mono text-sm font-bold text-ink">{ticket.otNumber}</span>}
             {otFileUrl ? (
               <div className="ml-auto flex items-center gap-3">
-                <a href={`/api/tickets/${ticket.id}/ot-photo`} target="_blank" rel="noreferrer"
-                  className="text-xs font-medium text-brand hover:underline">Ver OT ↗</a>
+                {/* Antes <a target=_blank> a la key cruda — bug real: navegaba
+                    afuera de la app en vez de abrir el mismo preview in-app
+                    que ya usa cualquier otro archivo (FilePreviewButton), y
+                    no se beneficiaba del fix de descarga de G60. */}
+                <FilePreviewButton
+                  fileUrl={otFileUrl} type="ticket" name={ticket.otNumber ? `OT ${ticket.otNumber}` : 'Orden de trabajo'}
+                  label="Ver OT ↗" className="text-xs font-medium text-brand hover:underline"
+                />
                 <label className={`cursor-pointer text-xs font-medium text-gray-500 hover:text-ink hover:underline transition ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
                   {otUploading ? 'Subiendo…' : 'Reemplazar OT'}
                   <input type="file" accept="application/pdf,image/*" className="hidden"
@@ -479,12 +486,10 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
                   <span className="shrink-0 text-[10px] text-gray-400">
                     {new Date(inf.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </span>
-                  <Link
-                    href={`/informe?docId=${inf.id}`}
-                    className="shrink-0 text-xs text-brand hover:underline font-medium"
-                  >
-                    Ver ↗
-                  </Link>
+                  <DocumentQuickPreview
+                    docId={inf.id} title={inf.title} documentType="informe" editHref={`/informe?docId=${inf.id}`}
+                    trigger="Ver ↗" triggerClassName="shrink-0 text-xs text-brand hover:underline font-medium"
+                  />
                 </li>
               ))}
             </ul>
