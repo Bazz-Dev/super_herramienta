@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { uploadToR2, deleteFromR2, getPresignedUrl, isR2Key } from '@/lib/r2'
+import { deleteFromR2, getPresignedUrl, isR2Key } from '@/lib/r2'
 import { rasterizePdfFirstPage } from '@/lib/pdf-rasterize'
 import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
-
-// Los técnicos escanean la OT en terreno (apps de escaneo → PDF), así que PDF
-// es el formato normal; imagen queda como respaldo si alguien manda solo una foto.
-const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp']
-const MAX_BYTES = 12 * 1024 * 1024
 
 async function loadTicketForActor(
   ticketId: string,
@@ -29,7 +23,11 @@ async function loadTicketForActor(
   return ticket
 }
 
-/** POST /api/tickets/[id]/ot-photo — sube/reemplaza la OT del ticket (PDF o imagen) */
+/**
+ * POST /api/tickets/[id]/ot-photo — segundo paso: deja como OT vigente del
+ * ticket una key que YA fue subida a R2 vía la URL prefirmada de
+ * /upload-url. No recibe bytes.
+ */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -38,18 +36,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const ticket = await loadTicketForActor(ticketId, session.user.role, session.user.tenantId, session.user.id)
   if (!ticket) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const form = await req.formData()
-  const file = form.get('file') as File | null
-  if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 })
-  if (file.size > MAX_BYTES) return NextResponse.json({ error: 'Archivo demasiado grande (máx. 12 MB)' }, { status: 413 })
-
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'pdf'
-  if (!ALLOWED_EXT.includes(ext)) return NextResponse.json({ error: 'Formato no permitido (usa PDF o foto)' }, { status: 415 })
-
+  const body = await req.json().catch(() => null) as { key?: string } | null
+  const key = body?.key
+  if (!key) return NextResponse.json({ error: 'Falta la key del archivo' }, { status: 400 })
   const prefix = ticket.folderKey && isR2Key(ticket.folderKey) ? ticket.folderKey : `tickets/${ticketId}`
-  const key = `${prefix}/ot-${randomUUID()}.${ext}`
-  const buf = Buffer.from(await file.arrayBuffer())
-  await uploadToR2(key, buf, file.type || 'application/pdf')
+  if (!key.startsWith(`${prefix}/ot-`)) return NextResponse.json({ error: 'Key inválida' }, { status: 400 })
 
   const previousKey = ticket.otFileUrl
   await prisma.ticket.update({ where: { id: ticketId }, data: { otFileUrl: key } })

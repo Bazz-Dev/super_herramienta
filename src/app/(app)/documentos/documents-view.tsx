@@ -8,6 +8,7 @@ import { renderReportHTML } from '@/lib/reports/template'
 import { addToPipeline } from '@/lib/pipeline/actions'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_COLORS } from '@/lib/pipeline/labels'
 import type { ProposalStatus } from '@/generated/prisma/enums'
+import { uploadDirect } from '@/lib/upload-direct'
 
 interface Doc {
   id: string
@@ -352,12 +353,7 @@ function DocCard({
 // ─── Drag & drop upload — para documentos previos a "guardar en carpeta" ──────
 
 async function uploadOne(clientId: string, file: File): Promise<Doc> {
-  const fd = new FormData()
-  fd.set('clientId', clientId)
-  fd.set('file', file)
-  const prep = await fetch('/api/client-documents/upload-url', { method: 'POST', body: fd })
-  if (!prep.ok) throw new Error(`Error al subir ${file.name}`)
-  const { key } = await prep.json()
+  const { key } = await uploadDirect('/api/client-documents/upload-url', file, { clientId })
 
   const title = file.name.replace(/\.[^.]+$/, '')
   const create = await fetch('/api/client-documents', {

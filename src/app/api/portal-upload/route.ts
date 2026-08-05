@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { uploadToR2 } from '@/lib/r2'
+import { getPresignedUploadUrl } from '@/lib/r2'
 
 export const runtime = 'nodejs'
 
@@ -19,6 +19,16 @@ export function isAllowedMimeType(mimeType: string): boolean {
   return ALLOWED_MIME.has(mimeType) || mimeType.startsWith('image/')
 }
 
+// Antes solo existía como gate client-side (portal-comment-form.tsx /
+// portal-new-ticket-form.tsx) — este endpoint no validaba tamaño en absoluto.
+// Mismo límite, ahora también server-side, ya que estamos tocando esta ruta.
+const MAX_BYTES = 50 * 1024 * 1024
+
+// POST /api/portal-upload — emite una URL prefirmada de R2 (subida en 2
+// pasos, mismo motivo que las demás: el archivo completo por esta función
+// serverless topaba con el límite de payload de la plataforma). El
+// navegador sube el archivo directo al bucket — ver uploadFiles() en
+// portal-comment-form.tsx / portal-new-ticket-form.tsx.
 export async function POST(req: NextRequest) {
   const session = await auth()
   const role = session?.user?.role
@@ -26,31 +36,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let form: FormData
-  try {
-    form = await req.formData()
-  } catch {
-    return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
+  const body = await req.json().catch(() => null) as { filename?: string; contentType?: string; size?: number } | null
+  const filename = body?.filename
+  if (!filename) return NextResponse.json({ error: 'Missing filename' }, { status: 400 })
+  if (typeof body?.size === 'number' && body.size > MAX_BYTES) {
+    return NextResponse.json({ error: 'Archivo demasiado grande (máx. 50 MB)' }, { status: 413 })
   }
 
-  const file = form.get('file')
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'Missing file' }, { status: 400 })
-  }
-
-  const mimeType = file.type || 'application/octet-stream'
+  const mimeType = body?.contentType || 'application/octet-stream'
   if (!isAllowedMimeType(mimeType)) {
     return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 400 })
   }
 
-  const safeFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100)
+  const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100)
   const key = `portal/${session.user.tenantId}/${session.user.id}/${Date.now()}-${safeFilename}`
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer())
-    await uploadToR2(key, buffer, mimeType)
-    return NextResponse.json({ key })
+    const uploadUrl = await getPresignedUploadUrl(key, mimeType)
+    return NextResponse.json({ uploadUrl, key, contentType: mimeType })
   } catch {
-    return NextResponse.json({ error: 'Error al subir el archivo' }, { status: 503 })
+    return NextResponse.json({ error: 'Error al preparar la subida' }, { status: 503 })
   }
 }

@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { uploadToR2, deleteFromR2, getObjectBuffer, isR2Key } from '@/lib/r2'
+import { deleteFromR2, getObjectBuffer, isR2Key } from '@/lib/r2'
 import { logAudit } from '@/lib/audit'
 
 export const runtime = 'nodejs'
-
-const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'doc', 'docx', 'xls', 'xlsx', 'zip']
-const MAX_BYTES = 10 * 1024 * 1024
 
 /**
  * GET /api/tickets/[id]/documents?docId=xxx — bytes crudos del documento.
@@ -36,7 +32,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   return new NextResponse(new Uint8Array(buf), { headers: { 'Content-Type': doc.mimeType ?? 'application/octet-stream' } })
 }
 
-/** POST /api/tickets/[id]/documents */
+/**
+ * POST /api/tickets/[id]/documents — segundo paso: registra un documento
+ * cuyos bytes YA fueron subidos directo a R2 vía la URL prefirmada de
+ * /upload-url (ver ese archivo). No recibe bytes, solo la key + metadata.
+ */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -53,23 +53,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const form = await req.formData()
-  const file = form.get('file') as File | null
-  if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 })
-  if (file.size > MAX_BYTES) return NextResponse.json({ error: 'Archivo demasiado grande (máx. 10 MB)' }, { status: 413 })
-
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
-  if (!ALLOWED_EXT.includes(ext)) return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 415 })
-
-  const prefix = ticket.folderKey && isR2Key(ticket.folderKey)
-    ? ticket.folderKey
-    : `tickets/${ticketId}`
-  const key = `${prefix}/${randomUUID()}.${ext}`
-  const buf = Buffer.from(await file.arrayBuffer())
-  await uploadToR2(key, buf, file.type || 'application/octet-stream')
+  const body = await req.json().catch(() => null) as { key?: string; name?: string; mimeType?: string } | null
+  const key = body?.key
+  const name = body?.name
+  if (!key || !name) return NextResponse.json({ error: 'Faltan datos del documento' }, { status: 400 })
+  // La key debe caer bajo la carpeta esperada del ticket — nunca confiar en
+  // una key arbitraria del cliente para el registro final.
+  const prefix = ticket.folderKey && isR2Key(ticket.folderKey) ? ticket.folderKey : `tickets/${ticketId}`
+  if (!key.startsWith(`${prefix}/`)) return NextResponse.json({ error: 'Key inválida' }, { status: 400 })
 
   const doc = await prisma.ticketDocument.create({
-    data: { ticketId, name: file.name, fileUrl: key, mimeType: file.type || null, uploadedById: session.user.id },
+    data: { ticketId, name, fileUrl: key, mimeType: body?.mimeType || null, uploadedById: session.user.id },
   })
   await logAudit({
     tenantId, actorId: session.user.id, actorRole: role,

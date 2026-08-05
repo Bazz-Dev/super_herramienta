@@ -7,6 +7,7 @@ import { updateTicketFields, updateTicketStatus, addTicketComment, promoteDocume
 import { SELECTABLE_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { PROCESS_FLOW_LABELS } from '@/lib/cashflow/labels'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
+import { uploadDirect } from '@/lib/upload-direct'
 
 type Item    = { id: string; title: string; status: string; description: string | null }
 type Doc     = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date }
@@ -141,9 +142,12 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
     setOtUploading(true)
     setOtError('')
     try {
-      const fd = new FormData()
-      fd.set('file', file)
-      const res = await fetch(`/api/tickets/${ticket.id}/ot-photo`, { method: 'POST', body: fd })
+      const { key, contentType } = await uploadDirect(`/api/tickets/${ticket.id}/ot-photo/upload-url`, file)
+      const res = await fetch(`/api/tickets/${ticket.id}/ot-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, mimeType: contentType }),
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setOtError(body.error ?? `Error ${res.status} al subir la OT.`)
@@ -151,6 +155,8 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         const body = await res.json()
         setOtFileUrl(body.otFileUrl)
       }
+    } catch (e) {
+      setOtError(e instanceof Error ? e.message : 'Error al subir la OT.')
     } finally {
       setOtUploading(false)
     }
@@ -378,11 +384,16 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             uploadLabel="Agregar archivo"
             accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.zip"
             onUpload={async (file) => {
-              const fd = new FormData(); fd.append('file', file)
-              const res = await fetch(`/api/tickets/${ticket.id}/documents`, { method: 'POST', body: fd })
-              // .catch: un 413 de Vercel (archivo > límite de la plataforma) responde
-              // texto plano, no JSON — res.json() sin esto tiraba "Unexpected token"
-              // en vez de un mensaje entendible (visto en vivo en un ticket real).
+              // Sube directo a R2 (uploadDirect) — el archivo ya no pasa por esta
+              // función serverless, así que el 413 de plataforma que se veía acá
+              // en vivo (archivo > límite de payload de Vercel) queda resuelto de
+              // raíz, no solo mejor explicado.
+              const { key, contentType } = await uploadDirect(`/api/tickets/${ticket.id}/documents/upload-url`, file)
+              const res = await fetch(`/api/tickets/${ticket.id}/documents`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, name: file.name, mimeType: contentType }),
+              })
               if (!res.ok) { const j = await res.json().catch(() => ({}) as { error?: string }); throw new Error(j.error ?? `Error al subir (${res.status})`) }
               const newDoc: Doc = await res.json()
               setDocs(prev => [...prev, newDoc])

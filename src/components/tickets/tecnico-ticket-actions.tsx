@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { tecnicoAdvanceStatus, tecnicoAddComment } from '@/app/mi-panel/tickets/actions'
 import { TECNICO_TRANSITIONS, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { Spinner } from '@/components/ui/spinner'
+import { uploadDirect } from '@/lib/upload-direct'
 
 interface Doc { id: string; name: string; fileUrl: string; mimeType: string | null }
 
@@ -57,12 +58,19 @@ export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }:
     // Secuencial: una foto que falla no bloquea el resto de la selección.
     const failed: string[] = []
     for (const file of files) {
-      const fd = new FormData()
-      fd.set('file', file)
-      const res = await fetch(`/api/tickets/${ticketId}/documents`, { method: 'POST', body: fd })
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        failed.push(`${file.name}: ${body.error ?? `error ${res.status}`}`)
+      try {
+        const { key, contentType } = await uploadDirect(`/api/tickets/${ticketId}/documents/upload-url`, file)
+        const res = await fetch(`/api/tickets/${ticketId}/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key, name: file.name, mimeType: contentType }),
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          failed.push(`${file.name}: ${body.error ?? `error ${res.status}`}`)
+        }
+      } catch (e) {
+        failed.push(`${file.name}: ${e instanceof Error ? e.message : 'error al subir'}`)
       }
     }
     setError(failed.length > 0 ? failed.join(' · ') : '')
@@ -74,15 +82,20 @@ export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }:
     setOtUploading(true)
     setError('')
     try {
-      const fd = new FormData()
-      fd.set('file', file)
-      const res = await fetch(`/api/tickets/${ticketId}/ot-photo`, { method: 'POST', body: fd })
+      const { key, contentType } = await uploadDirect(`/api/tickets/${ticketId}/ot-photo/upload-url`, file)
+      const res = await fetch(`/api/tickets/${ticketId}/ot-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, mimeType: contentType }),
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? `Error ${res.status} al subir la OT.`)
       } else {
         setOtSaved(true)
       }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al subir la OT.')
     } finally {
       setOtUploading(false)
     }

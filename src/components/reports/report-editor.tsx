@@ -6,6 +6,7 @@ import type { ReportData } from '@/lib/reports/types'
 import { renderReportHTML } from '@/lib/reports/template'
 import { fileToDataUrl } from '@/lib/quotes/image-data-url'
 import { previewSrc } from '@/lib/reports/resolve-preview-url'
+import { uploadDirect } from '@/lib/upload-direct'
 import { DownloadReportButton } from './download-report-button'
 import { SaveDocumentButton } from '@/components/quotes/save-document-button'
 import { ReportPhotosEditor } from './report-photos-editor'
@@ -63,12 +64,8 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
     const res = await fetch(`/api/tickets/${ticketId}/ot-photo?as=image`)
     if (!res.ok) throw new Error()
     const blob = await res.blob()
-    const fd = new FormData()
-    fd.set('clientId', clientId)
-    fd.set('file', new File([blob], 'ot.png', { type: blob.type || 'image/png' }))
-    const uploadRes = await fetch('/api/client-documents/upload-url', { method: 'POST', body: fd })
-    if (!uploadRes.ok) throw new Error()
-    const { key } = (await uploadRes.json()) as { key: string }
+    const file = new File([blob], 'ot.png', { type: blob.type || 'image/png' })
+    const { key } = await uploadDirect('/api/client-documents/upload-url', file, { clientId })
     return key
   }
 
@@ -110,10 +107,15 @@ export function ReportEditor({ initial, clients = [], tickets = [], docId, ticke
       return
     }
 
-    const fd = new FormData()
-    fd.set('file', file)
-    const uploadRes = await fetch(`/api/tickets/${selectedTicketId}/ot-photo`, { method: 'POST', body: fd }).catch(() => null)
-    if (!uploadRes?.ok) {
+    try {
+      const { key, contentType } = await uploadDirect(`/api/tickets/${selectedTicketId}/ot-photo/upload-url`, file)
+      const uploadRes = await fetch(`/api/tickets/${selectedTicketId}/ot-photo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, mimeType: contentType }),
+      })
+      if (!uploadRes.ok) throw new Error()
+    } catch {
       setOtError('No se pudo subir la OT al ticket.')
       setOtBusy(false)
       return

@@ -42,6 +42,18 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
   return getSignedUrl(r2, new GetObjectCommand({ Bucket: BUCKET, Key: key }), { expiresIn })
 }
 
+/**
+ * Generate a presigned URL for a direct browser→R2 PUT — el navegador sube
+ * los bytes directo al bucket, sin pasar por la función serverless (evita el
+ * límite de payload de la plataforma, ~4.5MB, confirmado en vivo el 2026-07-30
+ * en /api/tickets/[id]/documents). Expiry corto: solo debe vivir el tiempo de
+ * la subida, no un link para compartir. Requiere CORS configurado en el
+ * bucket de R2 para el/los origen(es) de la app — ver docs/architecture/GAP_REGISTER.md.
+ */
+export async function getPresignedUploadUrl(key: string, contentType: string, expiresIn = 300): Promise<string> {
+  return getSignedUrl(r2, new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }), { expiresIn })
+}
+
 /** Download an object's full bytes from R2 — for server-side processing (e.g. building a ZIP). */
 export async function getObjectBuffer(key: string): Promise<Buffer> {
   const res = await r2.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))

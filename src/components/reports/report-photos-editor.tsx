@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { ReportPhoto } from '@/lib/reports/types'
 import { fileToDataUrl } from '@/lib/quotes/image-data-url'
+import { uploadDirect } from '@/lib/upload-direct'
 import { previewSrc } from '@/lib/reports/resolve-preview-url'
 import { PlusIcon, TrashIcon } from '@/components/quotes/icons'
 import { IconButton, TextInput } from '@/components/quotes/ui'
@@ -86,15 +87,11 @@ export function ReportPhotosEditor({
   )
 }
 
-// Sube el archivo a R2 (misma ruta que el drag-and-drop de /documentos) y
-// devuelve la key — nunca el binario embebido en el estado del editor, que es
-// justo lo que terminaba mandándose por HTTP en el body de guardar/generar PDF.
+// Sube el archivo directo a R2 (misma ruta que el drag-and-drop de
+// /documentos) y devuelve la key — nunca el binario embebido en el estado
+// del editor, que es justo lo que terminaba mandándose por HTTP en el body
+// de guardar/generar PDF.
 async function uploadToClientDocs(file: File, clientId: string): Promise<string> {
-  const fd = new FormData()
-  fd.set('clientId', clientId)
-  fd.set('file', file)
-  const res = await fetch('/api/client-documents/upload-url', { method: 'POST', body: fd })
-  if (!res.ok) throw new Error(`Error al subir ${file.name}`)
-  const { key } = (await res.json()) as { key: string }
+  const { key } = await uploadDirect('/api/client-documents/upload-url', file, { clientId })
   return key
 }

@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { addPortalComment } from '@/app/portal/[slug]/tickets/actions'
+import { uploadDirect } from '@/lib/upload-direct'
 
 interface Props {
   ticketId: string
@@ -18,12 +19,12 @@ type UploadedFile = { key: string; name: string; mimeType: string }
 async function uploadFiles(files: File[]): Promise<UploadedFile[]> {
   const results: UploadedFile[] = []
   for (const file of files) {
-    const fd = new FormData()
-    fd.set('file', file)
-    const res = await fetch('/api/portal-upload', { method: 'POST', body: fd })
-    if (!res.ok) throw new Error(`Error al subir ${file.name}`)
-    const { key } = await res.json()
-    results.push({ key, name: file.name, mimeType: file.type })
+    try {
+      const { key, contentType } = await uploadDirect('/api/portal-upload', file)
+      results.push({ key, name: file.name, mimeType: contentType })
+    } catch {
+      throw new Error(`Error al subir ${file.name}`)
+    }
   }
   return results
 }
