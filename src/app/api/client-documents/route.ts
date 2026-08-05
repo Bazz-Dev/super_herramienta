@@ -6,6 +6,7 @@ import { tenantScope } from '@/lib/tenant'
 import type { ClientDocType } from '@/generated/prisma/enums'
 import { logAudit } from '@/lib/audit'
 import { computeTotals, type QuoteData } from '@/lib/quotes/types'
+import { assignQuoteNumber } from '@/lib/quotes/quote-sequence'
 
 export const runtime = 'nodejs'
 
@@ -23,21 +24,6 @@ function computeProposalAmount(dataJson: unknown): number | undefined {
   try {
     const parsed = typeof dataJson === 'string' ? JSON.parse(dataJson) : dataJson
     return computeTotals(parsed as QuoteData).total
-  } catch {
-    return undefined
-  }
-}
-
-// A diferencia de proposalAmount (dos dueños posibles, ver comentario en
-// PATCH más abajo), quoteId es el MISMO dato en dataJson y en esta columna
-// — nunca diverge, así que sí se espeja en cada guardado (create Y edit).
-// Columna real agregada porque N° de cotización necesitaba filtrarse y
-// calcular un correlativo sin traer el dataJson completo de cada propuesta.
-function computeQuoteId(dataJson: unknown): string | undefined {
-  try {
-    const parsed = typeof dataJson === 'string' ? JSON.parse(dataJson) : dataJson
-    const id = (parsed as QuoteData).quoteId
-    return typeof id === 'string' && id.trim() ? id.trim() : undefined
   } catch {
     return undefined
   }
@@ -86,6 +72,27 @@ export async function POST(req: NextRequest) {
   })
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
+  // quoteId se asigna server-side desde el correlativo real del tenant —
+  // nunca lo escribe el usuario ni viaja en dataJson (ver quote-sequence.ts).
+  const assignedQuoteId = type === 'propuesta' ? await assignQuoteNumber(session.user.tenantId ?? '', session.user.id) : undefined
+
+  // El dataJson que llega del editor todavía trae el quoteId de muestra del
+  // template (el campo es de solo lectura en el editor — nunca lo pisa el
+  // usuario). Si no se reescribe acá, el blob (única fuente real de
+  // /api/quotes/generate, que renderiza el PDF tal cual el QuoteData que
+  // recibe) quedaría divergiendo para siempre de la columna real — cada
+  // reapertura del editor y cada PDF futuro seguirían mostrando el número
+  // de muestra en vez del asignado.
+  const dataJsonToSave = (() => {
+    if (!(type === 'propuesta' && dataJson && assignedQuoteId)) return dataJson
+    try {
+      const parsed = typeof dataJson === 'string' ? JSON.parse(dataJson) : dataJson
+      return { ...(parsed as object), quoteId: assignedQuoteId }
+    } catch {
+      return dataJson // fail-soft: JSON malformado, guardar tal cual llegó
+    }
+  })()
+
   const doc = await prisma.clientDocument.create({
     data: {
       tenantId: session.user.tenantId ?? '',
@@ -93,12 +100,13 @@ export async function POST(req: NextRequest) {
       type: (type ?? 'otro') as ClientDocType,
       title: title.trim(),
       fileKey: fileKey && !dataJson ? fileKey : 'inline',
-      dataJson: dataJson ? (typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson)) : undefined,
+      dataJson: dataJsonToSave ? (typeof dataJsonToSave === 'string' ? dataJsonToSave : JSON.stringify(dataJsonToSave)) : undefined,
       metadata: metadata ? JSON.stringify(metadata) : undefined,
       // FK real (G2) además del legado en metadata — el legado se mantiene por compat
       ticketId: metadata?.ticketId ?? undefined,
       createdById: session.user.id,
-      ...(type === 'propuesta' && dataJson ? { proposalAmount: computeProposalAmount(dataJson), quoteId: computeQuoteId(dataJson) } : {}),
+      ...(type === 'propuesta' && dataJson ? { proposalAmount: computeProposalAmount(dataJson) } : {}),
+      ...(type === 'propuesta' ? { quoteId: assignedQuoteId } : {}),
     },
   })
   // Cubre "propuesta creada" y "informe creado/generado" (informe #32B punto
@@ -136,10 +144,8 @@ export async function PATCH(req: NextRequest) {
       ...(title?.trim() ? { title: title.trim() } : {}),
       ...(dataJson ? { dataJson: typeof dataJson === 'string' ? dataJson : JSON.stringify(dataJson) } : {}),
       ...(metadata ? { metadata: JSON.stringify(metadata) } : {}),
-      // quoteId sí se espeja también en edición (a diferencia de
-      // proposalAmount, ver abajo) — es el mismo dato en dataJson y acá,
-      // nunca diverge.
-      ...(doc.type === 'propuesta' && dataJson ? { quoteId: computeQuoteId(dataJson) } : {}),
+      // quoteId NO se toca en edición — se asigna una sola vez, al crear
+      // (assignQuoteNumber en POST), nunca vuelve a escribirse acá.
       // Nunca se pisa acá a propósito: `proposalAmount` también es el monto
       // de Pipeline, editable a mano vía updatePipelineAmount() (una cifra
       // de negociación, deliberadamente distinta del total de línea de

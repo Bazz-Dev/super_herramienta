@@ -137,8 +137,10 @@ export function QuoteEditor({ initial, clients = [], tickets = [], docId, ticket
             <Field label="Fecha">
               <TextInput type="date" value={data.date} onChange={(e) => set({ date: e.target.value })} />
             </Field>
-            <Field label="N° Cotización">
-              <TextInput value={data.quoteId} onChange={(e) => set({ quoteId: e.target.value })} />
+            <Field label="N° Presupuesto" hint="Se asigna automáticamente al guardar — no es editable.">
+              <div className="flex min-h-9 items-center rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-500">
+                {data.quoteId ? data.quoteId : 'Se asignará al guardar'}
+              </div>
             </Field>
             <Field label="Validez (días)">
               <NumberInput value={data.validityDays} min={1} onValue={(n) => set({ validityDays: n })} />
