@@ -236,6 +236,7 @@ model User {
   auditLogs         AuditLog[]         @relation("AuditLogActor")
   jobLegacyReviews  Job[]              @relation("JobLegacyReviewedBy")
   jobInstallmentsCreated JobInstallment[] @relation("JobInstallmentCreatedBy")
+  quoteSequenceConfigsUpdated QuoteSequenceConfig[]
 
   @@index([tenantId])
   @@map("users")
@@ -981,6 +982,7 @@ model QuoteSequenceConfig {
   nextNumber  Int
   updatedAt   DateTime @updatedAt
   updatedById String
+  updatedBy   User     @relation(fields: [updatedById], references: [id])
 
   @@map("quote_sequence_config")
 }

@@ -11,12 +11,10 @@ import {
   type QuoteData,
 } from '@/lib/quotes/types'
 import { formatMoney } from '@/lib/quotes/format'
-import { buildQuoteId } from '@/lib/quotes/quote-id'
-import { getNextQuoteSeq } from '@/app/(app)/cotizador/actions'
 import { renderQuoteHTML } from '@/lib/quotes/template'
 import { DownloadPdfButton } from './download-pdf-button'
 import { SaveDocumentButton } from './save-document-button'
-import { ExternalLinkIcon, ImageIcon, RefreshIcon, ZoomInIcon, ZoomOutIcon } from './icons'
+import { ExternalLinkIcon, ImageIcon, ZoomInIcon, ZoomOutIcon } from './icons'
 import { ImagesEditor } from './images-editor'
 import { ItemsEditor } from './items-editor'
 import { QuotePreview } from './quote-preview'
@@ -56,25 +54,6 @@ export function QuoteEditor({ initial, clients = [], tickets = [], docId, ticket
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }))
     window.open(url, '_blank')
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
-  }
-
-  // N° de cotización configurable (pedido explícito del dueño): antes
-  // "Regenerar número" siempre volvía a -001 (buildQuoteId nunca recibía un
-  // seq real) — dos propuestas del mismo cliente el mismo día colisionaban.
-  // Ahora pide el correlativo real (MAX existente + 1, ver getNextQuoteSeq)
-  // antes de generar. El campo sigue siendo texto libre — escribir un
-  // número a mano ("modo manual") sigue funcionando igual que siempre, y la
-  // próxima generación automática continúa desde el número más alto que
-  // exista, sea manual o automático.
-  const [regenBusy, setRegenBusy] = useState(false)
-  async function regenerateQuoteId() {
-    setRegenBusy(true)
-    try {
-      const seq = await getNextQuoteSeq()
-      set({ quoteId: buildQuoteId({ date: data.date, client: data.client.name, seq }) })
-    } finally {
-      setRegenBusy(false)
-    }
   }
 
   return (
@@ -158,17 +137,8 @@ export function QuoteEditor({ initial, clients = [], tickets = [], docId, ticket
             <Field label="Fecha">
               <TextInput type="date" value={data.date} onChange={(e) => set({ date: e.target.value })} />
             </Field>
-            <Field label="N° Cotización" hint="Manual: escríbelo tú. Automático: usa el botón — sigue el correlativo real desde el número más alto que exista.">
-              <div className="flex gap-1.5">
-                <TextInput value={data.quoteId} onChange={(e) => set({ quoteId: e.target.value })} />
-                <IconButton
-                  label="Generar automáticamente (siguiente correlativo)"
-                  onClick={regenerateQuoteId}
-                  disabled={regenBusy}
-                >
-                  <RefreshIcon />
-                </IconButton>
-              </div>
+            <Field label="N° Cotización">
+              <TextInput value={data.quoteId} onChange={(e) => set({ quoteId: e.target.value })} />
             </Field>
             <Field label="Validez (días)">
               <NumberInput value={data.validityDays} min={1} onValue={(n) => set({ validityDays: n })} />
