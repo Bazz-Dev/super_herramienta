@@ -969,6 +969,22 @@ model ClientDocument {
   @@map("client_documents")
 }
 
+// Correlativo global de presupuestos (pedido explícito del dueño vía el
+// documento de Sebastián Garrido, INGEGAR UPGRADE/): un contador real por
+// tenant, no un "piso" recalculado desde los datos — así un documento
+// eliminado nunca libera su número (MAX(existente)+1 sí lo liberaría).
+// nextNumber es EL PRÓXIMO a emitir; se lee y avanza atómicamente en
+// src/lib/quotes/quote-sequence.ts, nunca se decrementa.
+model QuoteSequenceConfig {
+  id          String   @id @default(cuid())
+  tenantId    String   @unique
+  nextNumber  Int
+  updatedAt   DateTime @updatedAt
+  updatedById String
+
+  @@map("quote_sequence_config")
+}
+
 // --- FES interna: firma electrónica simple para técnicos ---
 
 enum SignatureStatus {
