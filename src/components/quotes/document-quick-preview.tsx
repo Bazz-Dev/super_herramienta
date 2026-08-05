@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { buttonClass } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
@@ -15,12 +15,15 @@ import type { ReportData } from '@/lib/reports/types'
 // dataJson → renderQuoteHTML/renderReportHTML → iframe), reempaquetado acá
 // como un componente compartido porque ambos listados lo necesitan igual.
 export function DocumentQuickPreview({
-  docId, title, documentType, editHref,
+  docId, title, documentType, editHref, trigger, triggerClassName,
 }: {
   docId: string
   title: string
   documentType: 'propuesta' | 'informe'
   editHref: string
+  /** Trigger alternativo (p.ej. un ícono/badge) — por defecto es el título como link de texto. */
+  trigger?: ReactNode
+  triggerClassName?: string
 }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -103,8 +106,8 @@ export function DocumentQuickPreview({
 
   return (
     <>
-      <button type="button" onClick={openPreview} className="text-left font-medium text-brand hover:underline">
-        {title}
+      <button type="button" onClick={openPreview} className={triggerClassName ?? 'text-left font-medium text-brand hover:underline'}>
+        {trigger ?? title}
       </button>
 
       {open && (

@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button'
 import { TrashIcon } from '@/components/quotes/icons'
 import { Modal } from '@/components/resources/modal'
 import { deleteTicket } from '@/app/(app)/tickets/actions'
+import { DocStatusIcon } from '@/components/cashflow/doc-status-icon'
+import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
 
 // Urgency dot colors — hardcoded, no CSS classes
 const URG_DOT: Record<string, string> = {
@@ -38,6 +40,8 @@ function age(dateStr: string): string {
   return `${Math.floor(days / 365)}a`
 }
 
+interface TicketDoc { id: string; title: string }
+
 export interface ListTicket {
   id: string
   ticketCode: string
@@ -51,6 +55,9 @@ export interface ListTicket {
   branch: { id: string; name: string } | null
   assignedTo: { id: string; name: string } | null
   _count: { items: number; documents: number }
+  otFileUrl: string | null
+  informe: TicketDoc | null
+  propuesta: TicketDoc | null
 }
 
 export interface ClosedTicket {
@@ -64,6 +71,67 @@ export interface ClosedTicket {
   branch: { name: string } | null
   assignedTo: { name: string } | null
   _count: { documents: number }
+  otFileUrl: string | null
+  informe: TicketDoc | null
+  propuesta: TicketDoc | null
+}
+
+// Íconos OT/IT/PT (pedido explícito del dueño): gris + clic confirma y manda
+// a crear el documento; de color + clic abre vista previa in-place — nunca
+// navega para previsualizar. OT reusa DocStatusIcon tal cual (mismo patrón
+// que conciliacion/page.tsx: FilePreviewButton para el archivo real). IT/PT
+// son documentos JSON, no archivos — reusan DocumentQuickPreview (mismo
+// componente que Propuestas/Informes) con un trigger tipo ícono en vez del
+// link de texto por defecto.
+const docBadgeBase = 'interactive inline-flex h-7 w-7 items-center justify-center rounded-md border text-[10px] font-bold transition-colors'
+const docBadgeActive = `${docBadgeBase} border-brand/30 bg-brand/10 text-brand-600 hover:bg-brand/20`
+const docBadgeMissing = `${docBadgeBase} border-gray-200 bg-gray-50 text-gray-300 hover:border-gray-300 hover:text-gray-400`
+
+function MissingDocBadge({ label, title, href }: { label: string; title: string; href: string }) {
+  return (
+    <a
+      href={href}
+      title={`${title}: falta — clic para agregar`}
+      className={docBadgeMissing}
+      onClick={(e) => {
+        if (!confirm(`Este ticket todavía no tiene ${title.toLowerCase()}. ¿Ir a crearlo?`)) e.preventDefault()
+      }}
+    >
+      {label}
+    </a>
+  )
+}
+
+function TicketDocBadges({ ticketId, otFileUrl, informe, propuesta }: {
+  ticketId: string
+  otFileUrl: string | null
+  informe: TicketDoc | null
+  propuesta: TicketDoc | null
+}) {
+  return (
+    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <DocStatusIcon
+        ticketId={ticketId} label="Orden de trabajo" icon="OT"
+        files={otFileUrl ? [{ fileUrl: otFileUrl, name: 'Orden de trabajo' }] : []}
+      />
+      {informe ? (
+        <DocumentQuickPreview
+          docId={informe.id} title={informe.title} documentType="informe"
+          editHref={`/informe?docId=${informe.id}`} trigger="IT" triggerClassName={docBadgeActive}
+        />
+      ) : (
+        <MissingDocBadge label="IT" title="Informe técnico" href={`/informe?ticketId=${ticketId}`} />
+      )}
+      {propuesta ? (
+        <DocumentQuickPreview
+          docId={propuesta.id} title={propuesta.title} documentType="propuesta"
+          editHref={`/cotizador?docId=${propuesta.id}`} trigger="PT" triggerClassName={docBadgeActive}
+        />
+      ) : (
+        <MissingDocBadge label="PT" title="Propuesta técnica" href={`/cotizador?new=1&ticketId=${ticketId}`} />
+      )}
+    </div>
+  )
 }
 
 interface Props {
@@ -93,6 +161,9 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
   const [userId, setUser]   = useState('')
   const [unassignedOnly, setUnassignedOnly] = useState(false)
   const [tab, setTab]       = useState<'activos' | 'cerrados'>('activos')
+  const [qClosed, setQClosed]           = useState('')
+  const [clientClosed, setClientClosed] = useState('')
+  const [statusClosed, setStatusClosed] = useState('')
   type SortKey = 'code' | 'title' | 'branch' | 'client' | 'status' | 'assignedTo' | 'date'
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
@@ -140,6 +211,31 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
     })
   }, [filtered, sortKey, sortDir])
 
+  // Cerrados no tenía ningún filtro (pedido explícito del dueño: "los
+  // tickets cerrados también se deben poder filtrar") — client sin `id` acá
+  // (ClosedTicket solo trae `client.name`), así que el filtro compara por
+  // nombre en vez de id, único caso distinto del filtro de Activos.
+  const filteredClosed = useMemo(() => {
+    let arr = closedTickets
+    if (qClosed) {
+      const lq = qClosed.toLowerCase()
+      arr = arr.filter(t =>
+        t.ticketCode.toLowerCase().includes(lq) ||
+        t.title.toLowerCase().includes(lq) ||
+        (t.branch?.name ?? '').toLowerCase().includes(lq),
+      )
+    }
+    if (clientClosed) arr = arr.filter(t => t.client.name === clientClosed)
+    if (statusClosed) arr = arr.filter(t => t.status === statusClosed)
+    return arr
+  }, [closedTickets, qClosed, clientClosed, statusClosed])
+
+  const byStatusClosed = useMemo(() => {
+    const m: Record<string, number> = {}
+    closedTickets.forEach(t => { m[t.status] = (m[t.status] ?? 0) + 1 })
+    return m
+  }, [closedTickets])
+
   const unassignedCount = useMemo(() => tickets.filter(t => !t.assignedTo).length, [tickets])
 
   const byStatus = useMemo(() => {
@@ -151,6 +247,14 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
   const [nowMs] = useState<number>(now())
   const hasFilters = q || status || clientId || userId || unassignedOnly
   const clearAll = () => { setQ(''); setStatus(''); setCli(''); setUser(''); setUnassignedOnly(false) }
+  const hasFiltersClosed = qClosed || clientClosed || statusClosed
+  const clearAllClosed = () => { setQClosed(''); setClientClosed(''); setStatusClosed('') }
+  const closedClients = useMemo(() => [...new Set(closedTickets.map(t => t.client.name))].sort(), [closedTickets])
+  const CLOSED_STATUS_COLS = [
+    { v: 'resuelto',   label: 'Resuelto' },
+    { v: 'cancelado',  label: 'Cancelado' },
+    { v: 'fusionado',  label: 'Fusionado' },
+  ]
 
   return (
     <div className="space-y-3">
@@ -358,22 +462,12 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
                               )}
                             </td>
 
-                            {/* Docs + items */}
+                            {/* OT/IT/PT + items */}
                             <td className="px-3 py-3">
-                              <div className="flex items-center gap-1">
-                                {ticket._count.documents > 0 && (
-                                  <span className="inline-flex items-center gap-0.5 rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-600">
-                                    <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M14 9.5V5a3 3 0 0 0-6 0v7a1.5 1.5 0 0 0 3 0V5.5a.5.5 0 0 0-1 0V12"/>
-                                    </svg>
-                                    {ticket._count.documents}
-                                  </span>
-                                )}
+                              <div className="flex items-center gap-1.5">
+                                <TicketDocBadges ticketId={ticket.id} otFileUrl={ticket.otFileUrl} informe={ticket.informe} propuesta={ticket.propuesta} />
                                 {ticket._count.items > 0 && (
                                   <span className="text-[10px] font-semibold text-gray-400">☑ {ticket._count.items}</span>
-                                )}
-                                {ticket._count.documents === 0 && ticket._count.items === 0 && (
-                                  <span className="text-[10px] text-gray-300">—</span>
                                 )}
                               </div>
                             </td>
@@ -414,16 +508,55 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
       )}
 
       {tab === 'cerrados' && (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {closedTickets.length > 0 && (
+            <div className="space-y-2.5">
+              <FilterBar>
+                <FilterSearch
+                  value={qClosed}
+                  onChange={e => setQClosed(e.target.value)}
+                  placeholder="Buscar ID, título, sucursal…"
+                />
+                <FilterSelect value={clientClosed} onChange={e => setClientClosed(e.target.value)}>
+                  <option value="">Todos los clientes</option>
+                  {closedClients.map(name => <option key={name} value={name}>{name}</option>)}
+                </FilterSelect>
+                {hasFiltersClosed && <FilterClear onClick={clearAllClosed} />}
+              </FilterBar>
+              <div className="flex flex-wrap gap-1.5">
+                <FilterPill active={!statusClosed} onClick={() => setStatusClosed('')}>
+                  Todos <span className="ml-1 opacity-60">{closedTickets.length}</span>
+                </FilterPill>
+                {CLOSED_STATUS_COLS.map(col => (
+                  <FilterPill key={col.v} active={statusClosed === col.v} onClick={() => setStatusClosed(statusClosed === col.v ? '' : col.v)}>
+                    {col.label}
+                    {byStatusClosed[col.v] ? <span className="ml-1 opacity-60">{byStatusClosed[col.v]}</span> : null}
+                  </FilterPill>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {closedTickets.length > 0 && (
+            <p className="text-xs font-medium text-gray-500">
+              {filteredClosed.length} resultado{filteredClosed.length !== 1 ? 's' : ''}
+              {hasFiltersClosed && <span className="ml-2 text-gray-300">· {closedTickets.length} total</span>}
+            </p>
+          )}
+
           {closedTickets.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center">
               <p className="text-sm text-gray-400">No hay tickets cerrados.</p>
+            </div>
+          ) : filteredClosed.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-200 py-16 text-center">
+              <p className="text-sm text-gray-400">Sin tickets para los filtros seleccionados.</p>
             </div>
           ) : (
             <>
               {/* Mobile cards */}
               <div className="md:hidden space-y-2">
-                {closedTickets.map(t => (
+                {filteredClosed.map(t => (
                   <a key={t.id} href={`/tickets/${t.id}`}
                     className="block rounded-xl border border-gray-200 bg-white p-3 shadow-sm active:scale-[0.98] transition-transform">
                     <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -458,7 +591,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {closedTickets.map(t => (
+                    {filteredClosed.map(t => (
                       <tr key={t.id} className="transition hover:bg-gray-50">
                         <td className="px-4 py-2.5">
                           <a href={`/tickets/${t.id}`} className="font-mono text-xs text-gray-400 hover:text-brand">
@@ -478,12 +611,8 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
                           </span>
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-gray-500">{t.assignedTo?.name ?? '—'}</td>
-                        <td className="px-4 py-2.5 text-center">
-                          {t._count.documents > 0 ? (
-                            <span className="inline-flex items-center gap-0.5 rounded-full border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-600">
-                              📎 {t._count.documents}
-                            </span>
-                          ) : <span className="text-xs text-gray-300">—</span>}
+                        <td className="px-4 py-2.5">
+                          <TicketDocBadges ticketId={t.id} otFileUrl={t.otFileUrl} informe={t.informe} propuesta={t.propuesta} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-400">
                           {t.closedDate ? new Date(t.closedDate).toLocaleDateString('es-CL') : '—'}

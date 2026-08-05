@@ -52,6 +52,29 @@ export default async function TicketsPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 
+  // Íconos OT/IT/PT en la lista (pedido explícito del dueño) — 2 queries
+  // planas filtradas por los ticketId de esta página, bucketeadas en JS,
+  // mismo criterio anti-N+1 ya usado en conciliacion/page.tsx (nunca un
+  // include anidado con cientos de filas).
+  const allTicketIds = [...sorted.map((t) => t.id), ...closed.map((t) => t.id)]
+  const [otRaw, docsRaw] = await Promise.all([
+    prisma.ticket.findMany({ where: { id: { in: allTicketIds } }, select: { id: true, otFileUrl: true } }),
+    prisma.clientDocument.findMany({
+      where: { ticketId: { in: allTicketIds }, type: { in: ['informe', 'propuesta'] } },
+      select: { id: true, title: true, type: true, ticketId: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ])
+  const otByTicket = new Map(otRaw.filter((t) => t.otFileUrl).map((t) => [t.id, t.otFileUrl as string]))
+  const informeByTicket = new Map<string, { id: string; title: string }>()
+  const propuestaByTicket = new Map<string, { id: string; title: string }>()
+  for (const d of docsRaw) {
+    if (!d.ticketId) continue
+    // orden desc por createdAt → el primero visto por ticketId es el más reciente
+    const target = d.type === 'informe' ? informeByTicket : propuestaByTicket
+    if (!target.has(d.ticketId)) target.set(d.ticketId, { id: d.id, title: d.title })
+  }
+
   const nowMs = now()
   const needsAttention = sorted.filter(t => t.status === 'nuevo' && !t.assignedToId).length
   const emergencias    = sorted.filter(t => t.urgency === 'emergencia').length
@@ -74,6 +97,9 @@ export default async function TicketsPage() {
     branch: t.branch ? { id: t.branch.id, name: t.branch.name } : null,
     assignedTo: t.assignedTo ? { id: t.assignedTo.id, name: t.assignedTo.name } : null,
     _count: t._count,
+    otFileUrl: otByTicket.get(t.id) ?? null,
+    informe: informeByTicket.get(t.id) ?? null,
+    propuesta: propuestaByTicket.get(t.id) ?? null,
   }))
 
   const serializedClosed = closed.map(t => ({
@@ -87,6 +113,9 @@ export default async function TicketsPage() {
     branch: t.branch ? { name: t.branch.name } : null,
     assignedTo: t.assignedTo ? { name: t.assignedTo.name } : null,
     _count: { documents: t._count.documents },
+    otFileUrl: otByTicket.get(t.id) ?? null,
+    informe: informeByTicket.get(t.id) ?? null,
+    propuesta: propuestaByTicket.get(t.id) ?? null,
   }))
 
   return (
