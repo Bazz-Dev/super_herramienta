@@ -6,6 +6,8 @@ import { buttonClass } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { renderQuoteHTML } from '@/lib/quotes/template'
 import { renderReportHTML } from '@/lib/reports/template'
+import { previewSrc } from '@/lib/reports/resolve-preview-url'
+import type { ReportData } from '@/lib/reports/types'
 
 // Vista previa rápida desde el listado de Propuestas/Informes (pedido
 // explícito del dueño: clic en el nombre = preview in-place, no navegar al
@@ -35,6 +37,13 @@ export function DocumentQuickPreview({
     return JSON.parse(rawJson)
   }
 
+  // Fotos/OT de un informe se guardan como key de R2, no data: URI — hay que
+  // resolverlas a /api/files?... para el <img> del preview, igual que ya hace
+  // report-editor.tsx (toPreviewData) para su propia vista previa en vivo.
+  function toPreviewData(d: ReportData): ReportData {
+    return { ...d, otImageUrl: previewSrc(d.otImageUrl), photos: d.photos.map((p) => ({ ...p, url: previewSrc(p.url) })) }
+  }
+
   async function openPreview() {
     setOpen(true)
     if (html) return
@@ -42,7 +51,11 @@ export function DocumentQuickPreview({
     setError('')
     try {
       const json = await fetchData()
-      setHtml(documentType === 'propuesta' ? renderQuoteHTML(json as never) : renderReportHTML(json as never))
+      setHtml(
+        documentType === 'propuesta'
+          ? renderQuoteHTML(json as never)
+          : renderReportHTML(toPreviewData(json as ReportData)),
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar la vista previa')
     } finally {

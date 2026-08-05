@@ -201,7 +201,7 @@ export default async function TrabajoDetailPage({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Carpeta del cliente</h3>
               <div className="flex items-center gap-3">
                 <Link href="/cotizador?new=1" className="text-xs font-semibold text-brand hover:underline">+ Propuesta</Link>
-                <Link href="/informe" className="text-xs font-semibold text-brand hover:underline">+ Informe</Link>
+                <Link href="/informe?new=1" className="text-xs font-semibold text-brand hover:underline">+ Informe</Link>
                 <Link href="/documentos" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Ver carpeta →</Link>
               </div>
             </div>
@@ -213,7 +213,7 @@ export default async function TrabajoDetailPage({
                 {' '}
                 <Link href="/cotizador?new=1" className="font-semibold text-brand hover:underline">Crear propuesta →</Link>
                 {' '}o{' '}
-                <Link href="/informe" className="font-semibold text-brand hover:underline">Crear informe →</Link>
+                <Link href="/informe?new=1" className="font-semibold text-brand hover:underline">Crear informe →</Link>
               </div>
             ) : (
               <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
