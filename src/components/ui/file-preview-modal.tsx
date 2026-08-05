@@ -55,6 +55,26 @@ export function FilePreviewButton({
   const kind = guessKind(fileUrl)
   const src = resolveFileSrc(fileUrl, type)
 
+  // Bug real reportado en vivo ("el visor da 404 en algunos lugares, ej.
+  // documentos de técnicos"): reproducido contra el espejo local — un
+  // fileUrl en DB puede apuntar a una key que ya no existe en R2 (objeto
+  // borrado por fuera de la app). Antes el <iframe>/<img> apuntaba directo a
+  // `src`, así que el usuario veía el XML crudo de R2 ("NoSuchKey") o un
+  // ícono de imagen rota dentro del modal. Chequeo barato (HEAD, sin bajar
+  // bytes) al abrir, antes de prometer un preview que va a fallar.
+  const [checkingPreview, setCheckingPreview] = useState(false)
+  const [previewMissing, setPreviewMissing] = useState(false)
+  function openModal() {
+    setOpen(true)
+    if (kind === 'other') return
+    setCheckingPreview(true)
+    setPreviewMissing(false)
+    fetch(src, { method: 'HEAD' })
+      .then((res) => setPreviewMissing(!res.ok))
+      .catch(() => setPreviewMissing(true))
+      .finally(() => setCheckingPreview(false))
+  }
+
   // Bug real reportado en vivo: `<a href={src} download>` con src=/api/files
   // parecía "no hacer nada" — /api/files responde 307 a una URL firmada de
   // R2 (otro origen); el atributo download del navegador se ignora al
@@ -97,7 +117,7 @@ export function FilePreviewButton({
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={className ?? 'text-xs font-semibold text-brand hover:underline'}>
+      <button type="button" onClick={openModal} className={className ?? 'text-xs font-semibold text-brand hover:underline'}>
         {label}
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title={displayName} size="lg">
@@ -112,8 +132,19 @@ export function FilePreviewButton({
           </dl>
         )}
 
-        {kind === 'pdf' && <iframe src={src} title={displayName} className="h-[70vh] w-full rounded-md border border-gray-200" />}
-        {kind === 'image' && (
+        {checkingPreview && (kind === 'pdf' || kind === 'image') && (
+          <div className="flex h-[70vh] items-center justify-center text-sm text-gray-400">Cargando vista previa…</div>
+        )}
+        {!checkingPreview && previewMissing && (kind === 'pdf' || kind === 'image') && (
+          <EmptyState
+            title="Documento no disponible"
+            description="El archivo no se encontró en el almacenamiento — puede haberse movido o eliminado. Puedes intentar descargarlo o contactar a soporte si esto persiste."
+          />
+        )}
+        {!checkingPreview && !previewMissing && kind === 'pdf' && (
+          <iframe src={src} title={displayName} className="h-[70vh] w-full rounded-md border border-gray-200" />
+        )}
+        {!checkingPreview && !previewMissing && kind === 'image' && (
           // eslint-disable-next-line @next/next/no-img-element -- URL firmada de R2, no un asset local optimizable
           <img src={src} alt={displayName} className="max-h-[70vh] w-full rounded-md border border-gray-200 object-contain" />
         )}

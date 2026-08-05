@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
 const r2 = new S3Client({
@@ -52,6 +52,28 @@ export async function getPresignedUrl(key: string, expiresIn = 3600): Promise<st
  */
 export async function getPresignedUploadUrl(key: string, contentType: string, expiresIn = 300): Promise<string> {
   return getSignedUrl(r2, new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: contentType }), { expiresIn })
+}
+
+/**
+ * Bug real reportado en vivo ("el visor de documentos da 404 en algunos
+ * lugares, ej. documentos de técnicos"): reproducido contra el espejo local
+ * — un `fileUrl` en DB puede quedar apuntando a una key que ya no existe en
+ * R2 real (objeto borrado por fuera de la app, subida vieja que nunca
+ * terminó de escribir, etc.). Confirmado que en Turso PROD real, ahora
+ * mismo, no hay ninguna key huérfana (0 en technician/ticket/company
+ * documents) — el caso puntual reproducido ya se autosanó (el técnico volvió
+ * a subir sus documentos). Pero nada impedía que volviera a pasar sin que el
+ * usuario viera más que el XML crudo de R2 ("NoSuchKey") dentro del modal de
+ * preview. `objectExists` permite chequear esto barato (HEAD, no baja
+ * bytes) antes de prometerle al navegador un preview que va a fallar.
+ */
+export async function objectExists(key: string): Promise<boolean> {
+  try {
+    await r2.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }))
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Download an object's full bytes from R2 — for server-side processing (e.g. building a ZIP). */
