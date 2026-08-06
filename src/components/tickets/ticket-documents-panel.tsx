@@ -3,7 +3,7 @@ import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview
 import Link from 'next/link'
 
 type TicketDoc = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date; uploadedBy: { name: string; role: string } | null }
-type DocLink = { id: string; title: string; createdAt: string; reference: string }
+type DocLink = { id: string; title: string; createdAt: string; reference: string; quoteId?: string | null }
 type JobInstallmentDoc = { id: string; sequence: number; purchaseOrder: string | null; invoiceNumber: string | null }
 type JobDocSummary = {
   id: string; description: string
@@ -29,7 +29,7 @@ function originOf(role?: string | null) {
  * propuestas/informes en sus editores, OC/factura en el trabajo de Flujo.
  */
 export function TicketDocumentsPanel({
-  documents, otFileUrl, otNumber, propuestas, informes, jobs, expenses,
+  documents, otFileUrl, otNumber, propuestas, informes, jobs, expenses, ticketCode,
 }: {
   documents: TicketDoc[]
   otFileUrl: string | null
@@ -38,6 +38,8 @@ export function TicketDocumentsPanel({
   informes: DocLink[]
   jobs: JobDocSummary[]
   expenses: ExpenseReceipt[]
+  /** Ticket.ticketCode — todos los documentos de este panel pertenecen a un único ticket. */
+  ticketCode: string
 }) {
   const photos = documents.filter(d => d.mimeType?.startsWith('image/'))
   const videos = documents.filter(d => d.mimeType?.startsWith('video/'))
@@ -92,14 +94,14 @@ export function TicketDocumentsPanel({
         {propuestas.length > 0 && (
           <DocGroup title={`Propuestas (${propuestas.length})`}>
             {propuestas.map(d => (
-              <PreviewRow key={d.id} name={`${d.reference} · ${d.title}`} docId={d.id} title={`${d.reference} · ${d.title}`} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} />
+              <PreviewRow key={d.id} name={`${d.reference} · ${d.title}`} docId={d.id} title={`${d.reference} · ${d.title}`} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} ticketCode={ticketCode} number={d.quoteId} />
             ))}
           </DocGroup>
         )}
         {informes.length > 0 && (
           <DocGroup title={`Informes (${informes.length})`}>
             {informes.map(d => (
-              <PreviewRow key={d.id} name={`${d.reference} · ${d.title}`} docId={d.id} title={`${d.reference} · ${d.title}`} documentType="informe" editHref={`/informe?docId=${d.id}`} />
+              <PreviewRow key={d.id} name={`${d.reference} · ${d.title}`} docId={d.id} title={`${d.reference} · ${d.title}`} documentType="informe" editHref={`/informe?docId=${d.id}`} ticketCode={ticketCode} />
             ))}
           </DocGroup>
         )}
@@ -168,8 +170,9 @@ function LinkRow({ name, href }: { name: string; href: string }) {
 // navegar afuera (bug real reportado: "algunos se abren en pantalla
 // completa") reusan DocumentQuickPreview — mismo patrón ya establecido en
 // /informe, /cotizador y la lista de Tickets (badges OT/IT/PT).
-function PreviewRow({ name, docId, title, documentType, editHref }: {
+function PreviewRow({ name, docId, title, documentType, editHref, ticketCode, number }: {
   name: string; docId: string; title: string; documentType: 'propuesta' | 'informe'; editHref: string
+  ticketCode: string; number?: string | null
 }) {
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
@@ -177,6 +180,7 @@ function PreviewRow({ name, docId, title, documentType, editHref }: {
       <DocumentQuickPreview
         docId={docId} title={title} documentType={documentType} editHref={editHref}
         trigger="Ver →" triggerClassName="shrink-0 font-semibold text-brand hover:underline"
+        ticketCode={ticketCode} number={number}
       />
     </div>
   )

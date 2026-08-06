@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import type { QuoteData } from '@/lib/quotes/types'
+import { buildDownloadFilename } from '@/lib/tickets/file-naming'
 import { DownloadIcon } from './icons'
 import { Button } from './ui'
 
-export function DownloadPdfButton({ data }: { data: QuoteData }) {
+export function DownloadPdfButton({ data, ticketCode }: { data: QuoteData; ticketCode?: string | null }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,7 +24,7 @@ export function DownloadPdfButton({ data }: { data: QuoteData }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `propuesta.pdf`
+      a.download = buildDownloadFilename({ kind: 'presupuesto', number: data.quoteId, ticketCode })
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

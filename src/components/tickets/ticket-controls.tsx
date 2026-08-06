@@ -17,6 +17,7 @@ type Informe = { id: string; title: string; createdAt: string }
 interface Props {
   ticket: {
     id: string
+    ticketCode: string
     status: string
     otNumber: string | null
     otFileUrl: string | null
@@ -489,6 +490,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
                   <DocumentQuickPreview
                     docId={inf.id} title={inf.title} documentType="informe" editHref={`/informe?docId=${inf.id}`}
                     trigger="Ver ↗" triggerClassName="shrink-0 text-xs text-brand hover:underline font-medium"
+                    ticketCode={ticket.ticketCode}
                   />
                 </li>
               ))}

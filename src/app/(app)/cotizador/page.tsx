@@ -180,7 +180,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
             docsWithAmount.map(d => (
               <Tr key={d.id}>
                 <Td>
-                  <DocumentQuickPreview docId={d.id} title={d.title} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} />
+                  <DocumentQuickPreview docId={d.id} title={d.title} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} ticketCode={d.ticket?.ticketCode} number={d.quoteId} />
                   {d.quoteId && <p className="mt-0.5 text-[11px] text-gray-400">{d.quoteId}</p>}
                 </Td>
                 <Td>{d.client.name}</Td>

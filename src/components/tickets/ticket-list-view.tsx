@@ -40,7 +40,7 @@ function age(dateStr: string): string {
   return `${Math.floor(days / 365)}a`
 }
 
-interface TicketDoc { id: string; title: string }
+interface TicketDoc { id: string; title: string; quoteId?: string | null }
 
 export interface ListTicket {
   id: string
@@ -102,8 +102,9 @@ function MissingDocBadge({ label, title, href }: { label: string; title: string;
   )
 }
 
-function TicketDocBadges({ ticketId, otFileUrl, informe, propuesta }: {
+function TicketDocBadges({ ticketId, ticketCode, otFileUrl, informe, propuesta }: {
   ticketId: string
+  ticketCode: string
   otFileUrl: string | null
   informe: TicketDoc | null
   propuesta: TicketDoc | null
@@ -118,6 +119,7 @@ function TicketDocBadges({ ticketId, otFileUrl, informe, propuesta }: {
         <DocumentQuickPreview
           docId={informe.id} title={informe.title} documentType="informe"
           editHref={`/informe?docId=${informe.id}`} trigger="IT" triggerClassName={docBadgeActive}
+          ticketCode={ticketCode}
         />
       ) : (
         <MissingDocBadge label="IT" title="Informe técnico" href={`/informe?ticketId=${ticketId}`} />
@@ -126,6 +128,7 @@ function TicketDocBadges({ ticketId, otFileUrl, informe, propuesta }: {
         <DocumentQuickPreview
           docId={propuesta.id} title={propuesta.title} documentType="propuesta"
           editHref={`/cotizador?docId=${propuesta.id}`} trigger="PT" triggerClassName={docBadgeActive}
+          ticketCode={ticketCode} number={propuesta.quoteId}
         />
       ) : (
         <MissingDocBadge label="PT" title="Propuesta técnica" href={`/cotizador?new=1&ticketId=${ticketId}`} />
@@ -465,7 +468,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
                             {/* OT/IT/PT + items */}
                             <td className="px-3 py-3">
                               <div className="flex items-center gap-1.5">
-                                <TicketDocBadges ticketId={ticket.id} otFileUrl={ticket.otFileUrl} informe={ticket.informe} propuesta={ticket.propuesta} />
+                                <TicketDocBadges ticketId={ticket.id} ticketCode={ticket.ticketCode} otFileUrl={ticket.otFileUrl} informe={ticket.informe} propuesta={ticket.propuesta} />
                                 {ticket._count.items > 0 && (
                                   <span className="text-[10px] font-semibold text-gray-400">☑ {ticket._count.items}</span>
                                 )}
@@ -612,7 +615,7 @@ export function TicketListView({ tickets, clients, users, closedTickets = [], ca
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-gray-500">{t.assignedTo?.name ?? '—'}</td>
                         <td className="px-4 py-2.5">
-                          <TicketDocBadges ticketId={t.id} otFileUrl={t.otFileUrl} informe={t.informe} propuesta={t.propuesta} />
+                          <TicketDocBadges ticketId={t.id} ticketCode={t.ticketCode} otFileUrl={t.otFileUrl} informe={t.informe} propuesta={t.propuesta} />
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 text-xs text-gray-400">
                           {t.closedDate ? new Date(t.closedDate).toLocaleDateString('es-CL') : '—'}

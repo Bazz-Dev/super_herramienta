@@ -129,7 +129,7 @@ export default async function InformePage({ searchParams }: Props) {
             docs.map(d => (
               <Tr key={d.id}>
                 <Td>
-                  <DocumentQuickPreview docId={d.id} title={d.title} documentType="informe" editHref={`/informe?docId=${d.id}`} />
+                  <DocumentQuickPreview docId={d.id} title={d.title} documentType="informe" editHref={`/informe?docId=${d.id}`} ticketCode={d.ticket?.ticketCode} />
                 </Td>
                 <Td>{d.client.name}</Td>
                 <Td>

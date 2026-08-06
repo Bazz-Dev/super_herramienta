@@ -48,7 +48,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     // origen (Etapa 1c), esto deja de estar vacío por diseño.
     prisma.clientDocument.findMany({
       where: { tenantId: actor.tenantId, type: 'propuesta', ticketId: id },
-      select: { id: true, title: true, createdAt: true, proposalStatus: true },
+      select: { id: true, title: true, createdAt: true, proposalStatus: true, quoteId: true },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.expense.findMany({
@@ -99,6 +99,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     id: d.id,
     title: d.title,
     createdAt: d.createdAt.toISOString(),
+    quoteId: d.quoteId,
   })))
 
   const urgency = ticket.urgency as TicketUrgencyId
@@ -298,6 +299,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
           <TicketControls
             ticket={{
               id: ticket.id,
+              ticketCode: ticket.ticketCode,
               status: ticket.status,
               otNumber: ticket.otNumber,
               otFileUrl: ticket.otFileUrl,
@@ -349,6 +351,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         informes={linkedInformes}
         jobs={originJobs}
         expenses={ticketExpenses}
+        ticketCode={ticket.ticketCode}
       />
 
       {/* Jobs originated from this ticket */}

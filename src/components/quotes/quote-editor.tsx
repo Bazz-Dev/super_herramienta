@@ -289,7 +289,7 @@ export function QuoteEditor({ initial, clients = [], tickets = [], docId, ticket
             <IconButton label="Abrir en pestaña nueva" onClick={openInTab}>
               <ExternalLinkIcon />
             </IconButton>
-            <DownloadPdfButton data={data} />
+            <DownloadPdfButton data={data} ticketCode={selectedTicket?.ticketCode} />
             <SaveDocumentButton
               clients={clients}
               dataJson={() => ({ ...data, scope: normalizeScope(data.scope) })}

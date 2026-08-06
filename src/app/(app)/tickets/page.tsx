@@ -61,18 +61,21 @@ export default async function TicketsPage() {
     prisma.ticket.findMany({ where: { id: { in: allTicketIds } }, select: { id: true, otFileUrl: true } }),
     prisma.clientDocument.findMany({
       where: { ticketId: { in: allTicketIds }, type: { in: ['informe', 'propuesta'] } },
-      select: { id: true, title: true, type: true, ticketId: true },
+      select: { id: true, title: true, type: true, ticketId: true, quoteId: true },
       orderBy: { createdAt: 'desc' },
     }),
   ])
   const otByTicket = new Map(otRaw.filter((t) => t.otFileUrl).map((t) => [t.id, t.otFileUrl as string]))
   const informeByTicket = new Map<string, { id: string; title: string }>()
-  const propuestaByTicket = new Map<string, { id: string; title: string }>()
+  const propuestaByTicket = new Map<string, { id: string; title: string; quoteId: string | null }>()
   for (const d of docsRaw) {
     if (!d.ticketId) continue
     // orden desc por createdAt → el primero visto por ticketId es el más reciente
-    const target = d.type === 'informe' ? informeByTicket : propuestaByTicket
-    if (!target.has(d.ticketId)) target.set(d.ticketId, { id: d.id, title: d.title })
+    if (d.type === 'informe') {
+      if (!informeByTicket.has(d.ticketId)) informeByTicket.set(d.ticketId, { id: d.id, title: d.title })
+    } else if (!propuestaByTicket.has(d.ticketId)) {
+      propuestaByTicket.set(d.ticketId, { id: d.id, title: d.title, quoteId: d.quoteId })
+    }
   }
 
   const nowMs = now()

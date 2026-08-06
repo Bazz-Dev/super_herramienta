@@ -8,6 +8,7 @@ import { renderQuoteHTML } from '@/lib/quotes/template'
 import { renderReportHTML } from '@/lib/reports/template'
 import { previewSrc } from '@/lib/reports/resolve-preview-url'
 import type { ReportData } from '@/lib/reports/types'
+import { buildDownloadFilename } from '@/lib/tickets/file-naming'
 
 // Vista previa rápida desde el listado de Propuestas/Informes (pedido
 // explícito del dueño: clic en el nombre = preview in-place, no navegar al
@@ -15,7 +16,7 @@ import type { ReportData } from '@/lib/reports/types'
 // dataJson → renderQuoteHTML/renderReportHTML → iframe), reempaquetado acá
 // como un componente compartido porque ambos listados lo necesitan igual.
 export function DocumentQuickPreview({
-  docId, title, documentType, editHref, trigger, triggerClassName,
+  docId, title, documentType, editHref, trigger, triggerClassName, ticketCode, number,
 }: {
   docId: string
   title: string
@@ -24,6 +25,10 @@ export function DocumentQuickPreview({
   /** Trigger alternativo (p.ej. un ícono/badge) — por defecto es el título como link de texto. */
   trigger?: ReactNode
   triggerClassName?: string
+  /** Ticket.ticketCode del ticket vinculado, si hay — para el nombre de archivo (ver file-naming.ts). */
+  ticketCode?: string | null
+  /** ClientDocument.quoteId — solo aplica a propuestas, informes no llevan número. */
+  number?: string | null
 }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -92,7 +97,11 @@ export function DocumentQuickPreview({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${title.replace(/[^a-zA-Z0-9\s\-_]/g, '').trim().replace(/\s+/g, '-') || 'documento'}.pdf`
+      a.download = buildDownloadFilename({
+        kind: documentType === 'propuesta' ? 'presupuesto' : 'informe_tecnico',
+        number: documentType === 'propuesta' ? number : undefined,
+        ticketCode,
+      })
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
