@@ -6,7 +6,8 @@ import { revalidatePath } from 'next/cache'
 import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
 import type { TicketUrgency, TicketStatus } from '@/generated/prisma/enums'
-import { buildTicketCode, clientTicketPrefix, createTicketWithUniqueCode } from '@/lib/tickets/ticket-code'
+import { ticketCodePrefix, clientTicketPrefix } from '@/lib/tickets/ticket-code'
+import { createTicketWithUniqueCode } from '@/lib/tickets/ticket-code-server'
 
 export async function createPortalTicket(fd: FormData) {
   const session = await auth()
@@ -20,6 +21,9 @@ export async function createPortalTicket(fd: FormData) {
   const createdById   = String(fd.get('createdById') ?? session.user.id)
   const branchId      = String(fd.get('branchId') ?? '') || (session.user.branchId ?? undefined)
   const urgency       = String(fd.get('urgency') ?? 'no_urgente')
+  const processFlowRaw = String(fd.get('processFlow') ?? '')
+  const processFlow = processFlowRaw === 'pre_quote' || processFlowRaw === 'post_execution' ? processFlowRaw : null
+  if (!processFlow) return { success: false }
   const category      = String(fd.get('category') ?? '') || undefined
   const title         = String(fd.get('title') ?? '').trim()
   const description   = String(fd.get('description') ?? '') || undefined
@@ -39,7 +43,11 @@ export async function createPortalTicket(fd: FormData) {
   // Staff: can only create for clients belonging to their tenant
   if (isStaff && client.tenantId !== session.user.tenantId) return { success: false }
 
-  const ticketCode = buildTicketCode(urgency, branch?.name ?? 'SUCURSAL', clientTicketPrefix(client))
+  const prefix = ticketCodePrefix({
+    clientPrefix: clientTicketPrefix(client),
+    branchName: branch?.name ?? 'SUCURSAL',
+    processFlow,
+  })
 
   // Branch users (non-admin clients) → pendiente_aprobacion for the client admin to review
   const isBranchUser = isClient && !isClientAdmin
@@ -49,7 +57,7 @@ export async function createPortalTicket(fd: FormData) {
     key: string; name: string; mimeType: string
   }[]
 
-  const ticket = await createTicketWithUniqueCode(ticketCode, (code) =>
+  const ticket = await createTicketWithUniqueCode(prefix, (code) =>
     prisma.ticket.create({
       data: {
         ticketCode: code,
@@ -58,6 +66,7 @@ export async function createPortalTicket(fd: FormData) {
         clientComment,
         urgency: urgency as TicketUrgency,
         category,
+        processFlow,
         status: ticketStatus,
         clientId,
         branchId,

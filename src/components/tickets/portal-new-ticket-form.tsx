@@ -43,6 +43,11 @@ const URGENCIES = [
   { value: 'preventivo',  label: 'Preventivo',   desc: 'Mantención programada o chequeo rutinario' },
 ]
 
+const MODALIDADES = [
+  { value: 'pre_quote',      label: 'Necesito cotización primero', desc: 'Quieres el precio antes de que vayamos a resolverlo' },
+  { value: 'post_execution', label: 'Es urgente, resuelvan y después vemos el costo', desc: 'Autorizas que vayamos primero, la valorización llega después' },
+]
+
 const CATEGORIES = [
   'Climatización', 'Campana extractora', 'Electricidad', 'Plomería / agua',
   'Refrigeración', 'Gas', 'Estructural / obra civil', 'Equipamiento de cocina',
@@ -58,6 +63,7 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState('')
   const [urgency, setUrgency] = useState('no_urgente')
+  const [processFlow, setProcessFlow] = useState<'pre_quote' | 'post_execution'>('pre_quote')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [uploadStatus, setUploadStatus] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -193,6 +199,29 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
                 <span style={{ fontSize: '13px', fontWeight: '600', color: textColor }}>{u.label}</span>
               </div>
               <span style={{ fontSize: '11px', color: T3, paddingLeft: '18px' }}>{u.desc}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Modalidad comercial */}
+      <div>
+        {label('¿Cómo prefieres avanzar?', true)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          {MODALIDADES.map(m => (
+            <label key={m.value} style={{
+              display: 'flex', flexDirection: 'column', gap: '3px',
+              padding: '10px 12px', borderRadius: '9px', cursor: 'pointer',
+              border: `1.5px solid ${processFlow === m.value ? primary : BORDER}`,
+              background: processFlow === m.value ? `color-mix(in srgb, ${primary} 8%, white)` : bg,
+              transition: 'all 0.12s',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <input type="radio" name="processFlow" value={m.value} checked={processFlow === m.value}
+                  onChange={() => setProcessFlow(m.value as 'pre_quote' | 'post_execution')} style={{ accentColor: primary, margin: 0 }} />
+                <span style={{ fontSize: '13px', fontWeight: '600', color: textColor }}>{m.label}</span>
+              </div>
+              <span style={{ fontSize: '11px', color: T3, paddingLeft: '18px' }}>{m.desc}</span>
             </label>
           ))}
         </div>
