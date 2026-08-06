@@ -148,7 +148,13 @@ docs/
 
 - **UI en español, código/identificadores en inglés.**
 - **Rutas API**: `/api/[módulo]/[acción]` (sin `/v1/`).
-- **IDs de cotización**: `ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`. **Código de trabajo (Flujo de Caja)**:
+- **N° de presupuesto**: correlativo global de empresa (entero simple, ej. `20000`), asignado al
+  guardar, configurable solo por `super` (`QuoteSequenceConfig`) — nunca editable a mano, nunca
+  reutilizado. Documentos anteriores a esta convención conservan su formato viejo
+  (`ING-[TIPO]-[YYMMDD]-[CLIENTE]-[SEQ]`), ambos conviven, no se migran. **Código de ticket**:
+  `[YYMMDD]-[CLIENTE]-[SUCURSAL]-[CP|EM][SEQ]` (CP=cotización previa, EM=emergencia — reusa
+  `Ticket.processFlow`; secuencia real por prefijo exacto, independiente entre CP/EM). **Código de
+  trabajo (Flujo de Caja)**:
   `YYMMDD-CLI-TT-NN` (importados: `IMP-CLI-NNNN`). Esto es el estado ACTUAL — hay una dirección
   acordada (no implementada) hacia `Ticket` como raíz de todo trabajo, con sufijos `PPTO-N`/`FAC-N`
   agregados a su referencia visible; ver `docs/ARQUITECTURA.md` § Ontología del dominio → Modelo
