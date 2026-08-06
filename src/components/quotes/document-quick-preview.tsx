@@ -16,7 +16,7 @@ import { buildDownloadFilename } from '@/lib/tickets/file-naming'
 // dataJson → renderQuoteHTML/renderReportHTML → iframe), reempaquetado acá
 // como un componente compartido porque ambos listados lo necesitan igual.
 export function DocumentQuickPreview({
-  docId, title, documentType, editHref, trigger, triggerClassName, ticketCode, number,
+  docId, title, documentType, editHref, trigger, triggerClassName, ticketCode, number, onDelete,
 }: {
   docId: string
   title: string
@@ -29,12 +29,16 @@ export function DocumentQuickPreview({
   ticketCode?: string | null
   /** ClientDocument.quoteId — solo aplica a propuestas, informes no llevan número. */
   number?: string | null
+  /** Cuando se pasa, agrega un botón "Eliminar" en el modal — confirma primero, nunca window.confirm (ver frontend.md), luego llama esto. El caller decide el endpoint real (propuesta vs informe puede diferir a futuro). */
+  onDelete?: () => void | Promise<void>
 }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [html, setHtml] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [downloading, setDownloading] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function fetchData(): Promise<unknown> {
     const res = await fetch(`/api/client-documents?id=${docId}`)
@@ -131,6 +135,25 @@ export function DocumentQuickPreview({
                 Ver en grande ↗
               </button>
               <Link href={editHref} className={buttonClass('primary', 'sm')}>Editar →</Link>
+              {onDelete && !confirmingDelete && (
+                <button type="button" onClick={() => setConfirmingDelete(true)} className={buttonClass('danger', 'sm')}>
+                  Eliminar
+                </button>
+              )}
+              {onDelete && confirmingDelete && (
+                <div className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-1">
+                  <span className="text-xs font-medium text-red-700">¿Eliminar? No se reutilizará su número.</span>
+                  <button type="button" onClick={() => setConfirmingDelete(false)} className={buttonClass('ghost', 'sm')}>No</button>
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={async () => { setDeleting(true); await onDelete(); setDeleting(false); setOpen(false); setConfirmingDelete(false) }}
+                    className={buttonClass('danger', 'sm')}
+                  >
+                    {deleting ? <Spinner size={12} /> : 'Sí, eliminar'}
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setOpen(false)}

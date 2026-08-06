@@ -6,18 +6,14 @@ import { requireActor } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { tenantScope } from '@/lib/tenant'
 import { quoteDataSchema, computeTotals, type QuoteData } from '@/lib/quotes/types'
-import { PROCESS_FLOW_LABELS, PROCESS_FLOW_COLORS } from '@/lib/cashflow/labels'
 import { Button } from '@/components/ui/button'
-import { Table, THead, TBody, Tr, Th, Td, TableEmptyRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { FilterBar, FilterPill, FilterClear } from '@/components/ui/filter-bar'
 import { ClientFilter } from '@/components/cashflow/client-filter'
 import { BranchFilter } from '@/components/cashflow/branch-filter'
 import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
-import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE } from '@/lib/pipeline/labels'
-import { formatMoney } from '@/lib/quotes/format'
+import { PROPOSAL_STATUS_LABELS } from '@/lib/pipeline/labels'
 import type { ProposalStatus } from '@/generated/prisma/enums'
-import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
+import { ProposalsTable } from '@/components/quotes/proposals-table'
 import { QuoteNumberFilter } from '@/components/quotes/quote-number-filter'
 import { QuoteSequenceConfigButton } from '@/components/quotes/quote-sequence-config-modal'
 
@@ -165,58 +161,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
         </Suspense>
       </div>
 
-      <Table>
-        <THead>
-          <Tr>
-            <Th>Documento</Th>
-            <Th>N° presupuesto</Th>
-            <Th>Cliente</Th>
-            <Th>Sucursal</Th>
-            <Th>Fecha</Th>
-            <Th>Ticket asociado</Th>
-            <Th>PP/ED</Th>
-            <Th>Estado</Th>
-            <Th className="text-right">Monto</Th>
-          </Tr>
-        </THead>
-        <TBody>
-          {docsWithAmount.length === 0 ? (
-            <TableEmptyRow colSpan={9}>
-              {hasFilters ? 'Sin resultados para estos filtros' : 'Sin propuestas creadas todavía'}
-            </TableEmptyRow>
-          ) : (
-            docsWithAmount.map(d => (
-              <Tr key={d.id}>
-                <Td>
-                  <DocumentQuickPreview docId={d.id} title={d.title} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} ticketCode={d.ticket?.ticketCode} number={d.quoteId} />
-                </Td>
-                <Td className="tabular-nums">{d.quoteId ?? <span className="text-gray-300">—</span>}</Td>
-                <Td>{d.client.name}</Td>
-                <Td>{d.ticket?.branch?.name ?? <span className="text-gray-300">—</span>}</Td>
-                <Td className="text-gray-500">{d.createdAt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</Td>
-                <Td>
-                  {d.ticket ? (
-                    <Link href={`/tickets/${d.ticket.id}`} className="text-brand hover:underline">{d.ticket.ticketCode}</Link>
-                  ) : <span className="text-gray-300">—</span>}
-                </Td>
-                <Td>
-                  {d.ticket?.processFlow ? (
-                    <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${PROCESS_FLOW_COLORS[d.ticket.processFlow] ?? 'border-gray-200 bg-gray-50 text-gray-500'}`}>
-                      {PROCESS_FLOW_LABELS[d.ticket.processFlow] ?? d.ticket.processFlow}
-                    </span>
-                  ) : <span className="text-gray-300">—</span>}
-                </Td>
-                <Td>
-                  {d.proposalStatus ? (
-                    <Badge {...PROPOSAL_STATUS_BADGE[d.proposalStatus]}>{PROPOSAL_STATUS_LABELS[d.proposalStatus]}</Badge>
-                  ) : <span className="text-gray-300">—</span>}
-                </Td>
-                <Td className="text-right tabular-nums">{d.displayAmount ? formatMoney(d.displayAmount, d.displayCurrency) : '—'}</Td>
-              </Tr>
-            ))
-          )}
-        </TBody>
-      </Table>
+      <ProposalsTable docs={docsWithAmount} hasFilters={hasFilters} />
 
       {totalPages > 1 && (
         <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
