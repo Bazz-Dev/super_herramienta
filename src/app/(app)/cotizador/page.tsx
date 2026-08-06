@@ -12,6 +12,7 @@ import { Table, THead, TBody, Tr, Th, Td, TableEmptyRow } from '@/components/ui/
 import { Badge } from '@/components/ui/badge'
 import { FilterBar, FilterPill, FilterClear } from '@/components/ui/filter-bar'
 import { ClientFilter } from '@/components/cashflow/client-filter'
+import { BranchFilter } from '@/components/cashflow/branch-filter'
 import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_BADGE } from '@/lib/pipeline/labels'
 import { formatMoney } from '@/lib/quotes/format'
@@ -24,7 +25,7 @@ interface Props {
   searchParams: Promise<{
     docId?: string; ticketId?: string; new?: string
     cliente?: string; estado?: string; ticket?: string; desde?: string; hasta?: string; page?: string
-    numero?: string
+    numero?: string; sucursal?: string
   }>
 }
 
@@ -50,6 +51,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
     ...(estado ? { proposalStatus: estado } : {}),
     ...(sp.ticket === 'sin' ? { ticketId: null } : sp.ticket === 'con' ? { ticketId: { not: null } } : {}),
     ...(sp.numero ? { quoteId: { contains: sp.numero } } : {}),
+    ...(sp.sucursal ? { ticket: { branchId: sp.sucursal } } : {}),
     ...((sp.desde || sp.hasta) ? {
       createdAt: {
         ...(sp.desde ? { gte: new Date(sp.desde) } : {}),
@@ -58,7 +60,7 @@ export default async function CotizadorPage({ searchParams }: Props) {
     } : {}),
   }
 
-  const [total, docs, clients] = await Promise.all([
+  const [total, docs, clients, branches] = await Promise.all([
     prisma.clientDocument.count({ where }),
     prisma.clientDocument.findMany({
       where,
@@ -74,11 +76,12 @@ export default async function CotizadorPage({ searchParams }: Props) {
         // listado como texto, solo se usa para computeTotals().
         dataJson: true,
         client: { select: { id: true, name: true } },
-        ticket: { select: { id: true, ticketCode: true, processFlow: true } },
+        ticket: { select: { id: true, ticketCode: true, processFlow: true, branch: { select: { name: true } } } },
         createdBy: { select: { name: true } },
       },
     }),
     prisma.client.findMany({ where: tenantScope(actor), select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    prisma.branch.findMany({ where: tenantScope(actor), select: { id: true, name: true }, orderBy: { name: 'asc' } }),
   ])
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
@@ -108,12 +111,13 @@ export default async function CotizadorPage({ searchParams }: Props) {
     if (estado) p.set('estado', estado)
     if (sp.ticket) p.set('ticket', sp.ticket)
     if (sp.numero) p.set('numero', sp.numero)
+    if (sp.sucursal) p.set('sucursal', sp.sucursal)
     if (sp.desde) p.set('desde', sp.desde)
     if (sp.hasta) p.set('hasta', sp.hasta)
     Object.entries(overrides).forEach(([k, v]) => (v ? p.set(k, v) : p.delete(k)))
     return `/cotizador?${p.toString()}`
   }
-  const hasFilters = !!(sp.cliente || estado || sp.ticket || sp.numero || sp.desde || sp.hasta)
+  const hasFilters = !!(sp.cliente || estado || sp.ticket || sp.numero || sp.sucursal || sp.desde || sp.hasta)
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -135,6 +139,9 @@ export default async function CotizadorPage({ searchParams }: Props) {
           </Suspense>
           <Suspense fallback={null}>
             <QuoteNumberFilter basePath="/cotizador" />
+          </Suspense>
+          <Suspense fallback={null}>
+            <BranchFilter branches={branches} basePath="/cotizador" />
           </Suspense>
           {(Object.entries(PROPOSAL_STATUS_LABELS) as [ProposalStatus, string][]).map(([value, label]) => (
             <FilterPill
@@ -161,19 +168,20 @@ export default async function CotizadorPage({ searchParams }: Props) {
       <Table>
         <THead>
           <Tr>
-            <Th>Propuesta</Th>
+            <Th>Documento</Th>
+            <Th>N° presupuesto</Th>
             <Th>Cliente</Th>
-            <Th>Ticket</Th>
+            <Th>Sucursal</Th>
+            <Th>Fecha</Th>
+            <Th>Ticket asociado</Th>
             <Th>PP/ED</Th>
             <Th>Estado</Th>
             <Th className="text-right">Monto</Th>
-            <Th>Creada</Th>
-            <Th>Por</Th>
           </Tr>
         </THead>
         <TBody>
           {docsWithAmount.length === 0 ? (
-            <TableEmptyRow colSpan={8}>
+            <TableEmptyRow colSpan={9}>
               {hasFilters ? 'Sin resultados para estos filtros' : 'Sin propuestas creadas todavía'}
             </TableEmptyRow>
           ) : (
@@ -181,9 +189,11 @@ export default async function CotizadorPage({ searchParams }: Props) {
               <Tr key={d.id}>
                 <Td>
                   <DocumentQuickPreview docId={d.id} title={d.title} documentType="propuesta" editHref={`/cotizador?docId=${d.id}`} ticketCode={d.ticket?.ticketCode} number={d.quoteId} />
-                  {d.quoteId && <p className="mt-0.5 text-[11px] text-gray-400">{d.quoteId}</p>}
                 </Td>
+                <Td className="tabular-nums">{d.quoteId ?? <span className="text-gray-300">—</span>}</Td>
                 <Td>{d.client.name}</Td>
+                <Td>{d.ticket?.branch?.name ?? <span className="text-gray-300">—</span>}</Td>
+                <Td className="text-gray-500">{d.createdAt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</Td>
                 <Td>
                   {d.ticket ? (
                     <Link href={`/tickets/${d.ticket.id}`} className="text-brand hover:underline">{d.ticket.ticketCode}</Link>
@@ -202,8 +212,6 @@ export default async function CotizadorPage({ searchParams }: Props) {
                   ) : <span className="text-gray-300">—</span>}
                 </Td>
                 <Td className="text-right tabular-nums">{d.displayAmount ? formatMoney(d.displayAmount, d.displayCurrency) : '—'}</Td>
-                <Td className="text-gray-500">{d.createdAt.toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}</Td>
-                <Td className="text-gray-500">{d.createdBy?.name ?? '—'}</Td>
               </Tr>
             ))
           )}
