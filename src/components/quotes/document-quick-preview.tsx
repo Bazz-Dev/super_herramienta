@@ -39,6 +39,7 @@ export function DocumentQuickPreview({
   const [downloading, setDownloading] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   async function fetchData(): Promise<unknown> {
     const res = await fetch(`/api/client-documents?id=${docId}`)
@@ -141,17 +142,35 @@ export function DocumentQuickPreview({
                 </button>
               )}
               {onDelete && confirmingDelete && (
-                <div className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-1">
-                  <span className="text-xs font-medium text-red-700">¿Eliminar? No se reutilizará su número.</span>
-                  <button type="button" onClick={() => setConfirmingDelete(false)} className={buttonClass('ghost', 'sm')}>No</button>
-                  <button
-                    type="button"
-                    disabled={deleting}
-                    onClick={async () => { setDeleting(true); await onDelete(); setDeleting(false); setOpen(false); setConfirmingDelete(false) }}
-                    className={buttonClass('danger', 'sm')}
-                  >
-                    {deleting ? <Spinner size={12} /> : 'Sí, eliminar'}
-                  </button>
+                <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2 py-1">
+                    <span className="text-xs font-medium text-red-700">¿Eliminar? No se reutilizará su número.</span>
+                    <button type="button" onClick={() => { setConfirmingDelete(false); setDeleteError('') }} className={buttonClass('ghost', 'sm')}>No</button>
+                    <button
+                      type="button"
+                      disabled={deleting}
+                      onClick={async () => {
+                        setDeleting(true)
+                        setDeleteError('')
+                        try {
+                          await onDelete()
+                          setOpen(false)
+                          setConfirmingDelete(false)
+                        } catch (e) {
+                          // Deja el modal abierto y el confirm visible para reintentar — un
+                          // fetch fallido (401 sesión expirada, 404 ya eliminado por otro)
+                          // nunca debe dejar el botón atascado en spinner sin explicación.
+                          setDeleteError(e instanceof Error ? e.message : 'Error al eliminar')
+                        } finally {
+                          setDeleting(false)
+                        }
+                      }}
+                      className={buttonClass('danger', 'sm')}
+                    >
+                      {deleting ? <Spinner size={12} /> : 'Sí, eliminar'}
+                    </button>
+                  </div>
+                  {deleteError && <span className="text-xs font-medium text-red-600">{deleteError}</span>}
                 </div>
               )}
               <button

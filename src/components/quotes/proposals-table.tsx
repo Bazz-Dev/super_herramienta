@@ -46,7 +46,11 @@ export function ProposalsTable({ docs, hasFilters }: { docs: ProposalRow[]; hasF
   }
 
   async function deleteOne(id: string) {
-    await fetch(`/api/client-documents?id=${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/client-documents?id=${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error ?? `Error ${res.status} al eliminar`)
+    }
     router.refresh()
   }
 
@@ -57,13 +61,15 @@ export function ProposalsTable({ docs, hasFilters }: { docs: ProposalRow[]; hasF
         <THead>
           <Tr>
             <Th>
-              <input
-                type="checkbox"
-                checked={allSelected}
-                onChange={toggleAll}
-                className="h-4 w-4 cursor-pointer accent-brand"
-                aria-label="Seleccionar todas"
-              />
+              <label className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  className="h-4 w-4 cursor-pointer accent-brand"
+                  aria-label="Seleccionar todas"
+                />
+              </label>
             </Th>
             <Th>Documento</Th>
             <Th>N° presupuesto</Th>
@@ -85,13 +91,15 @@ export function ProposalsTable({ docs, hasFilters }: { docs: ProposalRow[]; hasF
             docs.map((d) => (
               <Tr key={d.id}>
                 <Td>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(d.id)}
-                    onChange={() => toggle(d.id)}
-                    className="h-4 w-4 cursor-pointer accent-brand"
-                    aria-label={`Seleccionar ${d.title}`}
-                  />
+                  <label className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(d.id)}
+                      onChange={() => toggle(d.id)}
+                      className="h-4 w-4 cursor-pointer accent-brand"
+                      aria-label={`Seleccionar ${d.title}`}
+                    />
+                  </label>
                 </Td>
                 <Td>
                   <DocumentQuickPreview
