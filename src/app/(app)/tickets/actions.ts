@@ -8,13 +8,13 @@ import { assertRole } from '@/lib/policies'
 import { notify } from '@/lib/push'
 import { ticketFolderKey } from '@/lib/r2'
 import { fromDateInput } from '@/lib/cashflow/dates'
-import { createTicketWithUniqueCode } from '@/lib/tickets/ticket-code'
+import { ticketCodePrefix, clientTicketPrefix } from '@/lib/tickets/ticket-code'
+import { createTicketWithUniqueCode } from '@/lib/tickets/ticket-code-server'
 import type { TicketStatus } from '@/generated/prisma/enums'
 import { logAudit } from '@/lib/audit'
 import { isProposalApproved, canStartExecution } from '@/lib/tickets/ticket-state-summary'
 
 const createSchema = z.object({
-  ticketCode: z.string().min(1),
   title: z.string().min(1),
   description: z.string().optional(),
   urgency: z.enum(['emergencia', 'urgencia', 'no_urgente', 'preventivo']).default('no_urgente'),
@@ -70,7 +70,6 @@ async function latestCommercialContext(tenantId: string, ticketId: string) {
 export async function createTicket(_: unknown, fd: FormData) {
   const actor = await requireActor(['super', 'supervisor'])
   const parsed = createSchema.parse({
-    ticketCode: fd.get('ticketCode'),
     title: fd.get('title'),
     description: fd.get('description') || undefined,
     urgency: fd.get('urgency') || 'no_urgente',
@@ -87,16 +86,22 @@ export async function createTicket(_: unknown, fd: FormData) {
   const { assignedToId, internalNotes, otNumber, estimatedDate, ...ticketData } = parsed
   const initialStatus = assignedToId ? 'en_revision' : 'nuevo'
 
-  // Fetch client slug for R2 folder key
-  const clientRecord = await prisma.client.findUnique({
-    where: { id: parsed.clientId },
-    select: { portalSlug: true },
-  })
+  // Fetch client slug/name for R2 folder key + prefix, and branch name for prefix
+  const [clientRecord, branchRecord] = await Promise.all([
+    prisma.client.findUnique({ where: { id: parsed.clientId }, select: { portalSlug: true, name: true } }),
+    parsed.branchId ? prisma.branch.findUnique({ where: { id: parsed.branchId }, select: { name: true } }) : Promise.resolve(null),
+  ])
+  if (!clientRecord) throw new Error('Cliente no encontrado.')
 
   // ticketCode es único: dos tickets del mismo día/cliente/urgencia/sucursal
   // colisionan — createTicketWithUniqueCode reintenta sobre la constraint real
   // en vez de adivinar con un check previo (mismo patrón que el portal).
-  const ticket = await createTicketWithUniqueCode(ticketData.ticketCode, (code) =>
+  const prefix = ticketCodePrefix({
+    clientPrefix: clientTicketPrefix({ portalSlug: clientRecord.portalSlug, name: clientRecord.name }),
+    branchName: branchRecord?.name ?? 'SUCURSAL',
+    processFlow: ticketData.processFlow,
+  })
+  const ticket = await createTicketWithUniqueCode(prefix, (code) =>
     prisma.ticket.create({
       data: {
         ...ticketData,

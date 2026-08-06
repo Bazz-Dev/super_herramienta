@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createTicket, linkJobToNewTicket } from '@/app/(app)/tickets/actions'
 import { URGENCY_LABEL, type TicketUrgencyId } from '@/lib/tickets/labels'
 import { PROCESS_FLOW_LABELS } from '@/lib/cashflow/labels'
-import { buildTicketCode, clientTicketPrefix } from '@/lib/tickets/ticket-code'
+import { ticketCodePrefix, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 import { Spinner } from '@/components/ui/spinner'
 import { BranchSelect } from '@/components/resources/branch-select'
 
@@ -44,9 +44,15 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
   const selectedClient = clients.find(c => c.id === clientId)
   const branches = selectedClient?.branches ?? []
 
-  // Auto-build ticket code preview
+  // Preview del prefijo — el correlativo real (el número final) se asigna
+  // server-side al crear, nunca acá (createTicket ya no confía en un código
+  // calculado por el cliente).
   const branchName = branches.find(b => b.id === branchId)?.name ?? 'SUCURSAL'
-  const codePreview = buildTicketCode(urgency, branchName, selectedClient ? clientTicketPrefix(selectedClient) : 'CLIENTE')
+  const codePreview = ticketCodePrefix({
+    clientPrefix: selectedClient ? clientTicketPrefix(selectedClient) : 'CLIENTE',
+    branchName,
+    processFlow,
+  })
 
   function handleClientChange(id: string) {
     setClientId(id)
@@ -62,7 +68,6 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
     setError(null)
 
     const fd = new FormData()
-    fd.set('ticketCode', codePreview)
     fd.set('title', title.trim())
     fd.set('description', description)
     fd.set('urgency', urgency)
@@ -167,8 +172,8 @@ export function NewTicketForm({ clients, users, createdById, defaults, linkJobId
 
       {/* Code preview */}
       <div className="rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2">
-        <span className="text-xs text-gray-400">Código generado: </span>
-        <span className="font-mono text-xs text-gray-600">{codePreview}</span>
+        <span className="text-xs text-gray-400">Prefijo del código (el número final se asigna al guardar): </span>
+        <span className="font-mono text-xs text-gray-600">{codePreview}N</span>
       </div>
 
       {/* Title */}
