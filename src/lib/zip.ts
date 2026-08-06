@@ -34,3 +34,23 @@ export async function buildZipFromR2Keys(
 
   return Buffer.concat(chunks)
 }
+
+/**
+ * Builds a ZIP buffer from in-memory file buffers (not R2 keys) — para
+ * documentos generados al vuelo (propuestas/informes, viven en dataJson,
+ * no en R2). Mismo archiver que buildZipFromR2Keys, sin el paso de bajar
+ * bytes de R2 porque acá ya vienen en memoria.
+ */
+export async function buildZipFromBuffers(files: { buffer: Buffer; name: string }[]): Promise<Buffer> {
+  const archive = archiver('zip', { zlib: { level: 9 } })
+  const chunks: Buffer[] = []
+  archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+  const done = new Promise<void>((resolve, reject) => {
+    archive.on('end', resolve)
+    archive.on('error', reject)
+  })
+  for (const file of files) archive.append(file.buffer, { name: file.name })
+  archive.finalize()
+  await done
+  return Buffer.concat(chunks)
+}

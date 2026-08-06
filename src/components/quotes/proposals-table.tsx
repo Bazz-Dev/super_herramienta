@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Table, THead, TBody, Tr, Th, Td, TableEmptyRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
+import { buttonClass } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
 import { formatMoney } from '@/lib/quotes/format'
 import { PROCESS_FLOW_LABELS, PROCESS_FLOW_COLORS } from '@/lib/cashflow/labels'
@@ -54,9 +56,109 @@ export function ProposalsTable({ docs, hasFilters }: { docs: ProposalRow[]; hasF
     router.refresh()
   }
 
+  const [bulkBusy, setBulkBusy] = useState<'download' | 'print' | 'delete' | null>(null)
+  const [bulkError, setBulkError] = useState('')
+
+  async function downloadSelected() {
+    setBulkBusy('download')
+    setBulkError('')
+    try {
+      const res = await fetch('/api/quotes/zip', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [...selected] }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? `Error ${res.status} al generar el ZIP`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'Propuestas.zip'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : 'Error al descargar el ZIP')
+    } finally {
+      setBulkBusy(null)
+    }
+  }
+
+  // Impresión masiva: mismo PDF consolidado que produciría abrir cada uno y
+  // usar "Imprimir" del visor del navegador — más simple que generar un PDF
+  // fusionado server-side para un caso de uso que ya funciona bien así
+  // (ponytail: el navegador ya sabe fusionar/paginar N pestañas de
+  // impresión, no hay que reinventarlo). Cada PDF se abre en una pestaña
+  // nueva lista para Ctrl+P.
+  async function printSelected() {
+    setBulkBusy('print')
+    setBulkError('')
+    let failed = 0
+    for (const id of selected) {
+      try {
+        const res = await fetch(`/api/client-documents?id=${id}`)
+        if (!res.ok) throw new Error()
+        const { dataJson } = await res.json()
+        if (!dataJson) throw new Error()
+        const pdfRes = await fetch('/api/quotes/generate', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: dataJson,
+        })
+        if (!pdfRes.ok) throw new Error()
+        const blob = await pdfRes.blob()
+        window.open(URL.createObjectURL(blob), '_blank')
+      } catch {
+        failed++
+      }
+    }
+    if (failed > 0) setBulkError(`${failed} de ${selected.size} no se pudieron abrir para imprimir`)
+    setBulkBusy(null)
+  }
+
+  async function deleteSelected() {
+    if (!confirm(`Vas a eliminar ${selected.size} propuestas comerciales. Sus números correlativos no volverán a utilizarse. ¿Deseas continuar?`)) return
+    setBulkBusy('delete')
+    setBulkError('')
+    try {
+      const ids = [...selected]
+      const results = await Promise.all(
+        ids.map((id) => fetch(`/api/client-documents?id=${id}`, { method: 'DELETE' }).then((res) => ({ id, ok: res.ok }))),
+      )
+      const failedIds = results.filter((r) => !r.ok).map((r) => r.id)
+      // Deja seleccionadas solo las que fallaron — éxito total limpia la
+      // selección y oculta la barra, éxito parcial la deja abierta mostrando
+      // cuántas quedan pendientes en vez de fingir que todo salió bien.
+      setSelected(new Set(failedIds))
+      if (failedIds.length > 0) setBulkError(`${failedIds.length} de ${ids.length} no se pudieron eliminar`)
+      router.refresh()
+    } finally {
+      setBulkBusy(null)
+    }
+  }
+
   return (
     <>
-      {/* La barra de acciones masivas (Task 11) se agrega justo acá, antes de <Table> — mismo componente, mismo `selected`, sin restructurar nada de este paso. Nunca dentro de <Table>: ver la nota de validez HTML arriba. */}
+      {selected.size > 0 && (
+        <div className="mb-2 flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <strong className="text-sm text-amber-900">{selected.size} seleccionadas</strong>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={!!bulkBusy} onClick={downloadSelected} className={buttonClass('secondary', 'md')}>
+                {bulkBusy === 'download' ? <Spinner size={14} /> : 'Descargar'}
+              </button>
+              <button type="button" disabled={!!bulkBusy} onClick={printSelected} className={buttonClass('secondary', 'md')}>
+                {bulkBusy === 'print' ? <Spinner size={14} /> : 'Imprimir'}
+              </button>
+              <button type="button" disabled={!!bulkBusy} onClick={deleteSelected} className={buttonClass('danger', 'md')}>
+                {bulkBusy === 'delete' ? <Spinner size={14} /> : 'Eliminar'}
+              </button>
+              <button type="button" onClick={() => { setSelected(new Set()); setBulkError('') }} className={buttonClass('ghost', 'md')}>
+                Limpiar selección
+              </button>
+            </div>
+          </div>
+          {bulkError && <span className="text-xs font-medium text-red-700">{bulkError}</span>}
+        </div>
+      )}
       <Table>
         <THead>
           <Tr>
