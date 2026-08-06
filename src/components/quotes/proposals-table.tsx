@@ -105,17 +105,23 @@ export function ProposalsTable({ docs, hasFilters }: { docs: ProposalRow[]; hasF
         })
         if (!pdfRes.ok) throw new Error()
         const blob = await pdfRes.blob()
-        window.open(URL.createObjectURL(blob), '_blank')
+        // window.open() tras un await pierde el "user gesture" original — los
+        // navegadores lo bloquean en vez de lanzar, devolviendo null (no una
+        // excepción), así que el try/catch de este bloque nunca lo ve. Hay
+        // que chequear el valor de retorno a mano.
+        if (!window.open(URL.createObjectURL(blob), '_blank')) throw new Error()
       } catch {
         failed++
       }
     }
-    if (failed > 0) setBulkError(`${failed} de ${selected.size} no se pudieron abrir para imprimir`)
+    if (failed > 0) setBulkError(`${failed} de ${selected.size} no se pudieron abrir para imprimir (el navegador puede estar bloqueando ventanas emergentes)`)
     setBulkBusy(null)
   }
 
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false)
+
   async function deleteSelected() {
-    if (!confirm(`Vas a eliminar ${selected.size} propuestas comerciales. Sus números correlativos no volverán a utilizarse. ¿Deseas continuar?`)) return
+    setConfirmingBulkDelete(false)
     setBulkBusy('delete')
     setBulkError('')
     try {
@@ -148,10 +154,20 @@ export function ProposalsTable({ docs, hasFilters }: { docs: ProposalRow[]; hasF
               <button type="button" disabled={!!bulkBusy} onClick={printSelected} className={buttonClass('secondary', 'md')}>
                 {bulkBusy === 'print' ? <Spinner size={14} /> : 'Imprimir'}
               </button>
-              <button type="button" disabled={!!bulkBusy} onClick={deleteSelected} className={buttonClass('danger', 'md')}>
-                {bulkBusy === 'delete' ? <Spinner size={14} /> : 'Eliminar'}
-              </button>
-              <button type="button" onClick={() => { setSelected(new Set()); setBulkError('') }} className={buttonClass('ghost', 'md')}>
+              {!confirmingBulkDelete ? (
+                <button type="button" disabled={!!bulkBusy} onClick={() => setConfirmingBulkDelete(true)} className={buttonClass('danger', 'md')}>
+                  Eliminar
+                </button>
+              ) : (
+                <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2">
+                  <span className="text-xs font-medium text-red-700">¿Eliminar {selected.size} propuestas? No se reutilizarán sus números.</span>
+                  <button type="button" disabled={!!bulkBusy} onClick={() => setConfirmingBulkDelete(false)} className={buttonClass('ghost', 'md')}>No</button>
+                  <button type="button" disabled={!!bulkBusy} onClick={deleteSelected} className={buttonClass('danger', 'md')}>
+                    {bulkBusy === 'delete' ? <Spinner size={14} /> : 'Sí, eliminar'}
+                  </button>
+                </div>
+              )}
+              <button type="button" onClick={() => { setSelected(new Set()); setBulkError(''); setConfirmingBulkDelete(false) }} className={buttonClass('ghost', 'md')}>
                 Limpiar selección
               </button>
             </div>
