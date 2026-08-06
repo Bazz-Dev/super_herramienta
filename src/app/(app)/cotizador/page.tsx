@@ -18,6 +18,7 @@ import { formatMoney } from '@/lib/quotes/format'
 import type { ProposalStatus } from '@/generated/prisma/enums'
 import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
 import { QuoteNumberFilter } from '@/components/quotes/quote-number-filter'
+import { QuoteSequenceConfigButton } from '@/components/quotes/quote-sequence-config-modal'
 
 interface Props {
   searchParams: Promise<{
@@ -121,7 +122,10 @@ export default async function CotizadorPage({ searchParams }: Props) {
           <h1 className="text-2xl font-bold">Propuestas</h1>
           <p className="mt-1 text-sm text-gray-500">Todas las propuestas comerciales creadas, en orden cronológico.</p>
         </div>
-        <Button href="/cotizador?new=1" size="sm">+ Crear nueva</Button>
+        <div className="flex items-center gap-2">
+          {actor.role === 'super' && <QuoteSequenceConfigButton />}
+          <Button href="/cotizador?new=1" size="sm">+ Crear nueva</Button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-col gap-2">
