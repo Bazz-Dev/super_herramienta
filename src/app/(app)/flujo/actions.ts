@@ -88,6 +88,14 @@ export async function deleteBranch(id: string): Promise<{ error?: string }> {
   // Job.branchId es onDelete:Restrict — tiraría un 500 crudo de Prisma (G35).
   const jobs = await prisma.job.count({ where: { branchId: id, ...tenantScope(u) } })
   if (jobs) return { error: `No se puede eliminar: tiene ${jobs} trabajo(s) asociados.` }
+  // Ticket.branchId es onDelete:SetNull a nivel de FK (a diferencia de Job) --
+  // sin este chequeo, borrar la sucursal NO fallaba, sino que desasociaba en
+  // silencio todos sus tickets históricos (branchId -> NULL), perdiendo la
+  // referencia real de en qué sucursal ocurrió cada ticket/OT/informe/
+  // propuesta ya emitidos. Cuenta todos los tickets alguna vez asociados,
+  // incluidos los soft-deleted (deletedAt) -- siguen siendo historial real.
+  const tickets = await prisma.ticket.count({ where: { branchId: id, ...tenantScope(u) } })
+  if (tickets) return { error: `No se puede eliminar: tiene ${tickets} ticket(s) asociados.` }
   await prisma.branch.deleteMany({ where: { id, ...tenantScope(u) } })
   revalidatePath('/flujo/sucursales')
   return {}

@@ -128,12 +128,19 @@ export async function getClientTickets(clientId: string, branchId?: string | nul
   })
 }
 
-export async function getClientTicket(clientId: string, ticketId: string) {
+// branchId: si se pasa, solo devuelve el ticket si además pertenece a esa
+// sucursal (mismo criterio que getClientTickets, ver data.md G45). Opcional y
+// sin efecto si se omite -- el único caller de hoy (portal/[slug]/tickets/[id])
+// ya hace este chequeo después del fetch con su propio redirect a la lista,
+// UX que no se toca acá. Esto existe para que un caller NUEVO (P1/P1B) no
+// tenga que reinventar ese chequeo ni pueda olvidarlo -- la función misma ya
+// lo hace cumplir si se lo piden.
+export async function getClientTicket(clientId: string, ticketId: string, branchId?: string | null) {
   const t = await prisma.ticket.findFirst({
     // fusionado se excluye acá — el caller (portal/[slug]/tickets/[id]/page.tsx)
     // depende de que esto devuelva null para caer a su pantalla especial de
     // "Solicitud consolidada" en vez de mostrar el ticket como si nada.
-    where: { id: ticketId, clientId, showToClient: true, status: { not: 'fusionado' } },
+    where: { id: ticketId, clientId, showToClient: true, status: { not: 'fusionado' }, ...(branchId ? { branchId } : {}) },
     include: {
       branch: { select: { id: true, name: true, city: true } },
       assignedTo: { select: { id: true, name: true } },

@@ -57,10 +57,13 @@ function DownloadBtn({ docId, title, primary }: { docId: string; title: string; 
         return
       }
 
+      // Se manda solo el id -- el servidor re-deriva y re-verifica el
+      // contenido (ver /api/quotes/generate), nunca confía en un blob que
+      // el cliente ya trae en la mano.
       const pdfRes = await fetch('/api/quotes/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: dataJson,
+        body: JSON.stringify({ documentId: docId }),
       })
       if (!pdfRes.ok) throw new Error('Error generando PDF')
 

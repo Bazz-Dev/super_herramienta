@@ -30,7 +30,13 @@ async function inlineUrl(url: string): Promise<string> {
     try {
       const buf = await getObjectBuffer(url)
       return `data:${mimeFromKey(url)};base64,${buf.toString('base64')}`
-    } catch {
+    } catch (err) {
+      // No se aborta el PDF completo por una foto rota (un archivo faltante
+      // no debe bloquear el resto del informe) -- pero antes esto era
+      // totalmente silencioso: la imagen quedaba rota en el PDF sin ninguna
+      // señal en ningún log. Ahora al menos queda registrado cuál key falló
+      // y por qué, para poder diagnosticarlo sin adivinar.
+      console.error(`[reports/pdf] No se pudo bajar la imagen de R2 (key=${url}):`, err)
       return url
     }
   }
@@ -39,7 +45,8 @@ async function inlineUrl(url: string): Promise<string> {
       const filePath = path.join(process.cwd(), 'public', url)
       const buf = await readFile(filePath)
       return `data:${mimeFromKey(filePath)};base64,${buf.toString('base64')}`
-    } catch {
+    } catch (err) {
+      console.error(`[reports/pdf] No se pudo leer la imagen local (path=${url}):`, err)
       return url
     }
   }

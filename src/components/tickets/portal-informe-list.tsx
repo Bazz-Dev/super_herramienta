@@ -57,11 +57,13 @@ function DownloadBtn({ docId, title, primary }: { docId: string; title: string; 
       const { dataJson } = await metaRes.json()
       if (!dataJson) throw new Error('Informe sin contenido')
 
-      // 2. Generate PDF
+      // 2. Generate PDF -- se manda solo el id, el servidor re-deriva y
+      // re-verifica el contenido (ver /api/reports/generate), nunca confía
+      // en un blob que el cliente ya trae en la mano.
       const pdfRes = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: JSON.parse(dataJson) }),
+        body: JSON.stringify({ documentId: docId }),
       })
       if (!pdfRes.ok) throw new Error('Error generando PDF')
 

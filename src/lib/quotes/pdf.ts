@@ -22,7 +22,8 @@ async function inlineUrl(url: string | undefined): Promise<string | undefined> {
     const ext = path.extname(filePath).toLowerCase()
     const mime = MIME[ext] ?? 'image/png'
     return `data:${mime};base64,${buf.toString('base64')}`
-  } catch {
+  } catch (err) {
+    console.error(`[quotes/pdf] No se pudo leer la imagen local (path=${url}):`, err)
     return url // fall back to whatever URL was given
   }
 }

@@ -35,10 +35,20 @@ export async function createPortalTicket(fd: FormData) {
   if (isClient && session.user.clientId !== clientId) return { success: false }
 
   const [branch, client] = await Promise.all([
-    branchId ? prisma.branch.findUnique({ where: { id: branchId, clientId }, select: { name: true } }) : Promise.resolve(null),
+    // active: true acá es lo que de verdad bloquea crear contra una sucursal
+    // desactivada -- antes esta query no lo filtraba, así que un branchId de
+    // una sucursal inactiva (POST directo, o un usuario de sucursal cuya
+    // sucursal se desactivó después de asignársela) devolvía null y el
+    // código seguía igual, con un branchId inválido guardado en el ticket y
+    // el código armado con el fallback 'SUCURSAL'. Ahora, si se mandó un
+    // branchId y no resuelve (no existe, es de otro cliente, o está
+    // inactiva), se rechaza el ticket entero más abajo en vez de crearlo con
+    // una referencia de sucursal que no debería existir.
+    branchId ? prisma.branch.findUnique({ where: { id: branchId, clientId, active: true }, select: { name: true } }) : Promise.resolve(null),
     prisma.client.findUnique({ where: { id: clientId }, select: { tenantId: true, portalSlug: true, name: true } }),
   ])
   if (!client) return { success: false }
+  if (branchId && !branch) return { success: false }
 
   // Staff: can only create for clients belonging to their tenant
   if (isStaff && client.tenantId !== session.user.tenantId) return { success: false }
@@ -56,6 +66,25 @@ export async function createPortalTicket(fd: FormData) {
   const uploadedFiles = JSON.parse(String(fd.get('uploadedFiles') ?? '[]')) as {
     key: string; name: string; mimeType: string
   }[]
+
+  // Guardia de doble-envío: el único freno que existía era disabled={isPending}
+  // en el cliente, que no cubre un doble-tap real antes de que React re-renderice,
+  // ni un reenvío por bfcache/back-button. No hay idempotency key -- en vez de
+  // agregar un campo nuevo al form (cambio de contrato), se detecta un envío
+  // idéntico (mismo cliente/sucursal/creador/título/descripción) creado hace
+  // menos de 5s y se devuelve ESE ticket en vez de crear uno segundo. Una
+  // ventana de 5s es coherente con un doble-clic/doble-tap real; dos
+  // solicitudes legítimas distintas con texto idéntico en ese margen son
+  // prácticamente inexistentes en el uso real.
+  const recentDuplicate = await prisma.ticket.findFirst({
+    where: {
+      clientId, branchId: branchId ?? null, createdById, title, description: description ?? null,
+      createdAt: { gte: new Date(Date.now() - 5_000) },
+    },
+    select: { id: true },
+    orderBy: { createdAt: 'desc' },
+  })
+  if (recentDuplicate) return { success: true, id: recentDuplicate.id }
 
   const ticket = await createTicketWithUniqueCode(prefix, (code) =>
     prisma.ticket.create({
