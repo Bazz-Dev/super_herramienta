@@ -202,9 +202,23 @@ Two delivery mechanisms already existed (`Notification` DB model + `/api/notific
 
 Verified: `npx tsc --noEmit`, `npm run lint`, `npm run test:unit` (271/271), `npm run build` all clean.
 
-## P4, P5 (brief's FASE 4, 7 in its own recommended order): NOT STARTED
+## FASE 4 (brief) — Ajuste visual en Reportes: DONE
 
-Task list entries (harness TaskList #124-#130) track phase-level status. Per the brief's `ORDEN RECOMENDADO DE IMPLEMENTACIÓN`, next up is FASE 4 (small — Reportes header contrast fix only, no redesign), then FASE 7 (revisión transversal + regresión completa, the brief's final audit gate).
+Root-caused exactly the contrast bug the brief describes: the red gradient header on `/portal/[slug]/reportes` hosts two child components (`PortalPeriodFilter`, `PortalReportsExport`) that were styled with tokens meant for a light card background, not the header's own red. `PortalPeriodFilter` used `var(--p-bd)`/`var(--p-t2)` (light-gray border, dark-gray text) for unselected pills — nearly invisible on red — and `background: primary` for the selected pill, i.e. the *same red as the header itself*, red-on-red. `PortalReportsExport`'s "Exportar CSV" button had the identical bug (`background: primary`), and "Imprimir" used a translucent white fill that worked against the brief's own literal spec (border+text only, no fill).
+
+Fixed exactly per the brief's own listed rules, colors only — no layout/size/spacing/gradient change:
+- Unselected period pill: transparent background, white border, white text; hover: translucent white fill.
+- Selected period pill: white background, corporate red text.
+- "Imprimir": transparent background, white border, white text.
+- "Exportar CSV": white background, corporate red text.
+
+Both components are used *only* on this page (grepped for other call sites) — safe to hardcode for the red-header context without a light-background regression elsewhere.
+
+**Live-verified**: screenshots at desktop (1280×800) and mobile (390×844, the same viewport `mobile-audit.spec.ts` uses) confirm every pill and button is now clearly legible against the red gradient in both, no horizontal scroll on mobile, no layout shift — saved to `docs/superpowers/plans/screenshots/2026-08-07-fase4-reportes-{desktop,mobile}.png`. Verified: `npx tsc --noEmit`, `npm run lint`, `npm run test:unit` (271/271), `npm run build` all clean.
+
+## FASE 7 (brief) — Revisión transversal + regresión completa: NOT STARTED
+
+Task list entry (harness TaskList #130) tracks this. Last phase per the brief's `ORDEN RECOMENDADO DE IMPLEMENTACIÓN` — a preventive review pass (rutas rotas, botones sin acción, errores silenciosos, consola, permisos, formularios que pierden datos, dobles envíos, registros huérfanos, etc.) plus the brief's full 3-round test matrix (funcional / regresión / errores y bordes) across everything shipped in FASE 0–6, and the brief's own required `ENTREGA` write-up (componentes reutilizados, archivos modificados, migraciones, endpoints, evidencia de las 3 rondas, capturas, hallazgos no corregidos, riesgos y plan de reversión, confirmaciones explícitas). Not started yet — natural last step before recommending a production deploy of this whole initiative.
 
 ## Local environment notes for whoever resumes this
 

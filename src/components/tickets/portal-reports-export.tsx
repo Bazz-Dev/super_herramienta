@@ -48,13 +48,19 @@ export function PortalReportsExport({ rows, clientName, primary }: { rows: Ticke
 
   return (
     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      {/* FASE 4 del brief (contraste en Reportes): "Imprimir" = borde blanco
+          y texto blanco (antes tenía un relleno blanco translúcido, que en
+          la práctica bajaba el contraste del propio texto blanco encima);
+          "Exportar CSV" = fondo blanco y texto rojo corporativo (antes
+          background: primary -- el mismo rojo de la cabecera, quedaba rojo
+          sobre rojo). Solo color, mismo tamaño/forma/espaciado. */}
       <button
         onClick={() => window.print()}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
           padding: '8px 14px', borderRadius: '8px',
-          background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: '12px', fontWeight: '700',
-          border: '1px solid rgba(255,255,255,0.35)', cursor: 'pointer',
+          background: 'transparent', color: '#fff', fontSize: '12px', fontWeight: '700',
+          border: '1px solid #fff', cursor: 'pointer',
         }}
       >
         ⎙ Imprimir
@@ -64,7 +70,7 @@ export function PortalReportsExport({ rows, clientName, primary }: { rows: Ticke
         style={{
           display: 'inline-flex', alignItems: 'center', gap: '6px',
           padding: '8px 16px', borderRadius: '8px',
-          background: primary, color: '#111', fontSize: '12px', fontWeight: '700',
+          background: '#fff', color: primary, fontSize: '12px', fontWeight: '700',
           border: 'none', cursor: 'pointer',
         }}
       >
