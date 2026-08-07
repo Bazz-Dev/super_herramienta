@@ -209,7 +209,17 @@ async function CotizadorEditor({ actor, docId, ticketId }: { actor: Awaited<Retu
     branchName: t.branch?.name ?? '',
   }))
 
-  let initialData: QuoteData = sampleQuote
+  // Bug real reportado en producción: para una propuesta NUEVA, initialData
+  // quedaba igual a sampleQuote tal cual -- incluido su quoteId de ejemplo
+  // hardcodeado ("ING-MANT-260609-ALCON-001", formato legado, pre-correlativo).
+  // El campo de solo lectura hace `data.quoteId ? data.quoteId : 'Se asignará
+  // al guardar'` -- como ese string de ejemplo es truthy, el usuario veía ese
+  // ID falso como si fuera real en vez del mensaje de pendiente. Esto quedó
+  // así desde que Task 3 volvió el campo de solo lectura (antes era un
+  // <TextInput> editable que el usuario sobrescribía sin pensarlo dos veces,
+  // por eso nunca se notó). quoteId se limpia acá solo para el caso "nuevo"
+  // -- un doc ya guardado sigue mostrando su número real vía la rama de abajo.
+  let initialData: QuoteData = { ...sampleQuote, quoteId: '' }
   if (savedDoc?.dataJson) {
     try {
       const raw = JSON.parse(savedDoc.dataJson)
