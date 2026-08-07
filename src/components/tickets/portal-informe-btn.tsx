@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PortalDocumentPreviewModal } from './portal-document-preview'
+import { resolveInformeUrl } from '@/lib/reports/resolve-informe-url'
 
 interface Props {
   docId: string
@@ -10,11 +11,7 @@ interface Props {
   date: string
 }
 
-// El informe puede ser (a) un archivo real subido (viewUrl, sin dataJson) —
-// se previsualiza/descarga directo, o (b) generado on-demand desde dataJson
-// vía /api/reports/generate — hay que llamarlo antes de tener algo que
-// mostrar/descargar. Ambos casos terminan en una URL usable (network o
-// blob:), así que Ver/Descargar comparten la misma resolución y solo
+// Ver/Descargar comparten la misma resolución (resolveInformeUrl) y solo
 // difieren en qué hacen con la URL resultante.
 export function PortalInformeBtn({ docId, title, primary, date }: Props) {
   const [loading, setLoading] = useState<'ver' | 'descargar' | null>(null)
@@ -23,34 +20,10 @@ export function PortalInformeBtn({ docId, title, primary, date }: Props) {
 
   const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
 
-  async function resolveUrl(): Promise<string> {
-    const metaRes = await fetch(`/api/portal/informes?id=${docId}`)
-    if (!metaRes.ok) throw new Error('No se pudo cargar el informe')
-    const { dataJson, viewUrl } = await metaRes.json()
-
-    // Informe subido como archivo real (sin dataJson) — URL directa de R2.
-    if (!dataJson) {
-      if (!viewUrl) throw new Error('Informe sin contenido')
-      return viewUrl
-    }
-
-    // Se manda solo el id -- el servidor re-deriva y re-verifica el
-    // contenido (ver /api/reports/generate), nunca confía en un blob que
-    // el cliente ya trae en la mano.
-    const pdfRes = await fetch('/api/reports/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ documentId: docId }),
-    })
-    if (!pdfRes.ok) throw new Error('Error generando PDF')
-    const blob = await pdfRes.blob()
-    return URL.createObjectURL(blob)
-  }
-
   async function handleVer() {
     setLoading('ver'); setErr('')
     try {
-      setPreviewUrl(await resolveUrl())
+      setPreviewUrl(await resolveInformeUrl(docId))
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al cargar')
     } finally {
@@ -61,7 +34,7 @@ export function PortalInformeBtn({ docId, title, primary, date }: Props) {
   async function handleDownload() {
     setLoading('descargar'); setErr('')
     try {
-      const url = await resolveUrl()
+      const url = await resolveInformeUrl(docId)
       const a = document.createElement('a')
       a.href = url; a.download = filename
       document.body.appendChild(a); a.click()
