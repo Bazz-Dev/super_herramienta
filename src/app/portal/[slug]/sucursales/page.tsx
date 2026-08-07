@@ -24,7 +24,9 @@ export default async function PortalSucursalesPage({ params }: { params: Promise
   const [branches, users] = await Promise.all([
     prisma.branch.findMany({
       where: { clientId: client.id },
-      select: { id: true, name: true, city: true, active: true },
+      // FASE 5: distingue "con historial" (tickets/trabajos reales) de "sin
+      // historial" -- solo el segundo puede eliminarse definitivamente.
+      select: { id: true, name: true, city: true, active: true, _count: { select: { jobs: true, tickets: true } } },
       orderBy: { name: 'asc' },
     }),
     prisma.user.findMany({
@@ -39,7 +41,11 @@ export default async function PortalSucursalesPage({ params }: { params: Promise
     if (!u.branchId) continue
     userCountByBranch.set(u.branchId, (userCountByBranch.get(u.branchId) ?? 0) + 1)
   }
-  const branchesWithCount = branches.map(b => ({ ...b, userCount: userCountByBranch.get(b.id) ?? 0 }))
+  const branchesWithCount = branches.map(b => ({
+    id: b.id, name: b.name, city: b.city, active: b.active,
+    userCount: userCountByBranch.get(b.id) ?? 0,
+    hasHistory: b._count.jobs > 0 || b._count.tickets > 0,
+  }))
 
   const theme = resolvePortalTheme(client.portalTheme)
 

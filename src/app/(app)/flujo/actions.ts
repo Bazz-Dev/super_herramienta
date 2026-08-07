@@ -10,6 +10,7 @@ import { fromDateInput } from '@/lib/cashflow/dates'
 import { deriveJobStatus, deriveCollectionStatus } from '@/lib/cashflow/derive-legacy-status'
 import { generateJobCodeWithRetry, clientCodeFrom, JOB_TYPE_CODE } from '@/lib/cashflow/generate-code'
 import { logAudit } from '@/lib/audit'
+import { branchDeletionBlockers } from '@/lib/branches'
 
 export type FormState = { error?: string; fieldErrors?: Record<string, string[]> }
 
@@ -85,18 +86,20 @@ export async function updateBranch(id: string, form: FormData) {
 
 export async function deleteBranch(id: string): Promise<{ error?: string }> {
   const u = await requireActor(['super', 'supervisor'])
-  // Job.branchId es onDelete:Restrict — tiraría un 500 crudo de Prisma (G35).
-  const jobs = await prisma.job.count({ where: { branchId: id, ...tenantScope(u) } })
-  if (jobs) return { error: `No se puede eliminar: tiene ${jobs} trabajo(s) asociados.` }
-  // Ticket.branchId es onDelete:SetNull a nivel de FK (a diferencia de Job) --
-  // sin este chequeo, borrar la sucursal NO fallaba, sino que desasociaba en
-  // silencio todos sus tickets históricos (branchId -> NULL), perdiendo la
-  // referencia real de en qué sucursal ocurrió cada ticket/OT/informe/
-  // propuesta ya emitidos. Cuenta todos los tickets alguna vez asociados,
-  // incluidos los soft-deleted (deletedAt) -- siguen siendo historial real.
-  const tickets = await prisma.ticket.count({ where: { branchId: id, ...tenantScope(u) } })
-  if (tickets) return { error: `No se puede eliminar: tiene ${tickets} ticket(s) asociados.` }
-  await prisma.branch.deleteMany({ where: { id, ...tenantScope(u) } })
+  const branch = await prisma.branch.findFirst({ where: { id, ...tenantScope(u) }, select: { id: true, name: true } })
+  if (!branch) return { error: 'Sucursal no encontrada.' }
+  // FASE 5 del brief (reglas de sucursales): validación server-side contra
+  // Job/Ticket/User -- ver branchDeletionBlockers, fuente única compartida
+  // con el self-service del portal (sucursales/actions.ts).
+  const blockers = await branchDeletionBlockers(id)
+  if (blockers.length) return { error: `No se puede eliminar: tiene ${blockers.join(', ')}.` }
+  await prisma.branch.delete({ where: { id } })
+  await logAudit({
+    tenantId: u.tenantId, actorId: u.effectiveId, actorRole: u.role,
+    action: 'branch.delete', entityType: 'Branch', entityId: id,
+    before: { name: branch.name },
+    source: 'flujo/actions.ts:deleteBranch',
+  })
   revalidatePath('/flujo/sucursales')
   return {}
 }

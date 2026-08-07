@@ -7,6 +7,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { generatePassword } from '@/lib/password'
 import { logAudit } from '@/lib/audit'
+import { branchDeletionBlockers } from '@/lib/branches'
 
 // Todas las actions de este archivo son del admin del cliente (Carolina y
 // equivalentes) O de staff INGEGAR viendo/gestionando el portal — staff ya
@@ -77,10 +78,45 @@ export async function togglePortalBranchActive(clientId: string, branchId: strin
   const actor = await requireClientAdmin(clientId)
   if (!actor?.clientId) return { error: 'No autorizado.' }
 
-  const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { clientId: true } })
+  const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { clientId: true, name: true, active: true } })
   if (!branch || branch.clientId !== actor.clientId) return { error: 'Sucursal no encontrada.' }
 
   await prisma.branch.update({ where: { id: branchId }, data: { active } })
+  await logAudit({
+    tenantId: actor.tenantId, actorId: actor.actorId, actorRole: actor.actorRole,
+    action: active ? 'branch.activate' : 'branch.deactivate', entityType: 'Branch', entityId: branchId,
+    before: { active: branch.active }, after: { active },
+    reason: 'Self-service desde portal cliente',
+    source: 'portal/[slug]/sucursales/actions.ts:togglePortalBranchActive',
+  })
+  revalidatePath(`/portal/${actor.portalSlug}/sucursales`)
+  return {}
+}
+
+// FASE 5 del brief: "Inactiva sin historial" puede eliminarse definitivamente
+// con confirmación; "Inactiva con historial" nunca (el brief es explícito:
+// "no mostrar Eliminar" para ese caso) -- reforzado acá server-side, nunca
+// solo en la UI. Mismo criterio y misma fuente (branchDeletionBlockers) que
+// el delete interno (flujo/actions.ts:deleteBranch).
+export async function deletePortalBranch(clientId: string, branchId: string): Promise<{ error?: string }> {
+  const actor = await requireClientAdmin(clientId)
+  if (!actor?.clientId) return { error: 'No autorizado.' }
+
+  const branch = await prisma.branch.findUnique({ where: { id: branchId }, select: { clientId: true, name: true, active: true } })
+  if (!branch || branch.clientId !== actor.clientId) return { error: 'Sucursal no encontrada.' }
+  if (branch.active) return { error: 'Desactiva la sucursal antes de eliminarla.' }
+
+  const blockers = await branchDeletionBlockers(branchId)
+  if (blockers.length) return { error: `No se puede eliminar: tiene ${blockers.join(', ')}.` }
+
+  await prisma.branch.delete({ where: { id: branchId } })
+  await logAudit({
+    tenantId: actor.tenantId, actorId: actor.actorId, actorRole: actor.actorRole,
+    action: 'branch.delete', entityType: 'Branch', entityId: branchId,
+    before: { name: branch.name },
+    reason: 'Self-service desde portal cliente',
+    source: 'portal/[slug]/sucursales/actions.ts:deletePortalBranch',
+  })
   revalidatePath(`/portal/${actor.portalSlug}/sucursales`)
   return {}
 }
