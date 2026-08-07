@@ -33,14 +33,22 @@ export async function POST(req: NextRequest) {
   const usedNames = new Set<string>()
   for (const doc of docs) {
     if (!doc.dataJson) continue
-    const parsed = quoteDataSchema.safeParse(JSON.parse(doc.dataJson))
-    if (!parsed.success) continue // documento legado sin todos los campos — se omite, no revienta el ZIP entero
-    const pdf = await generateQuotePdf(parsed.data)
-    let name = buildDownloadFilename({ kind: 'presupuesto', number: doc.quoteId, ticketCode: doc.ticket?.ticketCode })
-    let i = 2
-    while (usedNames.has(name)) { name = name.replace(/\.pdf$/, ` (${i}).pdf`); i++ }
-    usedNames.add(name)
-    files.push({ buffer: Buffer.from(pdf), name })
+    // Cada documento se procesa en su propio try/catch: un dataJson malformado
+    // (JSON.parse) o un Chromium que revienta en un render puntual
+    // (generateQuotePdf) no debe tirar abajo documentos que ya se generaron
+    // bien antes en el mismo loop — se omite ese documento y sigue el resto.
+    try {
+      const parsed = quoteDataSchema.safeParse(JSON.parse(doc.dataJson))
+      if (!parsed.success) continue // documento legado sin todos los campos — se omite, no revienta el ZIP entero
+      const pdf = await generateQuotePdf(parsed.data)
+      let name = buildDownloadFilename({ kind: 'presupuesto', number: doc.quoteId, ticketCode: doc.ticket?.ticketCode })
+      let i = 2
+      while (usedNames.has(name)) { name = name.replace(/\.pdf$/, ` (${i}).pdf`); i++ }
+      usedNames.add(name)
+      files.push({ buffer: Buffer.from(pdf), name })
+    } catch {
+      continue // JSON malformado o falla de render — se omite ese documento, no todo el ZIP
+    }
   }
   if (files.length === 0) return NextResponse.json({ error: 'No se pudo generar ningún PDF' }, { status: 500 })
 

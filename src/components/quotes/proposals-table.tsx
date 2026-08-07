@@ -136,6 +136,8 @@ export function ProposalsTable({ docs, hasFilters }: { docs: ProposalRow[]; hasF
       setSelected(new Set(failedIds))
       if (failedIds.length > 0) setBulkError(`${failedIds.length} de ${ids.length} no se pudieron eliminar`)
       router.refresh()
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : 'Error al eliminar las propuestas')
     } finally {
       setBulkBusy(null)
     }

@@ -14,6 +14,12 @@ export function QuoteSequenceConfigButton() {
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
   const [isPending, startTransition] = useTransition()
+  // Avanzar el correlativo es irreversible ("no es posible retroceder") —
+  // confirmación in-app en vez de window.confirm (regla de frontend.md, ya
+  // aplicada en document-quick-preview.tsx/proposals-table.tsx de este mismo
+  // plan). Vive dentro de este Modal, así que es un toggle inline, no un
+  // segundo Modal anidado.
+  const [pendingValue, setPendingValue] = useState<number | null>(null)
 
   async function openModal() {
     setOpen(true)
@@ -33,7 +39,13 @@ export function QuoteSequenceConfigButton() {
     const n = Number(value)
     if (!Number.isInteger(n) || n < 1) { setError('Ingresa un número entero positivo.'); return }
     setError('')
-    if (!confirm(`El próximo número de presupuesto será ${n.toLocaleString('es-CL')}. Una vez guardado, no podrás volver a un número anterior. ¿Deseas continuar?`)) return
+    setPendingValue(n)
+  }
+
+  function confirmAdvance() {
+    const n = pendingValue
+    if (n === null) return
+    setPendingValue(null)
     startTransition(async () => {
       const res = await updateQuoteSequenceConfig(n)
       if (!res.success) { setError(res.error); return }
@@ -72,7 +84,7 @@ export function QuoteSequenceConfigButton() {
                 type="number"
                 min={1}
                 value={value}
-                onChange={(e) => { setValue(e.target.value); setSaved(false) }}
+                onChange={(e) => { setValue(e.target.value); setSaved(false); setPendingValue(null) }}
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-lg font-bold outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
               />
             </div>
@@ -86,12 +98,26 @@ export function QuoteSequenceConfigButton() {
             )}
             {error && <p className="text-xs text-red-600">{error}</p>}
             {saved && <p className="text-xs font-semibold text-ok-700">✓ Configuración guardada.</p>}
-            <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
-              <button type="button" onClick={() => setOpen(false)} className={buttonClass('ghost', 'sm')}>Cerrar</button>
-              <button type="button" onClick={submit} disabled={isPending} className={buttonClass('primary', 'sm')}>
-                {isPending ? <Spinner size={13} /> : 'Guardar cambio'}
-              </button>
-            </div>
+            {pendingValue !== null ? (
+              <div className="flex min-h-11 flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                <span className="text-xs font-medium text-red-700">
+                  El próximo número de presupuesto será {pendingValue.toLocaleString('es-CL')}. No podrás volver a un número anterior. ¿Confirmar?
+                </span>
+                <div className="ml-auto flex gap-2">
+                  <button type="button" onClick={() => setPendingValue(null)} className={buttonClass('ghost', 'sm')}>No</button>
+                  <button type="button" onClick={confirmAdvance} disabled={isPending} className={buttonClass('danger', 'sm')}>
+                    {isPending ? <Spinner size={13} /> : 'Sí, confirmar'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+                <button type="button" onClick={() => setOpen(false)} className={buttonClass('ghost', 'sm')}>Cerrar</button>
+                <button type="button" onClick={submit} disabled={isPending} className={buttonClass('primary', 'sm')}>
+                  {isPending ? <Spinner size={13} /> : 'Guardar cambio'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </Modal>
