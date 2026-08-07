@@ -391,11 +391,15 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           </div>
         )}
 
-        {/* ── SUB-TAREAS ──────────────────────────────────────────────── */}
+        {/* ── REQUERIMIENTOS ──────────────────────────────────────────── */}
+        {/* "Requerimientos" cuando el ticket se creó vía el flujo multi-
+            requerimiento (FASE 2); mismo modelo/sección para sub-tareas
+            agregadas después por el cliente (category/comment quedan null
+            en ese caso). */}
         {(ticket.items.length > 0 || canAddItems) && (
           <div className="pcard" style={{ padding: '18px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '0.8px', margin: 0 }}>Trabajos</p>
+              <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', textTransform: 'uppercase', letterSpacing: '0.8px', margin: 0 }}>Requerimientos</p>
               {ticket.items.length > 0 && <span style={{ fontSize: '11px', color: 'var(--t3)', fontWeight: '600' }}>{ticket.items.filter(i => i.status === 'resuelto').length}/{ticket.items.length} listos</span>}
             </div>
             {ticket.items.length > 0 && (
@@ -404,21 +408,29 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
                   <div style={{ height: '100%', borderRadius: '4px', background: acc, width: `${(ticket.items.filter(i => i.status === 'resuelto').length / ticket.items.length) * 100}%`, transition: 'width 0.5s cubic-bezier(0.4,0,0.2,1)' }} />
                 </div>
                 <ul style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: canAddItems ? '14px' : '0' }}>
-                  {ticket.items.map(item => (
-                    <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                      <div style={{ width: '18px', height: '18px', borderRadius: '5px', flexShrink: 0, marginTop: '2px', background: item.status === 'resuelto' ? '#22c55e' : 'var(--bg)', border: item.status === 'resuelto' ? '2px solid #22c55e' : '2px solid var(--bd2)', display: 'grid', placeItems: 'center' }}>
-                        {item.status === 'resuelto' && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5L8.5 2" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: '13px', color: item.status === 'resuelto' ? 'var(--t3)' : 'var(--tx)', fontWeight: '500', textDecoration: item.status === 'resuelto' ? 'line-through' : 'none', lineHeight: '1.4', margin: 0 }}>{item.title}</p>
-                        {item.description && <p style={{ fontSize: '12px', color: 'var(--t3)', margin: '2px 0 0' }}>{item.description}</p>}
-                      </div>
-                    </li>
-                  ))}
+                  {ticket.items.map(item => {
+                    const fileCount = ticket.documents.filter(d => d.itemId === item.id).length
+                    return (
+                      <li key={item.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        <div style={{ width: '18px', height: '18px', borderRadius: '5px', flexShrink: 0, marginTop: '2px', background: item.status === 'resuelto' ? '#22c55e' : 'var(--bg)', border: item.status === 'resuelto' ? '2px solid #22c55e' : '2px solid var(--bd2)', display: 'grid', placeItems: 'center' }}>
+                          {item.status === 'resuelto' && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M1.5 5l2.5 2.5L8.5 2" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <p style={{ fontSize: '13px', color: item.status === 'resuelto' ? 'var(--t3)' : 'var(--tx)', fontWeight: '500', textDecoration: item.status === 'resuelto' ? 'line-through' : 'none', lineHeight: '1.4', margin: 0 }}>
+                            {item.category && <span style={{ marginRight: '6px', padding: '1px 6px', borderRadius: '4px', background: 'var(--bg)', border: '1px solid var(--bd)', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--t3)' }}>{item.category}</span>}
+                            {item.title}
+                          </p>
+                          {item.description && <p style={{ fontSize: '12px', color: 'var(--t3)', margin: '2px 0 0' }}>{item.description}</p>}
+                          {item.comment && <p style={{ fontSize: '12px', color: 'var(--t3)', fontStyle: 'italic', margin: '2px 0 0' }}>&quot;{item.comment}&quot;</p>}
+                          {fileCount > 0 && <p style={{ fontSize: '11px', color: 'var(--t3)', margin: '2px 0 0' }}>📎 {fileCount} archivo{fileCount !== 1 ? 's' : ''}</p>}
+                        </div>
+                      </li>
+                    )
+                  })}
                 </ul>
               </>
             )}
-            {ticket.items.length === 0 && canAddItems && <p style={{ fontSize: '13px', color: 'var(--t3)', margin: '0 0 12px' }}>Sin sub-tareas aún.</p>}
+            {ticket.items.length === 0 && canAddItems && <p style={{ fontSize: '13px', color: 'var(--t3)', margin: '0 0 12px' }}>Sin requerimientos aún.</p>}
             {canAddItems && <PortalTicketActions ticketId={ticket.id} canEdit={false} canAddItems={true} initialTitle={ticket.title} initialDescription={ticket.description ?? ''} initialUrgency={ticket.urgency} primary={acc} />}
           </div>
         )}

@@ -30,7 +30,15 @@ export default async function TecnicoTicketDetail({ params }: { params: Promise<
       },
       documents: {
         orderBy: { uploadedAt: 'desc' },
-        select: { id: true, name: true, fileUrl: true, mimeType: true },
+        select: { id: true, name: true, fileUrl: true, mimeType: true, itemId: true },
+      },
+      // Requerimientos (FASE 2): el técnico ve el detalle de cada problema
+      // reportado (categoría/título/descripción/comentario) para saber qué
+      // hacer -- nunca costos, que ni siquiera vive en este modelo (vive en
+      // Job, fuera de esta query).
+      items: {
+        orderBy: { order: 'asc' },
+        select: { id: true, title: true, description: true, category: true, comment: true, status: true },
       },
     },
   })
@@ -58,6 +66,31 @@ export default async function TecnicoTicketDetail({ params }: { params: Promise<
         </div>
         {ticket.description && <p className="mt-3 whitespace-pre-wrap text-sm text-gray-700">{ticket.description}</p>}
       </div>
+
+      {/* Requerimientos — cuando el ticket agrupa varios problemas (FASE 2),
+          cada uno con su propio detalle. Solo lectura acá; nunca se muestra
+          costo (no existe en este modelo, vive en Job). */}
+      {ticket.items.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-gray-700">Requerimientos ({ticket.items.length})</h3>
+          <ul className="space-y-3">
+            {ticket.items.map(item => {
+              const fileCount = ticket.documents.filter(d => d.itemId === item.id).length
+              return (
+                <li key={item.id} className="text-sm">
+                  <p className="font-medium text-gray-700">
+                    {item.category && <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">{item.category}</span>}
+                    {item.title}
+                  </p>
+                  {item.description && <p className="mt-0.5 text-xs text-gray-500">{item.description}</p>}
+                  {item.comment && <p className="mt-0.5 text-xs italic text-gray-400">&quot;{item.comment}&quot;</p>}
+                  {fileCount > 0 && <p className="mt-0.5 text-xs text-gray-400">📎 {fileCount} archivo{fileCount !== 1 ? 's' : ''}</p>}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* Acciones del técnico: estado permitido + comentario + evidencia + OT */}
       <TecnicoTicketActions

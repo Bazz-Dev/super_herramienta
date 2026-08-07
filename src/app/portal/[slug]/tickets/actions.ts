@@ -9,7 +9,22 @@ import type { TicketUrgency, TicketStatus } from '@/generated/prisma/enums'
 import { ticketCodePrefix, clientTicketPrefix } from '@/lib/tickets/ticket-code'
 import { createTicketWithUniqueCode } from '@/lib/tickets/ticket-code-server'
 
-export async function createPortalTicket(fd: FormData) {
+export type PortalRequirementInput = {
+  category?: string
+  title: string
+  description?: string
+  comment?: string
+  files: { key: string; name: string; mimeType: string }[]
+}
+
+export async function createPortalTicket(input: {
+  clientId: string
+  createdById?: string
+  branchId?: string
+  urgency: string
+  processFlow: string
+  requirements: PortalRequirementInput[]
+}) {
   const session = await auth()
   const role = session?.user?.role
   const isStaff = role === 'super' || role === 'supervisor'
@@ -17,19 +32,27 @@ export async function createPortalTicket(fd: FormData) {
   const isClientAdmin = session?.user?.isClientAdmin ?? false
   if (!session?.user || (!isStaff && !isClient)) return { success: false }
 
-  const clientId      = String(fd.get('clientId') ?? '')
-  const createdById   = String(fd.get('createdById') ?? session.user.id)
-  const branchId      = String(fd.get('branchId') ?? '') || (session.user.branchId ?? undefined)
-  const urgency       = String(fd.get('urgency') ?? 'no_urgente')
-  const processFlowRaw = String(fd.get('processFlow') ?? '')
-  const processFlow = processFlowRaw === 'pre_quote' || processFlowRaw === 'post_execution' ? processFlowRaw : null
+  const clientId    = input.clientId
+  const createdById = input.createdById ?? session.user.id
+  const branchId    = input.branchId || (session.user.branchId ?? undefined)
+  const urgency     = input.urgency
+  const processFlow = input.processFlow === 'pre_quote' || input.processFlow === 'post_execution' ? input.processFlow : null
   if (!processFlow) return { success: false }
-  const category      = String(fd.get('category') ?? '') || undefined
-  const title         = String(fd.get('title') ?? '').trim()
-  const description   = String(fd.get('description') ?? '') || undefined
-  const clientComment = String(fd.get('clientComment') ?? '') || undefined
 
-  if (!title || !clientId) return { success: false }
+  // FASE 2 (múltiples requerimientos): el ticket es el contenedor -- sucursal/
+  // urgencia/modalidad se ingresan una sola vez; cada problema reportado es su
+  // propio TicketItem (categoría/título/descripción/comentario/archivos
+  // propios). "No enviar sin al menos un requerimiento" -- ver brief.
+  const requirements = (input.requirements ?? [])
+    .map(r => ({
+      category: r.category?.trim() || undefined,
+      title: r.title.trim(),
+      description: r.description?.trim() || undefined,
+      comment: r.comment?.trim() || undefined,
+      files: r.files ?? [],
+    }))
+    .filter(r => r.title)
+  if (requirements.length === 0 || !clientId) return { success: false }
 
   // Client: must match their own clientId
   if (isClient && session.user.clientId !== clientId) return { success: false }
@@ -63,9 +86,20 @@ export async function createPortalTicket(fd: FormData) {
   const isBranchUser = isClient && !isClientAdmin
   const ticketStatus = isBranchUser ? 'pendiente_aprobacion' : 'nuevo'
 
-  const uploadedFiles = JSON.parse(String(fd.get('uploadedFiles') ?? '[]')) as {
-    key: string; name: string; mimeType: string
-  }[]
+  // Ticket.title/description/category/clientComment siguen existiendo (todo
+  // el resto de la app -- listas, notificaciones, búsqueda -- los lee
+  // directo) y quedan como una vista plana de compatibilidad: para un solo
+  // requerimiento son exactamente los mismos datos que antes (ticket
+  // "clásico" de un solo requerimiento sigue funcionando igual); para varios,
+  // el título resume todos y el resto queda en cada TicketItem, la fuente de
+  // verdad real del desglose.
+  const first = requirements[0]
+  const title = requirements.length === 1
+    ? first.title
+    : `${requirements.length} requerimientos: ${requirements.map(r => r.title).join(' · ')}`
+  const description   = requirements.length === 1 ? first.description : undefined
+  const category       = requirements.length === 1 ? first.category : undefined
+  const clientComment = requirements.length === 1 ? first.comment : undefined
 
   // Guardia de doble-envío: el único freno que existía era disabled={isPending}
   // en el cliente, que no cubre un doble-tap real antes de que React re-renderice,
@@ -106,16 +140,35 @@ export async function createPortalTicket(fd: FormData) {
     }),
   )
 
-  if (uploadedFiles.length > 0) {
-    await prisma.ticketDocument.createMany({
-      data: uploadedFiles.map(f => ({
+  // Un TicketItem por requerimiento -- incluso cuando hay uno solo, para que
+  // el desglose estructurado exista siempre en tickets nuevos (los tickets
+  // históricos de antes de esta fase simplemente tienen items.length === 0,
+  // y toda vista que los renderiza ya cae de vuelta a los campos planos de
+  // arriba -- compatibilidad sin migrar nada).
+  for (let i = 0; i < requirements.length; i++) {
+    const r = requirements[i]
+    const item = await prisma.ticketItem.create({
+      data: {
         ticketId: ticket.id,
-        uploadedById: createdById,
-        name: f.name,
-        fileUrl: f.key,
-        mimeType: f.mimeType,
-      })),
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        comment: r.comment,
+        order: i,
+      },
     })
+    if (r.files.length > 0) {
+      await prisma.ticketDocument.createMany({
+        data: r.files.map(f => ({
+          ticketId: ticket.id,
+          itemId: item.id,
+          uploadedById: createdById,
+          name: f.name,
+          fileUrl: f.key,
+          mimeType: f.mimeType,
+        })),
+      })
+    }
   }
 
   await prisma.ticketHistory.create({

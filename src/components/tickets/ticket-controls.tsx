@@ -10,8 +10,8 @@ import { uploadDirect } from '@/lib/upload-direct'
 import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
 import { FilePreviewButton } from '@/components/ui/file-preview-modal'
 
-type Item    = { id: string; title: string; status: string; description: string | null }
-type Doc     = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date }
+type Item    = { id: string; title: string; status: string; description: string | null; category: string | null; comment: string | null }
+type Doc     = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date; itemId?: string | null }
 type Informe = { id: string; title: string; createdAt: string }
 
 interface Props {
@@ -346,26 +346,38 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         </div>
       </div>
 
-      {/* Items */}
+      {/* Items — "requerimientos" cuando el ticket se creó vía el flujo
+          multi-requerimiento del portal (FASE 2), o sub-tareas agregadas
+          después por el cliente. Mismo modelo, category/comment quedan null
+          en el segundo caso. */}
       {ticket.items.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <h3 className="mb-3 text-sm font-semibold text-gray-700">
-            Ítems de trabajo
+            Requerimientos
             <span className="ml-2 text-xs text-gray-400">
               {ticket.items.filter(i => i.status === 'resuelto').length}/{ticket.items.length} resueltos
             </span>
           </h3>
-          <ul className="space-y-2">
-            {ticket.items.map((item) => (
-              <li key={item.id} className="flex items-start gap-2 text-sm">
-                <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border ${item.status === 'resuelto' ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300'} flex items-center justify-center text-[10px]`}>
-                  {item.status === 'resuelto' && '✓'}
-                </span>
-                <span className={item.status === 'resuelto' ? 'line-through text-gray-400' : 'text-gray-700'}>
-                  {item.title}
-                </span>
-              </li>
-            ))}
+          <ul className="space-y-3">
+            {ticket.items.map((item) => {
+              const fileCount = ticket.documents.filter(d => d.itemId === item.id).length
+              return (
+                <li key={item.id} className="flex items-start gap-2 text-sm">
+                  <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border ${item.status === 'resuelto' ? 'border-green-500 bg-green-500 text-white' : 'border-gray-300'} flex items-center justify-center text-[10px]`}>
+                    {item.status === 'resuelto' && '✓'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className={item.status === 'resuelto' ? 'line-through text-gray-400' : 'text-gray-700'}>
+                      {item.category && <span className="mr-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500">{item.category}</span>}
+                      {item.title}
+                    </span>
+                    {item.description && <p className="mt-0.5 text-xs text-gray-500">{item.description}</p>}
+                    {item.comment && <p className="mt-0.5 text-xs italic text-gray-400">&quot;{item.comment}&quot;</p>}
+                    {fileCount > 0 && <p className="mt-0.5 text-xs text-gray-400">📎 {fileCount} archivo{fileCount !== 1 ? 's' : ''}</p>}
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}

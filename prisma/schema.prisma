@@ -826,8 +826,16 @@ model TicketItem {
   status      ItemStatus @default(pendiente)
   order       Int        @default(0)
   createdAt   DateTime   @default(now())
+  // Portal: "requerimientos" — cuando un ticket agrupa varios problemas de una
+  // misma sucursal, cada uno es su propio TicketItem (mismo modelo que ya
+  // usaban las sub-tareas post-creación, extendido en vez de duplicado).
+  // Ambos nullable: tickets/items históricos (pre-fase-2) y sub-tareas
+  // agregadas después por el cliente vía addPortalTicketItem no los traen.
+  category    String?
+  comment     String?    // "Comentario adicional" del cliente, separado de description
 
-  ticket      Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticket      Ticket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  documents   TicketDocument[]
 
   @@index([ticketId])
   @@map("ticket_items")
@@ -841,11 +849,17 @@ model TicketDocument {
   fileUrl      String
   mimeType     String?
   uploadedAt   DateTime @default(now())
+  // Requerimiento (TicketItem) al que pertenece este archivo, cuando el
+  // ticket fue creado con el flujo multi-requerimiento -- null para todo lo
+  // demás (fotos/OT/otros documentos a nivel de ticket, igual que hoy).
+  itemId       String?
 
-  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  uploadedBy   User?    @relation(fields: [uploadedById], references: [id])
+  ticket       Ticket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  uploadedBy   User?       @relation(fields: [uploadedById], references: [id])
+  item         TicketItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   @@index([ticketId])
+  @@index([itemId])
   @@map("ticket_documents")
 }
 
