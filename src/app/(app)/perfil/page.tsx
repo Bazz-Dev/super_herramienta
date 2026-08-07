@@ -1,6 +1,7 @@
 import { requireActor } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { ProfileForm } from './profile-form'
+import { NotificationPreferencesForm } from '@/components/ui/notification-preferences-form'
 
 const ROLE_LABELS: Record<string, string> = {
   super: 'Super Admin',
@@ -45,6 +46,8 @@ export default async function PerfilPage() {
         username={user.username ?? ''}
         email={user.email}
       />
+
+      <NotificationPreferencesForm />
     </div>
   )
 }

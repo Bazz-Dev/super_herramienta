@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { signOut } from 'next-auth/react'
 import { PortalPushPrompt } from './portal-push-prompt'
+import { PortalNotificationBell } from './portal-notification-bell'
 
 interface Props {
   slug: string
@@ -259,7 +260,10 @@ export function PortalShell({
               )}
             </div>
           </div>
-          {topbarRight && <div style={{ flexShrink: 0 }}>{topbarRight}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <PortalNotificationBell primary={primary} cardBg={cardBg} textColor={textColor} />
+            {topbarRight}
+          </div>
         </header>
 
         {/* Page */}

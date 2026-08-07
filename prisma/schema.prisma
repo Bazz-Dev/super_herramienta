@@ -226,6 +226,7 @@ model User {
   ticketHistory     TicketHistory[]
   ticketDocuments   TicketDocument[]
   notifications     Notification[]
+  notificationPreference NotificationPreference?
   pushSubscriptions PushSubscription[]
   expensesApproved  Expense[]
   clientDocuments   ClientDocument[]
@@ -258,6 +259,26 @@ model Notification {
   @@index([userId, read])
   @@index([tenantId])
   @@map("notifications")
+}
+
+// FASE 6 del brief (centro de notificaciones configurable): preferencias por
+// usuario, no por empresa -- una fila por usuario, creada perezosamente (sin
+// fila = todos los valores por defecto de src/lib/notifications/events.ts
+// aplican). `overrides` guarda solo las entradas que el usuario cambió
+// respecto al default (JSON: { [eventKey]: boolean }), mismo patrón ya usado
+// en el resto del schema para blobs chicos (ClientDocument.metadata, etc.)
+// -- no se necesita una tabla con una fila por evento para esto.
+model NotificationPreference {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  allEnabled Boolean  @default(true) // apagado acá anula todo lo demás (in-app + push)
+  overrides  String   @default("{}")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
 }
 
 model PushSubscription {

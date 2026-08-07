@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
-import { notifyTenantStaff, sendPushToUser } from '@/lib/push'
+import { publishNotification, publishToTenantStaff } from '@/lib/notifications/service'
 import { ticketFolderKey } from '@/lib/r2'
 import type { TicketUrgency, TicketStatus } from '@/generated/prisma/enums'
 import { ticketCodePrefix, clientTicketPrefix } from '@/lib/tickets/ticket-code'
@@ -194,15 +194,14 @@ export async function createPortalTicket(input: {
       select: { id: true },
     })
     if (clientAdmin) {
-      await sendPushToUser(clientAdmin.id, {
+      await publishNotification(clientAdmin.id, client.tenantId, 'client_branch_request_pending', {
         title: `Nueva solicitud de ${branch?.name ?? 'sucursal'} — revisar`,
         body: `${urgencyLabel[urgency] ?? urgency}: ${title}`,
         href: `/portal/${client.portalSlug ?? 'portal'}/tickets/${ticket.id}`,
       }).catch(() => {})
     }
   } else {
-    await notifyTenantStaff(client.tenantId, {
-      type: 'ticket_new',
+    await publishToTenantStaff(client.tenantId, 'admin_ticket_new', {
       title: `Nuevo ticket — ${client.name}`,
       body: `${urgencyLabel[urgency] ?? urgency}: ${title}${branch ? ` · ${branch.name}` : ''}`,
       href: `/tickets/${ticket.id}`,
@@ -251,14 +250,13 @@ export async function approvePortalTicket(ticketId: string, decision: 'approve' 
   })
 
   if (decision === 'approve') {
-    await notifyTenantStaff(ticket.tenantId, {
-      type: 'ticket_new',
+    await publishToTenantStaff(ticket.tenantId, 'admin_ticket_new', {
       title: `Ticket aprobado — pendiente asignación`,
       body: `${ticket.title}${ticket.branch?.name ? ` · ${ticket.branch.name}` : ''}`,
       href: `/tickets/${ticketId}`,
     }).catch(() => {})
   } else if (ticket.createdById) {
-    await sendPushToUser(ticket.createdById, {
+    await publishNotification(ticket.createdById, ticket.tenantId, 'client_ticket_cancelled', {
       title: 'Solicitud no aprobada',
       body: `"${ticket.title}"${reason ? ` — ${reason}` : ''}`,
       href: `/portal/${ticket.client?.portalSlug ?? 'portal'}/tickets/${ticketId}`,
@@ -401,8 +399,7 @@ export async function addPortalComment(
   const body = trimmed
     ? `${session.user.name ?? 'Cliente'}: ${trimmed.length > 80 ? trimmed.slice(0, 80) + '…' : trimmed}`
     : `${session.user.name ?? 'Cliente'} adjuntó ${files!.length} archivo(s)`
-  await notifyTenantStaff(ticket.tenantId, {
-    type: 'ticket_comment',
+  await publishToTenantStaff(ticket.tenantId, 'admin_ticket_comment', {
     title: `Comentario en ticket`,
     body,
     href: `/tickets/${ticketId}`,
@@ -459,8 +456,7 @@ export async function mergeTickets(parentId: string, childIds: string[]) {
     ]),
   ))
 
-  await notifyTenantStaff(parent.tenantId, {
-    type: 'ticket_update',
+  await publishToTenantStaff(parent.tenantId, 'admin_ticket_merge', {
     title: `${children.length} ticket(s) fusionados`,
     body: `El cliente fusionó ${children.length} ticket(s) en ${parent.ticketCode}`,
     href: `/tickets/${parentId}`,
@@ -516,8 +512,7 @@ export async function unmergeTicket(childId: string) {
     }),
   ])
 
-  await notifyTenantStaff(ticket.tenantId, {
-    type: 'ticket_update',
+  await publishToTenantStaff(ticket.tenantId, 'admin_ticket_merge', {
     title: 'Ticket desfusionado',
     body: 'El cliente deshizo una fusión de tickets',
     href: `/tickets/${childId}`,
