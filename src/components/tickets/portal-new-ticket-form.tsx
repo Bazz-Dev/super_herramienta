@@ -227,7 +227,7 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
             <span style={{ fontSize: '14px', fontWeight: '600', color: textColor }}>{lockedBranch.name}{lockedBranch.city ? ` — ${lockedBranch.city}` : ''}</span>
           </div>
         ) : (
-          <select value={branchId} onChange={e => setBranchId(e.target.value)} required style={inp} onFocus={focusStyle} onBlur={blurStyle}>
+          <select name="branchId" value={branchId} onChange={e => setBranchId(e.target.value)} required style={inp} onFocus={focusStyle} onBlur={blurStyle}>
             <option value="">Selecciona la sucursal afectada…</option>
             {branches.map(b => (
               <option key={b.id} value={b.id}>{b.name}{b.city ? ` — ${b.city}` : ''}</option>
@@ -302,13 +302,13 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
                 {confirmDeleteKey === r.key ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                     <span style={{ fontSize: '11px', color: '#b91c1c', fontWeight: '600' }}>¿Eliminar?</span>
-                    <button type="button" onClick={() => setConfirmDeleteKey(null)} style={{ padding: '5px 10px', borderRadius: '7px', border: `1px solid ${BORDER}`, background: 'transparent', fontSize: '11px', cursor: 'pointer', color: T2 }}>No</button>
-                    <button type="button" onClick={() => deleteRequirement(r.key)} style={{ padding: '5px 10px', borderRadius: '7px', border: 'none', background: '#dc2626', color: '#fff', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Sí, eliminar</button>
+                    <button type="button" onClick={() => setConfirmDeleteKey(null)} style={{ minHeight: '44px', padding: '5px 10px', borderRadius: '7px', border: `1px solid ${BORDER}`, background: 'transparent', fontSize: '11px', cursor: 'pointer', color: T2 }}>No</button>
+                    <button type="button" onClick={() => deleteRequirement(r.key)} style={{ minHeight: '44px', padding: '5px 10px', borderRadius: '7px', border: 'none', background: '#dc2626', color: '#fff', fontSize: '11px', fontWeight: '600', cursor: 'pointer' }}>Sí, eliminar</button>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                    <button type="button" onClick={() => editRequirement(r.key)} style={{ padding: '5px 10px', borderRadius: '7px', border: `1px solid ${BORDER}`, background: 'transparent', fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: T2 }}>Editar</button>
-                    <button type="button" onClick={() => setConfirmDeleteKey(r.key)} style={{ padding: '5px 10px', borderRadius: '7px', border: `1px solid ${BORDER}`, background: 'transparent', fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: '#b91c1c' }}>Eliminar</button>
+                    <button type="button" onClick={() => editRequirement(r.key)} style={{ minHeight: '44px', padding: '5px 10px', borderRadius: '7px', border: `1px solid ${BORDER}`, background: 'transparent', fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: T2 }}>Editar</button>
+                    <button type="button" onClick={() => setConfirmDeleteKey(r.key)} style={{ minHeight: '44px', padding: '5px 10px', borderRadius: '7px', border: `1px solid ${BORDER}`, background: 'transparent', fontSize: '11px', fontWeight: '600', cursor: 'pointer', color: '#b91c1c' }}>Eliminar</button>
                   </div>
                 )}
               </div>
@@ -334,7 +334,7 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
 
           <div>
             {label('Título del requerimiento', true)}
-            <input type="text" value={draft.title} onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
+            <input type="text" name="title" value={draft.title} onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
               placeholder="Ej: Aire acondicionado no enfría en tienda 3"
               style={inp} onFocus={focusStyle} onBlur={blurStyle} />
             <p style={{ fontSize: '11px', color: T3, marginTop: '5px' }}>Sé específico: equipo afectado + síntoma + ubicación.</p>

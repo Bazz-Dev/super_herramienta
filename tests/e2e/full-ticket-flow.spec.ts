@@ -46,7 +46,13 @@ test.describe.serial('flujo integral de tickets', () => {
       if (v) await branchSelect.selectOption(v)
     }
     await page.locator('input[name="title"]').fill(TITLE)
-    await page.getByRole('button', { name: /Enviar solicitud/i }).click()
+    // FASE 2 (multi-requerimiento): guardar el requerimiento único, cerrar
+    // el modal de confirmación, y recién ahí enviar el ticket completo. Con
+    // un solo requerimiento, Ticket.title queda igual a TITLE verbatim
+    // (misma compatibilidad hacia atrás que ya prueba este mismo archivo).
+    await page.getByRole('button', { name: /^Guardar requerimiento$/i }).click()
+    await page.getByRole('button', { name: /Revisar y enviar ticket/i }).click()
+    await page.getByRole('button', { name: /Confirmar y enviar ticket/i }).click()
     await expect(page).toHaveURL(/\/portal\/justburger\/tickets/, { timeout: 20000 })
   })
 

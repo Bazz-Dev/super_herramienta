@@ -103,7 +103,7 @@ export function PortalBranchesManager({ clientId, branches, primary }: { clientI
                       <button
                         type="button"
                         onClick={() => { setConfirmDeleteId(b.id); setDeleteError(null) }}
-                        style={{ minHeight: 36, padding: '0 10px', fontSize: 10, fontWeight: 700, color: '#b91c1c', background: 'none', border: 'none', cursor: 'pointer' }}
+                        style={{ minHeight: 44, padding: '0 10px', fontSize: 10, fontWeight: 700, color: '#b91c1c', background: 'none', border: 'none', cursor: 'pointer' }}
                       >
                         Eliminar
                       </button>
@@ -127,8 +127,8 @@ export function PortalBranchesManager({ clientId, branches, primary }: { clientI
                 {confirmDeleteId === b.id && (
                   <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', padding: '8px 10px' }}>
                     <span style={{ fontSize: 12, color: '#b91c1c', fontWeight: 600, flex: 1 }}>¿Eliminar &quot;{b.name}&quot; definitivamente? No se puede deshacer.</span>
-                    <button type="button" onClick={() => setConfirmDeleteId(null)} style={{ minHeight: 32, padding: '0 10px', fontSize: 11, fontWeight: 600, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>No</button>
-                    <button type="button" onClick={() => doDelete(b.id)} disabled={deletingId === b.id} style={{ minHeight: 32, padding: '0 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: '#fff', background: '#dc2626', border: 'none', cursor: 'pointer' }}>
+                    <button type="button" onClick={() => setConfirmDeleteId(null)} style={{ minHeight: 44, padding: '0 10px', fontSize: 11, fontWeight: 600, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>No</button>
+                    <button type="button" onClick={() => doDelete(b.id)} disabled={deletingId === b.id} style={{ minHeight: 44, padding: '0 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: '#fff', background: '#dc2626', border: 'none', cursor: 'pointer' }}>
                       {deletingId === b.id ? 'Eliminando…' : 'Sí, eliminar'}
                     </button>
                   </div>

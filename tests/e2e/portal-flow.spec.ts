@@ -162,8 +162,9 @@ test('portal tickets: new ticket form accessible', async ({ page }) => {
   // Urgency radio buttons (name="urgency")
   await expect(page.locator('input[name="urgency"]').first()).toBeVisible()
 
-  // Submit button
-  await expect(page.getByRole('button', { name: /Enviar solicitud/i })).toBeVisible()
+  // FASE 2 (multi-requerimiento): ya no hay un botón único de envío -- cada
+  // problema se guarda como su propio requerimiento primero.
+  await expect(page.getByRole('button', { name: /Guardar requerimiento/i })).toBeVisible()
 })
 
 // ---------------------------------------------------------------------------
@@ -189,8 +190,11 @@ test('portal tickets: create a ticket', async ({ page }) => {
   const title = `Test portal ${Date.now()}`
   await page.locator('input[name="title"]').fill(title)
 
-  // Submit
-  await page.getByRole('button', { name: /Enviar solicitud/i }).click()
+  // FASE 2 (multi-requerimiento): guardar el requerimiento único, cerrar el
+  // modal de confirmación, y recién ahí enviar el ticket completo.
+  await page.getByRole('button', { name: /^Guardar requerimiento$/i }).click()
+  await page.getByRole('button', { name: /Revisar y enviar ticket/i }).click()
+  await page.getByRole('button', { name: /Confirmar y enviar ticket/i }).click()
 
   // After creation the router pushes to the ticket detail or ticket list.
   // Accept either URL pattern.
