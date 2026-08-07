@@ -14,6 +14,7 @@ import { PortalTicketActions } from '@/components/tickets/portal-ticket-actions'
 import { PortalApprovalActions } from '@/components/tickets/portal-approval-actions'
 import { PortalUnmergeButton } from '@/components/tickets/portal-unmerge-button'
 import { PortalInformeBtn } from '@/components/tickets/portal-informe-btn'
+import { PortalDocumentPreview } from '@/components/tickets/portal-document-preview'
 import { PhotoGallery } from '@/components/tickets/photo-gallery'
 import { resolvePortalTheme } from '@/lib/portal-theme'
 import {
@@ -193,7 +194,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   // Pre-sign document URLs (1h expiry) + informes técnicos vinculados (FK real,
   // ver G2) + tickets fusionados en este (parentTicketId, sin @relation
   // declarada) — ninguna depende de otra, antes se esperaban en serie.
-  const [signedDocs, linkedInformes, mergedChildren] = await Promise.all([
+  const [signedDocs, linkedInformes, mergedChildren, otViewUrl] = await Promise.all([
     Promise.all(
       ticket.documents.map(async (doc) => ({
         ...doc,
@@ -210,6 +211,7 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
       select: { id: true, ticketCode: true, title: true },
       orderBy: { ticketCode: 'asc' },
     }),
+    ticket.otFileUrl ? (isR2Key(ticket.otFileUrl) ? getPresignedUrl(ticket.otFileUrl, 3600) : Promise.resolve(ticket.otFileUrl)) : Promise.resolve(null),
   ])
 
   const theme = resolvePortalTheme(client.portalTheme)
@@ -539,27 +541,43 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
           </div>
         )}
 
-        {/* ── ARCHIVOS ADJUNTOS ───────────────────────────────────────── */}
-        {fileDocs.length > 0 && (
+        {/* ── ORDEN DE TRABAJO (OT) ───────────────────────────────────── */}
+        {/* Sigue disponible aunque la sucursal quede inactiva más adelante —
+            esta sección lee directo del ticket ya cerrado, no depende de que
+            la sucursal siga activa hoy. */}
+        {ticket.otNumber || otViewUrl ? (
           <div className="pcard" style={{ padding: '18px 20px' }}>
             <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-              Archivos <span style={{ marginLeft: '5px', fontSize: '10px', color: 'var(--t3)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '10px', padding: '1px 7px' }}>{fileDocs.length}</span>
+              Orden de trabajo
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {fileDocs.map(doc => (
-                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg)', borderRadius: 'var(--r)', gap: '10px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
-                    <span style={{ fontSize: '18px', flexShrink: 0 }}>{fileIcon(doc.mimeType, doc.name)}</span>
-                    <span style={{ fontSize: '13px', color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
-                  </div>
-                  <a href={doc.viewUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: '12px', fontWeight: '600', color: acc, textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    Ver <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke={acc} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9L9 3M9 3H5M9 3v4"/></svg>
-                  </a>
-                </div>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {ticket.otNumber && (
+                  <span style={{ fontSize: '12px', color: 'var(--tx)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '8px', padding: '4px 10px', fontWeight: 600 }}>
+                    N° {ticket.otNumber}
+                  </span>
+                )}
+                {ticket.assignedTo?.name && (
+                  <span style={{ fontSize: '12px', color: 'var(--t2)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '8px', padding: '4px 10px' }}>
+                    {ticket.assignedTo.name}
+                  </span>
+                )}
+                {ticket.closedDate && (
+                  <span style={{ fontSize: '12px', color: 'var(--t2)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '8px', padding: '4px 10px' }}>
+                    Cerrada el {new Date(ticket.closedDate).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+                {!otViewUrl && (
+                  <span style={{ fontSize: '12px', color: 'var(--t3)', fontStyle: 'italic' }}>Sin documento escaneado todavía</span>
+                )}
+              </div>
+              {otViewUrl && (
+                <PortalDocumentPreview url={otViewUrl} name={`OT_${ticket.otNumber ?? ticket.ticketCode}.pdf`} accent={acc}
+                  label={<span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '7px 14px', borderRadius: '8px', border: `1px solid color-mix(in srgb, ${acc} 30%, transparent)` }}>Ver OT</span>} />
+              )}
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* ── INFORMES TÉCNICOS ───────────────────────────────────────── */}
         {linkedInformes.length > 0 && (
@@ -571,6 +589,29 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
               {linkedInformes.map(inf => (
                 <PortalInformeBtn key={inf.id} docId={inf.id} title={inf.title} primary={acc}
                   date={new Date(inf.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── OTROS DOCUMENTOS ────────────────────────────────────────── */}
+        {fileDocs.length > 0 && (
+          <div className="pcard" style={{ padding: '18px 20px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: 'var(--t2)', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+              Otros documentos <span style={{ marginLeft: '5px', fontSize: '10px', color: 'var(--t3)', background: 'var(--bg)', border: '1px solid var(--bd)', borderRadius: '10px', padding: '1px 7px' }}>{fileDocs.length}</span>
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {fileDocs.map(doc => (
+                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg)', borderRadius: 'var(--r)', gap: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                    <span style={{ fontSize: '18px', flexShrink: 0 }}>{fileIcon(doc.mimeType, doc.name)}</span>
+                    <span style={{ fontSize: '13px', color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
+                  </div>
+                  {/* Preview in-app para PDF/imagen (formatos soportados); el resto
+                      cae al mismo componente, que ofrece descarga segura vía blob
+                      cuando no hay preview posible para ese tipo. */}
+                  <PortalDocumentPreview url={doc.viewUrl} name={doc.name} accent={acc} />
+                </div>
               ))}
             </div>
           </div>
