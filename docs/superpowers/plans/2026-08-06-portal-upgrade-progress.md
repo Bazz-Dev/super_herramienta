@@ -62,11 +62,21 @@ Added optional `branchId` param, same shape as `getClientTickets()`. Purely addi
 
 **Commit for P0.1–P0.5: `a9c4f48`** — `npx tsc --noEmit`, `npm run lint`, `npm run test:unit` (271/271), `npm run build` all clean at this checkpoint. Also smoke-tested the real portal ticket-detail page (`getClientTicket`'s signature changed) end-to-end via the headless session — `200`, no regression.
 
-### Remaining P0 items (not started)
+### P0.6 — Full P0 gate: DONE
 
-- P0.6: Full P0 gate — live walkthrough of the 5 listed P0 test scenarios from the brief specifically (valid PDF ✅ already covered above; missing/corrupt PDF ✅ covered via the legacy-informe 422 case above; historical report — not yet specifically exercised; unauthorized user ✅ covered via the cross-client 404 case; storage/access failure — not yet specifically exercised, e.g. an R2 key that 404s mid-render).
-- P0 close-out: check real Vercel runtime logs for `/api/reports/generate`/`/api/quotes/generate` failure patterns (per `testing.md`'s rule to confirm root cause against real prod evidence, not just local reasoning) — Vercel MCP token was expired earlier this session, needs re-authorization.
-- Backlog B1/B2 (see above) remain open, not blocking.
+All 5 test scenarios from the brief live-verified against local `dev.db`:
+1. Valid PDF → `200`, real `%PDF` bytes (own informe).
+2. Missing/corrupt PDF → legacy informe with incomplete `dataJson` → `422`, not a `500` crash.
+3. Historical report → a real ~3-month-old informe (`260519-JB-PR-78`) → `200`, real PDF.
+4. Unauthorized user → cross-client informe request → `404`.
+5. Storage/access failure → created a throwaway informe with a photo pointing at a nonexistent R2 key, requested it → `200` (graceful degrade, PDF still generated), **and confirmed the new logging actually fired**: `[reports/pdf] No se pudo bajar la imagen de R2 (key=...): NoSuchKey: The specified key does not exist.` in the dev server log. Throwaway document deleted after.
+
+**P0 GATE: PASSED.** Proceeding to P1.
+
+### Not done, explicitly deferred (documented, not blocking)
+
+- Real Vercel runtime-log check for `/api/reports/generate`/`/api/quotes/generate` failure patterns (per `testing.md`'s rule to confirm root cause against real prod evidence) — Vercel MCP token expired, tried again, still expired. Needs the owner to re-authorize the Vercel plugin; not re-attempted a third time to avoid spinning on it. The local root-cause finding (the `{data:...}` wrapping bug) is deterministic and 100%-reproducing by construction — it doesn't actually need prod log confirmation to be certain, unlike a heisenbug would. This deferral is about the *separate* question of whether prod has additional intermittent Chromium cold-start failures on top of the fixed bug — worth checking once the token is live again, not urgent.
+- Backlog B1 (specific client-facing error message for structurally-incomplete informes) / B2 (count of real Turso-prod rows that would 422 under the new strict check) remain open, not blocking.
 
 ## P1–P5: NOT STARTED
 
