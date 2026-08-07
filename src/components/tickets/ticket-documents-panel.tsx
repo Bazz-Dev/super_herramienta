@@ -78,17 +78,17 @@ export function TicketDocumentsPanel({
         )}
         {photos.length > 0 && (
           <DocGroup title={`Fotografías (${photos.length})`}>
-            {photos.map(d => <FileRow key={d.id} name={d.name} fileUrl={d.fileUrl} origin={originOf(d.uploadedBy?.role)} />)}
+            {photos.map(d => <FileRow key={d.id} name={d.name} fileUrl={d.fileUrl} mimeType={d.mimeType} origin={originOf(d.uploadedBy?.role)} />)}
           </DocGroup>
         )}
         {videos.length > 0 && (
           <DocGroup title={`Videos (${videos.length})`}>
-            {videos.map(d => <FileRow key={d.id} name={d.name} fileUrl={d.fileUrl} origin={originOf(d.uploadedBy?.role)} />)}
+            {videos.map(d => <FileRow key={d.id} name={d.name} fileUrl={d.fileUrl} mimeType={d.mimeType} origin={originOf(d.uploadedBy?.role)} />)}
           </DocGroup>
         )}
         {others.length > 0 && (
           <DocGroup title={`Otros (${others.length})`}>
-            {others.map(d => <FileRow key={d.id} name={d.name} fileUrl={d.fileUrl} origin={originOf(d.uploadedBy?.role)} />)}
+            {others.map(d => <FileRow key={d.id} name={d.name} fileUrl={d.fileUrl} mimeType={d.mimeType} origin={originOf(d.uploadedBy?.role)} />)}
           </DocGroup>
         )}
         {propuestas.length > 0 && (
@@ -148,11 +148,11 @@ function DocGroup({ title, children }: { title: string; children: React.ReactNod
   )
 }
 
-function FileRow({ name, fileUrl, origin }: { name: string; fileUrl: string; origin?: string }) {
+function FileRow({ name, fileUrl, mimeType, origin }: { name: string; fileUrl: string; mimeType?: string | null; origin?: string }) {
   return (
     <div className="flex items-center justify-between gap-2 text-xs">
       <span className="truncate text-gray-600">{name}{origin && <span className="ml-1.5 text-gray-400">· {origin}</span>}</span>
-      <FilePreviewButton fileUrl={fileUrl} type="ticket" name={name} className="shrink-0 text-xs font-semibold text-brand hover:underline" />
+      <FilePreviewButton fileUrl={fileUrl} type="ticket" name={name} mimeType={mimeType} className="shrink-0 text-xs font-semibold text-brand hover:underline" />
     </div>
   )
 }

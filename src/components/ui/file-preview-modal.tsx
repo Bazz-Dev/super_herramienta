@@ -8,10 +8,21 @@ import { EmptyState } from './empty-state'
 export type FileEntityType = 'ticket' | 'technician' | 'company'
 export type FilePreviewMeta = { label: string; value: string }
 
-function guessKind(nameOrKey: string): 'pdf' | 'image' | 'other' {
+// mimeType (cuando el caller la tiene, ej. TicketDocument.mimeType) manda
+// sobre adivinar por extensión -- la key/nombre real en R2 no siempre trae
+// una extensión reconocible o correcta (bug real reportado: el preview
+// fallaba con PDFs/imágenes/videos porque dependía 100% de la extensión del
+// archivo). La extensión queda como fallback para callers que aún no pasan
+// mimeType (técnicos/empresa). Video es un kind nuevo -- antes cualquier
+// video caía a 'other' y nunca se pudo reproducir en este modal en absoluto.
+function guessKind(nameOrKey: string, mimeType?: string | null): 'pdf' | 'image' | 'video' | 'other' {
+  if (mimeType?.startsWith('image/')) return 'image'
+  if (mimeType?.startsWith('video/')) return 'video'
+  if (mimeType === 'application/pdf') return 'pdf'
   const ext = nameOrKey.split('.').pop()?.toLowerCase() ?? ''
   if (ext === 'pdf') return 'pdf'
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'heif'].includes(ext)) return 'image'
+  if (['mp4', 'mov', 'webm', 'avi', 'mkv'].includes(ext)) return 'video'
   return 'other'
 }
 
@@ -34,12 +45,15 @@ export function resolveFileSrc(fileUrl: string, type: FileEntityType): string {
  * route "Ver" through this instead of a bespoke modal or a raw <a target=_blank>.
  */
 export function FilePreviewButton({
-  fileUrl, type, name, meta = [], label = 'Ver', className,
+  fileUrl, type, name, mimeType, meta = [], label = 'Ver', className,
 }: {
   fileUrl: string
   type: FileEntityType
   /** Display name — defaults to the last path segment of fileUrl. */
   name?: string
+  /** MIME real del documento (TicketDocument.mimeType, etc.) — cuando está
+   * disponible, decide el tipo de preview en vez de adivinar por extensión. */
+  mimeType?: string | null
   /** Rows shown above the preview: categoría, dueño/entidad, fechas, etc. */
   meta?: FilePreviewMeta[]
   /** Trigger content — texto por defecto, pero acepta un ícono (ver conciliacion/doc-status-icon.tsx). */
@@ -52,7 +66,7 @@ export function FilePreviewButton({
   const displayName = name || fileUrl.split('/').pop() || 'archivo'
   // Guess from fileUrl (the real key, e.g. "technicians/x/y.png"), NOT
   // displayName — that's a human label ("Contrato") with no extension.
-  const kind = guessKind(fileUrl)
+  const kind = guessKind(fileUrl, mimeType)
   const src = resolveFileSrc(fileUrl, type)
 
   // Bug real reportado en vivo ("el visor da 404 en algunos lugares, ej.
@@ -67,6 +81,11 @@ export function FilePreviewButton({
   function openModal() {
     setOpen(true)
     if (kind === 'other') return
+    // Video no necesita el HEAD-check previo -- el propio <video> ya expone
+    // su estado de error de forma nativa (controles + mensaje del navegador
+    // si la fuente no carga), a diferencia de <img>/<iframe> que muestran el
+    // contenido crudo de R2 en vez de fallar de forma visible.
+    if (kind === 'video') return
     setCheckingPreview(true)
     setPreviewMissing(false)
     fetch(src, { method: 'HEAD' })
@@ -147,6 +166,9 @@ export function FilePreviewButton({
         {!checkingPreview && !previewMissing && kind === 'image' && (
           // eslint-disable-next-line @next/next/no-img-element -- URL firmada de R2, no un asset local optimizable
           <img src={src} alt={displayName} className="max-h-[70vh] w-full rounded-md border border-gray-200 object-contain" />
+        )}
+        {kind === 'video' && (
+          <video src={src} controls className="max-h-[70vh] w-full rounded-md border border-gray-200 bg-black" />
         )}
         {kind === 'other' && (
           <EmptyState

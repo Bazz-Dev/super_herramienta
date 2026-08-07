@@ -70,6 +70,11 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
   const [comment, setComment] = useState('')
   const [isInternal, setIsInternal] = useState(false)
   const [docs, setDocs] = useState<Doc[]>(ticket.documents)
+  // Confirmación in-app para el borrado de "Otros" (nunca window.confirm,
+  // regla de frontend.md sin excepciones) — un solo id a la vez, mismo
+  // patrón que confirmingDelete en document-quick-preview.tsx.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
   const [otFileUrl, setOtFileUrl] = useState(ticket.otFileUrl)
   const [otUploading, setOtUploading] = useState(false)
   const [otPromotingId, setOtPromotingId] = useState<string | null>(null)
@@ -156,6 +161,11 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
       } else {
         const body = await res.json()
         setOtFileUrl(body.otFileUrl)
+        // TicketDocumentsPanel (más abajo en la misma página) lee su propio
+        // `documents`/otFileUrl como prop de server component, independiente
+        // del estado local de acá -- sin refrescar, seguía mostrando el
+        // estado viejo de la OT hasta un reload manual completo.
+        router.refresh()
       }
     } catch (e) {
       setOtError(e instanceof Error ? e.message : 'Error al subir la OT.')
@@ -176,6 +186,7 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
         setDocs(prev => prev.filter(d => d.id !== docId))
         const doc = docs.find(d => d.id === docId)
         if (doc) setOtFileUrl(doc.fileUrl)
+        router.refresh() // ver comentario en uploadOT — mismo problema de sincronía con TicketDocumentsPanel
       } else {
         setOtError(res.error ?? 'No se pudo promover a OT.')
       }
@@ -399,12 +410,14 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
               if (!res.ok) { const j = await res.json().catch(() => ({}) as { error?: string }); throw new Error(j.error ?? `Error al subir (${res.status})`) }
               const newDoc: Doc = await res.json()
               setDocs(prev => [...prev, newDoc])
+              router.refresh() // ver comentario en uploadOT — mismo problema de sincronía con TicketDocumentsPanel
               return { id: newDoc.id, name: newDoc.name, url: resolveUrl(newDoc.fileUrl), mimeType: newDoc.mimeType }
             }}
             onDelete={async (id) => {
               const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${id}`, { method: 'DELETE' })
               if (!res.ok) throw new Error('Error al eliminar')
               setDocs(prev => prev.filter(d => d.id !== id))
+              router.refresh() // ver comentario en uploadOT — mismo problema de sincronía con TicketDocumentsPanel
             }}
           />
 
@@ -414,24 +427,45 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
                 <li key={doc.id} className="flex items-center gap-2 py-2">
                   <span className="text-base shrink-0">{fileIcon(doc.mimeType, doc.name)}</span>
                   <span className="flex-1 min-w-0 text-sm text-gray-700 truncate" title={doc.name}>{doc.name}</span>
-                  <div className="flex items-center gap-3 shrink-0">
-                    {!otFileUrl && (
-                      <button type="button" className="text-xs text-gray-500 hover:text-ink hover:underline transition disabled:opacity-40"
-                        disabled={otPromotingId === doc.id}
-                        title="Este archivo pasa a ser la OT del ticket — no se vuelve a subir, solo se reclasifica."
-                        onClick={() => promoteToOT(doc.id)}>
-                        {otPromotingId === doc.id ? 'Marcando…' : 'Marcar como OT'}
+                  {confirmDeleteId === doc.id ? (
+                    <div className="flex min-h-11 shrink-0 items-center gap-2 rounded-md border border-red-200 bg-red-50 px-2 py-1">
+                      <span className="text-xs font-medium text-red-700">¿Eliminar?</span>
+                      <button type="button" className="text-xs font-medium text-gray-500 hover:text-ink"
+                        onClick={() => setConfirmDeleteId(null)}>No</button>
+                      <button type="button" className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-40"
+                        disabled={deletingDocId === doc.id}
+                        onClick={async () => {
+                          setDeletingDocId(doc.id)
+                          try {
+                            const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${doc.id}`, { method: 'DELETE' })
+                            if (res.ok) {
+                              setDocs(prev => prev.filter(d => d.id !== doc.id))
+                              router.refresh() // ver comentario en uploadOT — mismo problema de sincronía con TicketDocumentsPanel
+                            }
+                          } finally {
+                            setDeletingDocId(null)
+                            setConfirmDeleteId(null)
+                          }
+                        }}>
+                        {deletingDocId === doc.id ? 'Eliminando…' : 'Sí, eliminar'}
                       </button>
-                    )}
-                    <a href={resolveUrl(doc.fileUrl)} target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-brand hover:underline font-medium">Abrir ↗</a>
-                    <button type="button" className="text-xs text-red-400 hover:text-red-600 transition"
-                      onClick={async () => {
-                        if (!confirm(`Eliminar "${doc.name}"?`)) return
-                        const res = await fetch(`/api/tickets/${ticket.id}/documents?docId=${doc.id}`, { method: 'DELETE' })
-                        if (res.ok) setDocs(prev => prev.filter(d => d.id !== doc.id))
-                      }}>✕</button>
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 shrink-0">
+                      {!otFileUrl && (
+                        <button type="button" className="text-xs text-gray-500 hover:text-ink hover:underline transition disabled:opacity-40"
+                          disabled={otPromotingId === doc.id}
+                          title="Este archivo pasa a ser la OT del ticket — no se vuelve a subir, solo se reclasifica."
+                          onClick={() => promoteToOT(doc.id)}>
+                          {otPromotingId === doc.id ? 'Marcando…' : 'Marcar como OT'}
+                        </button>
+                      )}
+                      <a href={resolveUrl(doc.fileUrl)} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-brand hover:underline font-medium">Abrir ↗</a>
+                      <button type="button" className="text-xs text-red-400 hover:text-red-600 transition"
+                        onClick={() => setConfirmDeleteId(doc.id)}>✕</button>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
