@@ -21,6 +21,7 @@ interface Props {
 }
 
 const isImg = (m: string | null) => !!m?.startsWith('image/')
+const isVid = (m: string | null) => !!m?.startsWith('video/')
 const SHOW  = 3
 
 /* ── sub-components (outside render to avoid lint: react-hooks/static-components) ── */
@@ -108,17 +109,24 @@ export function PhotoGallery({
   const [dels, setDels] = useState<Set<string>>(new Set())
   const [upl,  setUpl]  = useState(false)
   const [uplErr, setUplErr] = useState('')
+  const [zoomed, setZoomed] = useState(false)
+  const [dl, setDl] = useState(false)
 
-  const imgItems = items.filter(i => isImg(i.mimeType))
+  // Antes solo las imágenes eran navegables en el lightbox — un video caía
+  // al fallback window.open(url) de abajo, abriendo la URL cruda en una
+  // pestaña nueva en vez de reproducirse in-app. Fotos y videos ahora
+  // comparten el mismo lightbox navegable; el tipo de cada ítem decide si
+  // se renderiza <img> o <video controls> más abajo.
+  const mediaItems = items.filter(i => isImg(i.mimeType) || isVid(i.mimeType))
 
   const openLb = useCallback((item: GalleryItem) => {
-    const idx = imgItems.findIndex(i => i.id === item.id)
+    const idx = mediaItems.findIndex(i => i.id === item.id)
     if (idx >= 0) setLb(idx)
-    else window.open(item.url, '_blank', 'noopener')
-  }, [imgItems])
+    else window.open(item.url, '_blank', 'noopener') // archivo no-media inesperado, defensivo
+  }, [mediaItems])
 
-  const goNext = useCallback(() => setLb(i => i !== null ? (i + 1) % imgItems.length : null), [imgItems.length])
-  const goPrev = useCallback(() => setLb(i => i !== null ? (i - 1 + imgItems.length) % imgItems.length : null), [imgItems.length])
+  const goNext = useCallback(() => setLb(i => i !== null ? (i + 1) % mediaItems.length : null), [mediaItems.length])
+  const goPrev = useCallback(() => setLb(i => i !== null ? (i - 1 + mediaItems.length) % mediaItems.length : null), [mediaItems.length])
 
   useEffect(() => {
     if (lb === null) return
@@ -136,6 +144,37 @@ export function PhotoGallery({
     else document.body.style.overflow = ''
     return () => { document.body.style.overflow = '' }
   }, [lb])
+
+  // Zoom es solo para fotos — se resetea al cambiar de ítem o cerrar.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza estado local con el ítem activo (prop-like, viene de `lb`), mismo patrón ya usado en portal-document-preview.tsx
+    setZoomed(false)
+  }, [lb])
+
+  // <a href download> sobre una URL firmada de R2 es cruzada de origen — el
+  // navegador ignora `download` sin Content-Disposition:attachment y termina
+  // navegando/abriendo el archivo en vez de bajarlo (mismo bug ya
+  // documentado y resuelto en portal-document-preview.tsx). Blob de por
+  // medio para que la descarga sea confiable.
+  const current = lb !== null ? mediaItems[lb] : null
+  async function downloadCurrent() {
+    if (!current) return
+    setDl(true)
+    try {
+      const res = await fetch(current.url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const blob = await res.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl; a.download = current.name
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000)
+    } catch {
+      window.open(current.url, '_blank', 'noopener') // fallback: al menos abre el original
+    } finally {
+      setDl(false)
+    }
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files ? Array.from(e.target.files) : []
@@ -248,7 +287,7 @@ export function PhotoGallery({
       </div>
 
       {/* ── Lightbox ── */}
-      {lb !== null && imgItems.length > 0 && (
+      {lb !== null && current && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.93)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
           onClick={() => setLb(null)}
@@ -259,16 +298,24 @@ export function PhotoGallery({
           >
             <div style={{ position: 'absolute', top: '-48px', left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
               <span style={{ fontSize: '12px', fontWeight: '600', color: 'rgba(255,255,255,0.5)' }}>
-                {lb + 1} / {imgItems.length}
+                {lb + 1} / {mediaItems.length}
               </span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <a
-                  href={imgItems[lb].url} download={imgItems[lb].name} target="_blank" rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  style={{ fontSize: '12px', color: accent, textDecoration: 'none', fontWeight: '600', padding: '4px 10px', borderRadius: '6px', background: `color-mix(in srgb, ${accent} 15%, transparent)` }}
+                {isImg(current.mimeType) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setZoomed(z => !z) }}
+                    style={{ fontSize: '12px', color: '#fff', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    {zoomed ? '− Alejar' : '+ Acercar'}
+                  </button>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); downloadCurrent() }}
+                  disabled={dl}
+                  style={{ fontSize: '12px', color: accent, background: `color-mix(in srgb, ${accent} 15%, transparent)`, border: 'none', fontWeight: '600', padding: '4px 10px', borderRadius: '6px', cursor: dl ? 'not-allowed' : 'pointer' }}
                 >
-                  ↓ Descargar
-                </a>
+                  {dl ? 'Descargando…' : '↓ Descargar'}
+                </button>
                 <button
                   onClick={() => setLb(null)}
                   style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', fontSize: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}
@@ -276,18 +323,32 @@ export function PhotoGallery({
               </div>
             </div>
 
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              key={imgItems[lb].id}
-              src={imgItems[lb].url} alt={imgItems[lb].name}
-              style={{ maxWidth: '100%', maxHeight: '82vh', objectFit: 'contain', borderRadius: '10px', display: 'block', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}
-            />
+            {isVid(current.mimeType) ? (
+              <video
+                key={current.id}
+                src={current.url} controls autoPlay
+                style={{ maxWidth: '100%', maxHeight: '82vh', borderRadius: '10px', display: 'block', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}
+              />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={current.id}
+                src={current.url} alt={current.name}
+                onClick={(e) => { e.stopPropagation(); setZoomed(z => !z) }}
+                style={{
+                  maxWidth: zoomed ? 'none' : '100%', maxHeight: zoomed ? 'none' : '82vh',
+                  width: zoomed ? '180%' : 'auto',
+                  objectFit: 'contain', borderRadius: '10px', display: 'block', boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+                  cursor: zoomed ? 'zoom-out' : 'zoom-in', transition: 'width 0.2s, max-width 0.2s',
+                }}
+              />
+            )}
 
             <p style={{ marginTop: '10px', fontSize: '12px', color: 'rgba(255,255,255,0.35)', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '80vw' }}>
-              {imgItems[lb].name}
+              {current.name}
             </p>
 
-            {imgItems.length > 1 && (
+            {mediaItems.length > 1 && (
               <>
                 <button
                   onClick={goPrev}
@@ -304,15 +365,32 @@ export function PhotoGallery({
               </>
             )}
 
-            {imgItems.length > 2 && (
+            {/* Tiras de miniaturas: con loading="lazy" el navegador difiere la
+                descarga/decodificación de las que están fuera de vista -- sin
+                esto, una evidencia con 30+ fotos cargaba TODAS las miniaturas
+                de una sola vez (justo el caso de prueba explícito del brief
+                de "evitar cargar colecciones grandes innecesariamente en
+                memoria"). Los videos no tienen miniatura real (el src de un
+                <video> no sirve como src de <img>) -- tile oscuro con ícono
+                de play, igual que la miniatura de la grilla principal. */}
+            {mediaItems.length > 2 && (
               <div style={{ display: 'flex', gap: '6px', marginTop: '12px', overflow: 'auto', maxWidth: '100%', paddingBottom: '4px' }}>
-                {imgItems.map((img, idx) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={img.id} src={img.url} alt={img.name}
-                    onClick={() => setLb(idx)}
-                    style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, border: idx === lb ? `2px solid ${accent}` : '2px solid rgba(255,255,255,0.12)', opacity: idx === lb ? 1 : 0.55, transition: 'all 0.15s' }}
-                  />
+                {mediaItems.map((m, idx) => (
+                  isImg(m.mimeType) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={m.id} src={m.url} alt={m.name} loading="lazy"
+                      onClick={() => setLb(idx)}
+                      style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, border: idx === lb ? `2px solid ${accent}` : '2px solid rgba(255,255,255,0.12)', opacity: idx === lb ? 1 : 0.55, transition: 'all 0.15s' }}
+                    />
+                  ) : (
+                    <div
+                      key={m.id} onClick={() => setLb(idx)}
+                      style={{ width: '52px', height: '52px', borderRadius: '6px', cursor: 'pointer', flexShrink: 0, background: '#1a1a1a', display: 'grid', placeItems: 'center', border: idx === lb ? `2px solid ${accent}` : '2px solid rgba(255,255,255,0.12)', opacity: idx === lb ? 1 : 0.55, transition: 'all 0.15s' }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 22 22" fill="none"><path d="M8 5.5l9 5.5-9 5.5V5.5z" fill="white"/></svg>
+                    </div>
+                  )
                 ))}
               </div>
             )}
