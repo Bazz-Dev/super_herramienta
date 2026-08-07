@@ -78,7 +78,28 @@ All 5 test scenarios from the brief live-verified against local `dev.db`:
 - Real Vercel runtime-log check for `/api/reports/generate`/`/api/quotes/generate` failure patterns (per `testing.md`'s rule to confirm root cause against real prod evidence) — Vercel MCP token expired, tried again, still expired. Needs the owner to re-authorize the Vercel plugin; not re-attempted a third time to avoid spinning on it. The local root-cause finding (the `{data:...}` wrapping bug) is deterministic and 100%-reproducing by construction — it doesn't actually need prod log confirmation to be certain, unlike a heisenbug would. This deferral is about the *separate* question of whether prod has additional intermittent Chromium cold-start failures on top of the fixed bug — worth checking once the token is live again, not urgent.
 - Backlog B1 (specific client-facing error message for structurally-incomplete informes) / B2 (count of real Turso-prod rows that would 422 under the new strict check) remain open, not blocking.
 
-## P1–P5: NOT STARTED
+## P1 — Ticket as document hub + P1B informes library: IN PROGRESS
+
+Target section order per brief: Information → Status → Description → Conversation → Media → OT → Technical Reports → Other Documents. Read the full 589-line ticket-detail page (`src/app/portal/[slug]/tickets/[id]/page.tsx`) before touching anything — confirmed Information/Status/Description/Conversation/Media were already in the right relative order; only OT (missing entirely), Technical Reports (download-only, no preview), and Other Documents (plain `<a target=_blank>`, no preview) needed work.
+
+### P1.1 — Shared preview component + OT/Technical-Reports/Other-Documents: DONE
+
+Commit `01f64db`. New `src/components/tickets/portal-document-preview.tsx` — portal-styled equivalent of the internal app's `FilePreviewButton` (same HEAD-check-before-preview + blob-based-download logic) but inline-styled — **deliberately not a reuse of `FilePreviewButton` itself**, since that component is 100% Tailwind `className` and `frontend.md` bans that in the portal without exception (already-documented CSS-var unreliability under portal dark mode, `feedback_portal_css`). Split into `PortalDocumentPreviewModal` (controlled, `open`/`onClose`) + `PortalDocumentPreview` (owns its own trigger+state) because informes need the controlled form — the PDF is generated on-demand via `/api/reports/generate`, not a fixed input URL known upfront.
+
+- New "Orden de trabajo" section: `otNumber`, `assignedTo.name`, `closedDate` (when set), Preview+Download. Deliberately did NOT invent an "OT date"/"OT status" schema field — neither exists, and inventing one violates "no destructive migrations". The ticket's own status badge (already in the hero) is the real proxy for "status" here.
+- `PortalInformeBtn` gained a "Ver" preview action next to "Descargar", both sharing one `resolveUrl()` (uploaded-file informe → direct `viewUrl`; generated → `/api/reports/generate` with `{ documentId }`, same P0 ownership fix).
+- Other Documents: plain links replaced with `PortalDocumentPreview` — PDF/image preview in-app, everything else still downloads securely.
+
+Verified: `tsc`/`lint`/`test:unit` (271/271) clean. Live smoke-tested via the headless session against 2 real tickets (one with a real OT file, one with real non-media documents) — both `200`, sections render correctly/conditionally.
+
+### Remaining P1/P1B work (not started)
+
+- PhotoGallery enhancements: zoom, real video playback (currently a video tile just `window.open`s the raw URL — no in-page player), memory-safe thumbnail strip for 30+ photos (currently renders an `<img>` per photo unconditionally in the lightbox strip, no `loading="lazy"` — a real gap against the brief's explicit "avoid loading large collections unnecessarily into browser memory" + the P1 gate's own "30+ photos" test case), individual download likely broken for presigned R2 URLs (`<a href={presignedUrl} download>` is cross-origin — same class of bug `FilePreviewButton`'s own code comment documents fixing elsewhere; needs verifying and likely the same blob-download fix).
+- P1B: `/portal/[slug]/informes` is currently a bare list + individual download only (confirmed in Phase 0 diagnosis) — needs branch filter, date range, quick periods, search by report/ticket/OT, clear filters, result count, checkbox selection ("select visible", explicit scope — never silently select hidden results), bulk ZIP download. Will reuse the `proposals-table.tsx` selection-pattern (Set-based, membership-check select-all, conditional bulk-action bar) and adapt `filter-bar.tsx`/`date-range-filter.tsx`'s URL-param logic to inline styles (can't reuse those components directly either, same Tailwind-in-portal issue).
+- "Never regenerate an existing PDF just for preview/download" (P1B requirement): **not implemented** — there is no PDF cache anywhere in this codebase today (every preview/download always calls `generateReportPdf`/`generateQuotePdf` fresh). Building a real cache (store generated bytes in R2 keyed by doc+content-version, invalidate on edit) is a genuine architecture addition, not a "smallest safe change" — deliberately deferring this to a documented backlog item rather than rushing it in, same reasoning as backlog B1/B2. Flag for the owner: worth its own scoped pass once P1B's UI lands, not blocking it.
+- P1 GATE not yet run: live walkthrough of individual/multiple reports, OT, media, ZIP, missing file, 30+ photos, combined filters, permissions.
+
+## P2–P5: NOT STARTED
 
 Task list entries (harness TaskList #124-#130) track phase-level status; this file is the detailed recovery record within P0. Will add a "## P1 —" section here once P0's gate is actually passed and P1 begins, following the same format.
 
