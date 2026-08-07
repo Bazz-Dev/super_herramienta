@@ -44,14 +44,29 @@ Verification commands run this session: `npx tsc --noEmit` (clean), `npx eslint 
 - B1: Client-facing error message for a structurally-incomplete informe (`reportDataSchema` fails on a real DB row, not attacker-forged) should say something more specific than the generic "Error generando PDF" — e.g. surface the 422 distinctly so the UI can show "Este informe no tiene contenido completo, contacta a INGEGAR" instead of implying a transient failure worth retrying. Small, deferred to avoid scope creep on the ownership fix itself.
 - B2: How many real (Turso prod) `ClientDocument` rows of type `informe`/`propuesta` currently have incomplete `dataJson` and would 422 under the new strict check is UNKNOWN — only checked locally. Worth a read-only count against Turso prod before considering this fully closed (see P0 gate checklist).
 
+### P0.2 — Inactive-branch server-side enforcement: DONE
+
+`src/app/portal/[slug]/tickets/actions.ts`: branch lookup now filters `active: true`; if `branchId` was given but doesn't resolve (inactive, nonexistent, or wrong client — all three cases, not just inactive), the whole ticket creation is now rejected instead of silently proceeding with a `'SUCURSAL'` fallback name while still recording the invalid `branchId`. Verified via a direct deactivate → query (confirms `null`) → reactivate round-trip against a real Just Burger branch (`Lo Barnechea`) — no lasting side effect left on the DB.
+
+### P0.3 — `deleteBranch` historical-dependency guard: DONE, real gap confirmed and closed
+
+`src/app/(app)/flujo/actions.ts` `deleteBranch()` only counted `Job` (which has `onDelete: Restrict` at the DB level anyway — the count was defense-in-depth against a raw Prisma 500, per its own G35 comment). **Confirmed via the actual migration SQL** (`prisma/migrations/20260624120000_.../migration.sql:40`) that `Ticket.branchId`'s real FK is `ON DELETE SET NULL` — deleting a branch with real ticket history would have silently orphaned every one of those tickets' branch reference (no error, no block) instead of preserving it, directly violating the brief's "branch with history cannot be deleted." Added the same count-and-block pattern for `Ticket` (counts ALL tickets ever linked, including soft-deleted — still real history). Verified the exact query against a real branch with 1 real ticket (`Isidora`) — confirmed it would block.
+
+### P0.4 — Double-submit guard on `createPortalTicket`: DONE
+
+No schema/contract change (no new hidden field) — a 5-second-window near-duplicate check (same `clientId`+`branchId`+`createdById`+`title`+`description`) returns the just-created ticket instead of making a second one. Verified against a real freshly-created-then-immediately-queried test ticket (cleaned up after).
+
+### P0.5 — `getClientTicket()` branch-scoping hardening: DONE
+
+Added optional `branchId` param, same shape as `getClientTickets()`. Purely additive — the one existing caller (`portal/[slug]/tickets/[id]/page.tsx`) is untouched (still does its own after-fetch redirect, unchanged UX). Exists so P1/P1B's new consumers of this function can't forget the branch check the project already got bitten by once (G45).
+
+**Commit for P0.1–P0.5: `a9c4f48`** — `npx tsc --noEmit`, `npm run lint`, `npm run test:unit` (271/271), `npm run build` all clean at this checkpoint. Also smoke-tested the real portal ticket-detail page (`getClientTicket`'s signature changed) end-to-end via the headless session — `200`, no regression.
+
 ### Remaining P0 items (not started)
 
-- P0.2: Inactive-branch server-side enforcement in `createPortalTicket` (`src/app/portal/[slug]/tickets/actions.ts:38` looks up branch without `active` filter).
-- P0.3: `deleteBranch` (`src/app/(app)/flujo/actions.ts:86`) — verify/fix historical-dependency guard, mirror `deleteClient`'s pattern if missing.
-- P0.4: Double-submit guard on `createPortalTicket`.
-- P0.5: Harden `getClientTicket()` to accept/enforce optional `branchId`, mirroring `getClientTickets()`.
-- P0.6: Targeted tests for P0.2–P0.5 + full P0 gate (typecheck/lint/targeted tests, live walkthrough of the 5 listed P0 test scenarios from the brief: valid PDF, missing/corrupt PDF, historical report, unauthorized user, storage/access failure).
-- P0 close-out: check real Vercel runtime logs for `/api/reports/generate`/`/api/quotes/generate` failure patterns (per `testing.md`'s rule to confirm root cause against real prod evidence, not just local reasoning) — Vercel MCP token was expired earlier this session, may need it re-authorized.
+- P0.6: Full P0 gate — live walkthrough of the 5 listed P0 test scenarios from the brief specifically (valid PDF ✅ already covered above; missing/corrupt PDF ✅ covered via the legacy-informe 422 case above; historical report — not yet specifically exercised; unauthorized user ✅ covered via the cross-client 404 case; storage/access failure — not yet specifically exercised, e.g. an R2 key that 404s mid-render).
+- P0 close-out: check real Vercel runtime logs for `/api/reports/generate`/`/api/quotes/generate` failure patterns (per `testing.md`'s rule to confirm root cause against real prod evidence, not just local reasoning) — Vercel MCP token was expired earlier this session, needs re-authorization.
+- Backlog B1/B2 (see above) remain open, not blocking.
 
 ## P1–P5: NOT STARTED
 
