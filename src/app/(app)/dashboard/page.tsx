@@ -12,11 +12,23 @@ import { KpiCard } from '@/components/cashflow/kpi-card'
 import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
 import { DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
 import { LEAVE_TYPE_LABEL } from '@/lib/rrhh/labels'
+import { URGENCY_LABEL, STATUS_LABEL, STATUS_DOT, type TicketUrgencyId, type TicketStatusId } from '@/lib/tickets/labels'
 import { version as pkgVersion } from '../../../../package.json'
 
 export const metadata = { title: 'Inicio — INGEGAR' }
 
 const APP_VERSION = `v${pkgVersion}`
+
+// Sin equivalente "dot" (color sólido) para urgencia en tickets/labels.ts —
+// solo el combo bg-100/text-800 de URGENCY_COLOR, pensado para badges, no
+// para una barra fina. Mismas familias de color, no se toca el archivo
+// compartido por un uso de una sola página.
+const URGENCY_BAR: Record<TicketUrgencyId, string> = {
+  emergencia: 'bg-red-500',
+  urgencia: 'bg-orange-500',
+  no_urgente: 'bg-gray-400',
+  preventivo: 'bg-blue-500',
+}
 
 // ── Información institucional INGEGAR ─────────────────────────────────────────
 const EMPRESA = {
@@ -127,7 +139,7 @@ export default async function DashboardPage({
 
   const [
     technicians, vehicles, openTickets, expenseStats, periodJobs, prevPeriodJobs,
-    resolvedCount, prevResolvedCount, attentionJobs, technicianDocs, pendingLeaveRequests,
+    resolvedCount, prevResolvedCount, periodTickets, attentionJobs, technicianDocs, pendingLeaveRequests,
   ] = await Promise.all([
     prisma.technician.findMany({
       where: { ...scope, active: true },
@@ -156,6 +168,11 @@ export default async function DashboardPage({
     from ? listJobs(actor, { from: prevFrom, to: prevTo }) : Promise.resolve([]),
     from ? prisma.ticket.count({ where: { ...scope, status: 'resuelto', updatedAt: { gte: from, lte: to } } }) : Promise.resolve(0),
     from ? prisma.ticket.count({ where: { ...scope, status: 'resuelto', updatedAt: { gte: prevFrom, lte: prevTo } } }) : Promise.resolve(0),
+    // Desglose por urgencia/estado del KPI "Tickets resueltos" — sobre los
+    // tickets CREADOS en el período (mismo criterio que ya usa
+    // /portal/[slug]/reportes para byUrgency/byStatus), no solo los
+    // resueltos: da la forma completa de lo que entró, no solo lo que cerró.
+    from ? prisma.ticket.findMany({ where: { ...scope, createdAt: { gte: from, lte: to } }, select: { urgency: true, status: true } }) : Promise.resolve([]),
     // "Requiere tu atención" — reusa exactamente los predicados de
     // src/lib/cashflow/job-presets.ts (isNoPOJob/isOverdueV2), no reimplementa
     // las reglas de negocio. Sin filtro de período: es el backlog real completo,
@@ -194,6 +211,17 @@ export default async function DashboardPage({
   const prevPeriodMetrics = from ? computeMetrics(prevPeriodJobs as unknown as JobLike[], prevTo ?? new Date()) : null
   const facturadoDeltaPct = periodMetrics && prevPeriodMetrics ? pctDelta(periodMetrics.facturado, prevPeriodMetrics.facturado) : null
   const resolvedDeltaPct = from ? pctDelta(resolvedCount, prevResolvedCount) : null
+
+  // Mismo cálculo que byUrgency/byStatus en /portal/[slug]/reportes —
+  // reduce en JS sobre la lista ya traída, sin groupBy en DB.
+  const byUrgency: Partial<Record<TicketUrgencyId, number>> = {}
+  const byStatus: Partial<Record<TicketStatusId, number>> = {}
+  for (const t of periodTickets) {
+    const urg = t.urgency as TicketUrgencyId
+    const st = t.status as TicketStatusId
+    byUrgency[urg] = (byUrgency[urg] ?? 0) + 1
+    if (st !== 'fusionado') byStatus[st] = (byStatus[st] ?? 0) + 1
+  }
 
   const now = new Date()
 
@@ -352,11 +380,49 @@ export default async function DashboardPage({
               value={clp(periodMetrics.facturado)}
               delta={facturadoDeltaPct != null ? { pct: facturadoDeltaPct, label: deltaLabel } : undefined}
             />
-            <KpiCard
-              label="Tickets resueltos"
-              value={String(resolvedCount)}
-              delta={resolvedDeltaPct != null ? { pct: resolvedDeltaPct, label: deltaLabel } : undefined}
-            />
+            {/* Antes solo el número + delta (KpiCard genérico) — "no muestra
+                detalles" reportado en vivo. Mismo lenguaje visual que
+                Por urgencia/Por estado de /portal/[slug]/reportes (barra +
+                conteo), pero sobre tickets CREADOS en el período (ver
+                comentario en la query de periodTickets), no tarjeta genérica
+                reusable porque KpiCard no tiene slot para contenido extra. */}
+            <div className="rounded-lg border border-l-4 border-l-green-500 border-gray-200 bg-white p-4 shadow-sm min-w-0 overflow-hidden">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 truncate">Tickets resueltos</p>
+              <p className="mt-1 text-lg font-extrabold tabular-nums text-ink sm:text-2xl">{resolvedCount}</p>
+              {resolvedDeltaPct != null && (
+                <p className={`mt-0.5 text-xs font-semibold ${resolvedDeltaPct >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {resolvedDeltaPct >= 0 ? '▲' : '▼'} {Math.abs(Math.round(resolvedDeltaPct))}% {deltaLabel}
+                </p>
+              )}
+              {periodTickets.length > 0 && (
+                <div className="mt-3 grid grid-cols-1 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Por urgencia</p>
+                    {Object.entries(byUrgency).sort((a, b) => b[1] - a[1]).map(([urg, n]) => (
+                      <div key={urg} className="mb-1 flex items-center gap-1.5">
+                        <span className="w-14 shrink-0 truncate text-[10px] font-medium text-gray-600">{URGENCY_LABEL[urg as TicketUrgencyId] ?? urg}</span>
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div className={`h-full ${URGENCY_BAR[urg as TicketUrgencyId] ?? 'bg-gray-400'}`} style={{ width: `${(n / periodTickets.length) * 100}%` }} />
+                        </div>
+                        <span className="w-4 shrink-0 text-right text-[10px] font-bold text-gray-500">{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Por estado</p>
+                    {Object.entries(byStatus).sort((a, b) => b[1] - a[1]).map(([st, n]) => (
+                      <div key={st} className="mb-1 flex items-center gap-1.5">
+                        <span className="w-16 shrink-0 truncate text-[10px] font-medium text-gray-600">{STATUS_LABEL[st as TicketStatusId] ?? st}</span>
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-gray-100">
+                          <div className={`h-full ${STATUS_DOT[st as TicketStatusId] ?? 'bg-gray-400'}`} style={{ width: `${(n / periodTickets.length) * 100}%` }} />
+                        </div>
+                        <span className="w-4 shrink-0 text-right text-[10px] font-bold text-gray-500">{n}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <p className="text-sm text-gray-400">Elige un período específico (no &quot;Todo&quot;) para ver facturación y tickets resueltos comparados contra el período anterior.</p>
