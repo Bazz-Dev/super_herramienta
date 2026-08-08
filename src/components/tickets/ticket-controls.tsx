@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { updateTicketFields, updateTicketStatus, addTicketComment, promoteDocumentToOT } from '@/app/(app)/tickets/actions'
 import { SELECTABLE_STATUSES, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { PROCESS_FLOW_LABELS } from '@/lib/cashflow/labels'
@@ -10,9 +11,10 @@ import { uploadDirect } from '@/lib/upload-direct'
 import { DocumentQuickPreview } from '@/components/quotes/document-quick-preview'
 import { FilePreviewButton } from '@/components/ui/file-preview-modal'
 
-type Item    = { id: string; title: string; status: string; description: string | null; category: string | null; comment: string | null }
-type Doc     = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date; itemId?: string | null }
-type Informe = { id: string; title: string; createdAt: string }
+type Item      = { id: string; title: string; status: string; description: string | null; category: string | null; comment: string | null }
+type Doc       = { id: string; name: string; fileUrl: string; mimeType: string | null; uploadedAt: Date; itemId?: string | null }
+type Informe   = { id: string; title: string; createdAt: string }
+type Propuesta = { id: string; title: string; createdAt: string; quoteId?: string | null }
 
 interface Props {
   ticket: {
@@ -34,6 +36,7 @@ interface Props {
   staffUsers: { id: string; name: string }[]
   technicians: { id: string; name: string }[]
   linkedInformes?: Informe[]
+  linkedPropuestas?: Propuesta[]
   parentTicket?: { id: string; ticketCode: string } | null
 }
 
@@ -60,7 +63,7 @@ function fileIcon(mimeType: string | null, name: string): string {
   return '📎'
 }
 
-export function TicketControls({ ticket, staffUsers, technicians, linkedInformes = [], parentTicket = null }: Props) {
+export function TicketControls({ ticket, staffUsers, technicians, linkedInformes = [], linkedPropuestas = [], parentTicket = null }: Props) {
   const router = useRouter()
   // G24: transiciones separadas — un guardado en curso no bloquea las otras
   // acciones ni deja todo el panel en "Guardando…".
@@ -491,69 +494,89 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
             Documentos de trabajo
           </h3>
 
-          {/* OT — antes esta sección era solo lectura (sin botón de subida
-              conectado, bug real ver promoteDocumentToOT); ahora sube/
-              reemplaza directo con el mismo endpoint que ya usa el técnico. */}
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">OT</span>
-            {ticket.otNumber && <span className="font-mono text-sm font-bold text-ink">{ticket.otNumber}</span>}
-            {otFileUrl ? (
-              <div className="ml-auto flex items-center gap-3">
-                {/* Antes <a target=_blank> a la key cruda — bug real: navegaba
-                    afuera de la app en vez de abrir el mismo preview in-app
-                    que ya usa cualquier otro archivo (FilePreviewButton), y
-                    no se beneficiaba del fix de descarga de G60. */}
-                <FilePreviewButton
-                  fileUrl={otFileUrl} type="ticket" name={ticket.otNumber ? `OT ${ticket.otNumber}` : 'Orden de trabajo'}
-                  label="Ver OT ↗" className="text-xs font-medium text-brand hover:underline"
-                />
-                <label className={`cursor-pointer text-xs font-medium text-gray-500 hover:text-ink hover:underline transition ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
-                  {otUploading ? 'Subiendo…' : 'Reemplazar OT'}
+          {/* PT / OT / IT — 3 casilleros fijos, mismo patrón visual que
+              Contrato/Carnet en la ficha de técnico (doc-section.tsx).
+              PT (propuesta) se genera antes o junto con el ticket, vía
+              Cotizador; OT la sube el técnico (acá se preserva ese flujo,
+              antes sin botón conectado — bug real, ver promoteDocumentToOT);
+              IT (informe) lo genera y envía la administración. Esta ficha es
+              staff-only (el técnico nunca llega a /tickets/[id] — ver
+              data.md), así que no hace falta ocultar PT/IT por rol acá. */}
+          <div className="mb-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <DocSlot title="PT · Propuesta" filled={linkedPropuestas.length > 0}>
+              {linkedPropuestas.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {linkedPropuestas.slice(0, 3).map(p => (
+                    <div key={p.id} className="flex items-center justify-between gap-1.5 text-[11px]">
+                      <span className="truncate text-gray-600">{p.title}</span>
+                      <DocumentQuickPreview
+                        docId={p.id} title={p.title} documentType="propuesta" editHref={`/cotizador?docId=${p.id}`}
+                        trigger="Ver" triggerClassName="shrink-0 font-semibold text-brand hover:underline"
+                        ticketCode={ticket.ticketCode} number={p.quoteId}
+                      />
+                    </div>
+                  ))}
+                  {linkedPropuestas.length > 3 && <span className="text-[10px] text-gray-400">+{linkedPropuestas.length - 3} más</span>}
+                </div>
+              ) : (
+                <Link href={`/cotizador?new=1&ticketId=${ticket.id}`} className="text-[11px] font-medium text-gray-500 hover:text-brand hover:underline">
+                  Falta — crear propuesta
+                </Link>
+              )}
+            </DocSlot>
+
+            <DocSlot title="OT · Orden de trabajo" filled={!!otFileUrl}>
+              {otFileUrl ? (
+                <div className="flex items-center gap-2 text-[11px]">
+                  {/* Antes <a target=_blank> a la key cruda — bug real: navegaba
+                      afuera de la app en vez de abrir el mismo preview in-app
+                      que ya usa cualquier otro archivo (FilePreviewButton), y
+                      no se beneficiaba del fix de descarga de G60. */}
+                  <FilePreviewButton
+                    fileUrl={otFileUrl} type="ticket" name={ticket.otNumber ? `OT ${ticket.otNumber}` : 'Orden de trabajo'}
+                    label="Ver" className="font-semibold text-brand hover:underline"
+                  />
+                  <label className={`cursor-pointer font-medium text-gray-500 hover:text-ink hover:underline ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
+                    {otUploading ? 'Subiendo…' : 'Reemplazar'}
+                    <input type="file" accept="application/pdf,image/*" className="hidden"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) uploadOT(f); e.target.value = '' }} />
+                  </label>
+                </div>
+              ) : (
+                <label className={`cursor-pointer text-[11px] font-medium text-gray-500 hover:text-brand hover:underline ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
+                  {otUploading ? 'Subiendo…' : 'Falta — escanear / adjuntar'}
                   <input type="file" accept="application/pdf,image/*" className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) uploadOT(f); e.target.value = '' }} />
                 </label>
-              </div>
-            ) : (
-              <label className={`ml-auto inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100 ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
-                {otUploading ? 'Subiendo…' : '📄 Escanear / adjuntar OT'}
-                <input type="file" accept="application/pdf,image/*" className="hidden"
-                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadOT(f); e.target.value = '' }} />
-              </label>
-            )}
+              )}
+            </DocSlot>
+
+            <DocSlot title="IT · Informe técnico" filled={linkedInformes.length > 0}>
+              {linkedInformes.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {linkedInformes.slice(0, 3).map(inf => (
+                    <div key={inf.id} className="flex items-center justify-between gap-1.5 text-[11px]">
+                      <span className="truncate text-gray-600">{inf.title}</span>
+                      <DocumentQuickPreview
+                        docId={inf.id} title={inf.title} documentType="informe" editHref={`/informe?docId=${inf.id}`}
+                        trigger="Ver" triggerClassName="shrink-0 font-semibold text-brand hover:underline"
+                        ticketCode={ticket.ticketCode}
+                      />
+                    </div>
+                  ))}
+                  {linkedInformes.length > 3 && <span className="text-[10px] text-gray-400">+{linkedInformes.length - 3} más</span>}
+                </div>
+              ) : (
+                // Guarda los cambios pendientes (N° OT, etc.) antes de navegar,
+                // para que /informe autocomplete con datos frescos.
+                <button type="button" onClick={goToNewInforme} disabled={fieldsPending}
+                  className="text-left text-[11px] font-medium text-gray-500 hover:text-brand hover:underline disabled:opacity-50">
+                  {fieldsPending ? 'Guardando…' : 'Falta — crear informe'}
+                </button>
+              )}
+            </DocSlot>
           </div>
           {otError && <p className="mb-3 text-xs text-red-600">{otError}</p>}
-
-          {/* Informes técnicos vinculados */}
-          {linkedInformes.length > 0 && (
-            <ul className="mb-3 divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white overflow-hidden">
-              {linkedInformes.map(inf => (
-                <li key={inf.id} className="flex items-center gap-2 px-3 py-2.5">
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-indigo-500"><path d="M4 2h6l3 3v9a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M10 2v3h3M5 7h6M5 10h4"/></svg>
-                  <span className="flex-1 min-w-0 text-sm text-gray-700 truncate">{inf.title}</span>
-                  <span className="shrink-0 text-[10px] text-gray-400">
-                    {new Date(inf.createdAt).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </span>
-                  <DocumentQuickPreview
-                    docId={inf.id} title={inf.title} documentType="informe" editHref={`/informe?docId=${inf.id}`}
-                    trigger="Ver ↗" triggerClassName="shrink-0 text-xs text-brand hover:underline font-medium"
-                    ticketCode={ticket.ticketCode}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* Acción: nuevo informe — guarda los cambios pendientes (N° OT, etc.)
-              antes de navegar, para que /informe autocomplete con datos frescos */}
-          <button
-            type="button"
-            onClick={goToNewInforme}
-            disabled={fieldsPending}
-            className="inline-flex items-center gap-2 rounded-lg border border-dashed border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:border-brand hover:text-brand hover:bg-brand/5 disabled:opacity-50"
-          >
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v9M4.5 5.5 8 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M2.5 12.5h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>
-            {fieldsPending ? 'Guardando…' : 'Nuevo informe técnico'}
-          </button>
         </div>
       </div>
 
@@ -587,6 +610,19 @@ export function TicketControls({ ticket, staffUsers, technicians, linkedInformes
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// Shell visual compartido por los 3 casilleros PT/OT/IT — mismo lenguaje que
+// FixedSlot en doc-section.tsx (border-ok-200/bg-ok-50 lleno, dashed vacío),
+// el contenido interno (upload de archivo vs. lista de documentos generados)
+// difiere por casillero así que solo se comparte el marco.
+function DocSlot({ title, filled, children }: { title: string; filled: boolean; children: React.ReactNode }) {
+  return (
+    <div className={`flex min-h-16 flex-col justify-center gap-1.5 rounded-lg border p-3 ${filled ? 'border-ok-200 bg-ok-50' : 'border-dashed border-gray-300 bg-gray-50'}`}>
+      <span className={`text-xs font-semibold uppercase tracking-wide ${filled ? 'text-ok-700' : 'text-gray-500'}`}>{filled && '✓ '}{title}</span>
+      {children}
     </div>
   )
 }

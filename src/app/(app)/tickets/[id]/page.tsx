@@ -316,6 +316,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
             staffUsers={staffUsers}
             technicians={technicians}
             linkedInformes={linkedInformes}
+            linkedPropuestas={linkedPropuestas}
             parentTicket={parentTicket}
           />
         </div>

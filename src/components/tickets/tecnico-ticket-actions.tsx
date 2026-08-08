@@ -6,6 +6,7 @@ import { tecnicoAdvanceStatus, tecnicoAddComment } from '@/app/mi-panel/tickets/
 import { TECNICO_TRANSITIONS, STATUS_LABEL, type TicketStatusId } from '@/lib/tickets/labels'
 import { Spinner } from '@/components/ui/spinner'
 import { uploadDirect } from '@/lib/upload-direct'
+import { FilePreviewButton } from '@/components/ui/file-preview-modal'
 
 interface Doc { id: string; name: string; fileUrl: string; mimeType: string | null }
 
@@ -29,7 +30,13 @@ export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }:
   const [comment, setComment] = useState('')
   const [uploading, setUploading] = useState(false)
   const [otUploading, setOtUploading] = useState(false)
-  const [otSaved, setOtSaved] = useState(!!otFileUrl)
+  // Se guarda la key real (no solo un boolean) para poder abrir el preview
+  // in-app sin depender de un router.refresh() tras subir — antes "Ver OT"
+  // navegaba directo a /api/tickets/[id]/ot-photo (funciona porque esa ruta
+  // resuelve la OT vigente en el servidor, pero rompe el patrón único de
+  // "Ver documento" de frontend.md, FilePreviewButton, que el resto de la
+  // app ya usa para PDF/imagen).
+  const [currentOtFileUrl, setCurrentOtFileUrl] = useState(otFileUrl)
   const [error, setError] = useState('')
 
   const nextStatuses = TECNICO_TRANSITIONS[status] ?? []
@@ -92,7 +99,8 @@ export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }:
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? `Error ${res.status} al subir la OT.`)
       } else {
-        setOtSaved(true)
+        const body = await res.json()
+        setCurrentOtFileUrl(body.otFileUrl)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al subir la OT.')
@@ -151,17 +159,20 @@ export function TecnicoTicketActions({ ticketId, status, documents, otFileUrl }:
       {/* Orden de trabajo (OT) — la escanean en terreno (app de escaneo → PDF) */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold text-gray-700">Orden de trabajo (OT)</h2>
-        {otSaved ? (
+        {currentOtFileUrl ? (
           <div className="flex items-center justify-between gap-2">
             <span className="text-sm text-gray-600">✓ OT guardada</span>
-            <a
-              href={`/api/tickets/${ticketId}/ot-photo`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs font-medium text-brand hover:underline"
-            >
-              Ver OT ↗
-            </a>
+            <div className="flex items-center gap-3">
+              <FilePreviewButton
+                fileUrl={currentOtFileUrl} type="ticket" name="Orden de trabajo"
+                label="Ver OT ↗" className="text-xs font-medium text-brand hover:underline"
+              />
+              <label className={`cursor-pointer text-xs font-medium text-gray-500 hover:text-ink hover:underline ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
+                {otUploading ? 'Subiendo…' : 'Reemplazar'}
+                <input type="file" accept="application/pdf,image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadOT(f); e.target.value = '' }} />
+              </label>
+            </div>
           </div>
         ) : (
           <label className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 ${otUploading ? 'pointer-events-none opacity-40' : ''}`}>
