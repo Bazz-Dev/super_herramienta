@@ -3,8 +3,8 @@
 import { useState, useTransition } from 'react'
 import { DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
 import { deleteDocument } from '@/app/(app)/recursos/tecnicos/actions'
-import { Spinner } from '@/components/ui/spinner'
 import { FilePreviewButton } from '@/components/ui/file-preview-modal'
+import { uploadDirect } from '@/lib/upload-direct'
 
 type Doc = {
   id: string
@@ -58,17 +58,24 @@ export function DocSection({ technicianId, technicianName, initial }: { technici
     setSelected((prev) => new Set(prev).add(doc.id))
   }
 
+  // Bug real reportado en vivo: esto mandaba el archivo completo por FormData
+  // a través de la función serverless -- topaba con el límite de payload de
+  // la plataforma y el error resultante ("Request Entity Too Large" o similar)
+  // no es JSON, así que res.json() reventaba con "Unexpected token… is not
+  // valid JSON". Subida en 2 pasos (uploadDirect: URL prefirmada + PUT directo
+  // a R2), mismo patrón ya usado para tickets/informes/portal (GAP_REGISTER
+  // G63) -- nunca migrado acá porque no era parte de esos 3 flujos reportados
+  // en su momento.
   async function uploadSlot(slotKey: string, type: DocTypeId, label: string | null, file: File, expiryDate?: string) {
     setError(null)
     setUploading(slotKey)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('type', type)
-      fd.append('label', label ?? '')
-      fd.append('expiryDate', expiryDate ?? '')
-      fd.append('notes', '')
-      const res = await fetch(`/api/technicians/${technicianId}/documents`, { method: 'POST', body: fd })
+      const { key } = await uploadDirect(`/api/technicians/${technicianId}/documents/upload-url`, file)
+      const res = await fetch(`/api/technicians/${technicianId}/documents`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, type, label: label ?? '', expiryDate: expiryDate ?? '', notes: '' }),
+      })
       const json = await res.json() as { doc?: Doc; error?: string }
       if (!res.ok) throw new Error(json.error ?? 'Error al subir')
       addDoc(json.doc!)
@@ -92,8 +99,13 @@ export function DocSection({ technicianId, technicianName, initial }: { technici
     setShowExtraForm(false)
   }
 
-  function handleDelete(docId: string) {
-    if (!confirm('¿Eliminar este documento?')) return
+  // window.confirm() está prohibido para acciones destructivas (frontend.md)
+  // -- confirmación inline en su lugar, mismo patrón ya usado en el resto de
+  // la app.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  function doDelete(docId: string) {
+    setConfirmDeleteId(null)
     startTransition(async () => {
       await deleteDocument(docId, technicianId)
       setDocs((prev) => prev.filter((d) => d.id !== docId))
@@ -154,7 +166,10 @@ export function DocSection({ technicianId, technicianName, initial }: { technici
           doc={contrato}
           selected={contrato ? selected.has(contrato.id) : false}
           onToggle={contrato ? () => toggleSelected(contrato.id) : undefined}
-          onDelete={contrato ? () => handleDelete(contrato.id) : undefined}
+          confirming={!!contrato && confirmDeleteId === contrato.id}
+          onRequestDelete={contrato ? () => setConfirmDeleteId(contrato.id) : undefined}
+          onConfirmDelete={contrato ? () => doDelete(contrato.id) : undefined}
+          onCancelDelete={() => setConfirmDeleteId(null)}
           uploading={uploading === 'contrato'}
           onUpload={(file) => uploadSlot('contrato', 'contrato', null, file)}
           deleting={isPending}
@@ -165,7 +180,10 @@ export function DocSection({ technicianId, technicianName, initial }: { technici
           doc={carnetFrontal}
           selected={carnetFrontal ? selected.has(carnetFrontal.id) : false}
           onToggle={carnetFrontal ? () => toggleSelected(carnetFrontal.id) : undefined}
-          onDelete={carnetFrontal ? () => handleDelete(carnetFrontal.id) : undefined}
+          confirming={!!carnetFrontal && confirmDeleteId === carnetFrontal.id}
+          onRequestDelete={carnetFrontal ? () => setConfirmDeleteId(carnetFrontal.id) : undefined}
+          onConfirmDelete={carnetFrontal ? () => doDelete(carnetFrontal.id) : undefined}
+          onCancelDelete={() => setConfirmDeleteId(null)}
           uploading={uploading === 'carnet-Frontal'}
           onUpload={(file) => uploadSlot('carnet-Frontal', 'carnet', 'Frontal', file)}
           deleting={isPending}
@@ -176,7 +194,10 @@ export function DocSection({ technicianId, technicianName, initial }: { technici
           doc={carnetReverso}
           selected={carnetReverso ? selected.has(carnetReverso.id) : false}
           onToggle={carnetReverso ? () => toggleSelected(carnetReverso.id) : undefined}
-          onDelete={carnetReverso ? () => handleDelete(carnetReverso.id) : undefined}
+          confirming={!!carnetReverso && confirmDeleteId === carnetReverso.id}
+          onRequestDelete={carnetReverso ? () => setConfirmDeleteId(carnetReverso.id) : undefined}
+          onConfirmDelete={carnetReverso ? () => doDelete(carnetReverso.id) : undefined}
+          onCancelDelete={() => setConfirmDeleteId(null)}
           uploading={uploading === 'carnet-Reverso'}
           onUpload={(file) => uploadSlot('carnet-Reverso', 'carnet', 'Reverso', file)}
           deleting={isPending}
@@ -269,14 +290,23 @@ export function DocSection({ technicianId, technicianName, initial }: { technici
                       ]}
                       className="rounded-md border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
                     />
-                    <button
-                      onClick={() => handleDelete(d.id)}
-                      disabled={isPending}
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-red-200 px-2 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-60"
-                    >
-                      {isPending && <Spinner size={12} />}
-                      Eliminar
-                    </button>
+                    {confirmDeleteId === d.id ? (
+                      <div className="flex min-h-11 items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2">
+                        <span className="text-xs font-medium text-red-700">¿Eliminar?</span>
+                        <button type="button" onClick={() => setConfirmDeleteId(null)} className="text-xs font-medium text-gray-500 hover:text-gray-700">No</button>
+                        <button type="button" onClick={() => doDelete(d.id)} disabled={isPending} className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-60">
+                          {isPending ? 'Eliminando…' : 'Sí, eliminar'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(d.id)}
+                        disabled={isPending}
+                        className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-red-200 px-2 py-1 text-xs text-red-500 hover:bg-red-50 disabled:opacity-60"
+                      >
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 </li>
               )
@@ -289,14 +319,17 @@ export function DocSection({ technicianId, technicianName, initial }: { technici
 }
 
 function FixedSlot({
-  title, technicianName, doc, selected, onToggle, onDelete, uploading, onUpload, deleting,
+  title, technicianName, doc, selected, onToggle, confirming, onRequestDelete, onConfirmDelete, onCancelDelete, uploading, onUpload, deleting,
 }: {
   title: string
   technicianName: string
   doc: Doc | null
   selected: boolean
   onToggle?: () => void
-  onDelete?: () => void
+  confirming: boolean
+  onRequestDelete?: () => void
+  onConfirmDelete?: () => void
+  onCancelDelete?: () => void
   uploading: boolean
   onUpload: (file: File) => void
   deleting: boolean
@@ -341,7 +374,16 @@ function FixedSlot({
           ]}
           className="rounded border border-ok-500/40 bg-white px-1.5 py-0.5 text-ok-700 hover:bg-ok-100"
         />
-        <button onClick={onDelete} disabled={deleting} className="rounded border border-red-200 bg-white px-1.5 py-0.5 text-red-600 hover:bg-red-50 disabled:opacity-60">Eliminar</button>
+        {confirming ? (
+          <span className="inline-flex items-center gap-1 rounded border border-red-200 bg-red-50 px-1.5 py-0.5">
+            <button type="button" onClick={onCancelDelete} className="text-gray-500 hover:text-gray-700">No</button>
+            <button type="button" onClick={onConfirmDelete} disabled={deleting} className="font-semibold text-red-600 hover:text-red-800 disabled:opacity-60">
+              {deleting ? '…' : 'Sí'}
+            </button>
+          </span>
+        ) : (
+          <button onClick={onRequestDelete} disabled={deleting} className="rounded border border-red-200 bg-white px-1.5 py-0.5 text-red-600 hover:bg-red-50 disabled:opacity-60">Eliminar</button>
+        )}
       </div>
     </div>
   )
