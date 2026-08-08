@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { resolveQuoteUrl } from '@/lib/quotes/resolve-quote-url'
+import { PortalDocumentPreviewModal } from './portal-document-preview'
 
 interface PropuestaDoc {
   id: string
@@ -33,90 +35,87 @@ function IconDownload() {
   )
 }
 
-function DownloadBtn({ docId, title, primary }: { docId: string; title: string; primary: string }) {
-  const [loading, setLoading] = useState(false)
+// Ver + Descargar — antes esta lista SOLO tenía "Descargar PDF" (bug real
+// reportado: propuestas comerciales sin forma de verlas sin descargar, a
+// diferencia de Informes técnicos, que ya tienen ambas acciones vía
+// portal-informe-btn.tsx). Mismo patrón: resolveQuoteUrl() resuelve una vez,
+// Ver abre PortalDocumentPreviewModal (in-app, nunca navega afuera),
+// Descargar agrega &download=1 para el caso de archivo real.
+function DocActions({ docId, title, primary }: { docId: string; title: string; primary: string }) {
+  const [loading, setLoading] = useState<'ver' | 'descargar' | null>(null)
   const [err, setErr] = useState('')
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+
+  async function handleVer() {
+    setLoading('ver'); setErr('')
+    try {
+      setPreviewUrl(await resolveQuoteUrl(docId))
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Error al cargar')
+    } finally {
+      setLoading(null)
+    }
+  }
 
   async function handleDownload() {
-    setLoading(true)
-    setErr('')
+    setLoading('descargar'); setErr('')
     try {
-      const metaRes = await fetch(`/api/portal/propuestas?id=${docId}`)
-      if (!metaRes.ok) throw new Error('No se pudo cargar la propuesta')
-      const { dataJson, viewUrl } = await metaRes.json()
-
-      // viewUrl gana siempre que exista: un archivo real ya subido a R2 es
-      // la fuente de verdad, aunque dataJson también traiga algo (mismo bug
-      // real ya corregido en resolveInformeUrl -- un documento puede tener
-      // un archivo real Y un dataJson que es solo un stub incompleto de otro
-      // flujo, nunca pensado para regenerar el PDF). Antes se decidía por
-      // `!dataJson`, así que ese stub ganaba y /api/quotes/generate lo
-      // rechazaba. viewUrl es una ruta propia (/api/files?...&type=client-
-      // document) que por defecto redirige a R2 para que <iframe>/<img> la
-      // carguen directo; un <a download> sobre esa redirección sigue
-      // terminando cruzada de origen y el navegador la ignora. &download=1
-      // hace que la misma ruta devuelva los bytes directo, mismo origen de
-      // punta a punta.
-      if (viewUrl) {
-        const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-        const downloadUrl = typeof viewUrl === 'string' && viewUrl.startsWith('/api/files')
-          ? `${viewUrl}&download=1&filename=${encodeURIComponent(filename)}`
-          : viewUrl
-        const a = document.createElement('a')
-        a.href = downloadUrl
-        a.download = filename
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
-        return
-      }
-      if (!dataJson) throw new Error('Propuesta sin contenido')
-
-      // Se manda solo el id -- el servidor re-deriva y re-verifica el
-      // contenido (ver /api/quotes/generate), nunca confía en un blob que
-      // el cliente ya trae en la mano.
-      const pdfRes = await fetch('/api/quotes/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documentId: docId }),
-      })
-      if (!pdfRes.ok) throw new Error('Error generando PDF')
-
-      const blob = await pdfRes.blob()
-      const url = URL.createObjectURL(blob)
+      const url = await resolveQuoteUrl(docId, { download: true, filename })
       const a = document.createElement('a')
-      a.href = url
-      a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-      document.body.appendChild(a)
-      a.click()
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click()
       document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (e: unknown) {
+      if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+    } catch (e) {
       setErr(e instanceof Error ? e.message : 'Error al descargar')
     } finally {
-      setLoading(false)
+      setLoading(null)
     }
   }
 
   return (
-    <div>
-      <button
-        onClick={handleDownload}
-        disabled={loading}
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          padding: '7px 14px', borderRadius: 8,
-          background: loading ? '#f3f4f6' : primary,
-          color: loading ? C.t3 : '#fff',
-          border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
-          fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
-          transition: 'opacity 0.15s',
-        }}
-      >
-        <IconDownload />
-        {loading ? 'Generando…' : 'Descargar PDF'}
-      </button>
-      {err && <p style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>{err}</p>}
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button
+          onClick={handleVer}
+          disabled={loading !== null}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '7px 12px', borderRadius: 8, cursor: loading !== null ? 'not-allowed' : 'pointer',
+            background: 'none', border: `1px solid color-mix(in srgb, ${primary} 30%, transparent)`, color: primary,
+            fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+          }}
+        >
+          {loading === 'ver' ? 'Cargando…' : 'Ver'}
+        </button>
+        <button
+          onClick={handleDownload}
+          disabled={loading !== null}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '7px 14px', borderRadius: 8,
+            background: loading !== null ? '#f3f4f6' : primary,
+            color: loading !== null ? C.t3 : '#fff',
+            border: 'none', cursor: loading !== null ? 'not-allowed' : 'pointer',
+            fontSize: 12, fontWeight: 700, fontFamily: 'inherit',
+            transition: 'opacity 0.15s',
+          }}
+        >
+          <IconDownload />
+          {loading === 'descargar' ? 'Generando…' : 'Descargar PDF'}
+        </button>
+      </div>
+      {err && <p style={{ fontSize: 11, color: '#ef4444', margin: 0 }}>{err}</p>}
+      {previewUrl && (
+        <PortalDocumentPreviewModal
+          open={!!previewUrl}
+          onClose={() => { if (previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); setPreviewUrl(null) }}
+          url={previewUrl}
+          name={filename}
+          accent={primary}
+        />
+      )}
     </div>
   )
 }
@@ -193,7 +192,7 @@ export function PortalPropuestaList({ docs, slug: _slug, primary, bg: _bg = '#f4
 
             {/* Actions */}
             <div style={{ flexShrink: 0 }}>
-              <DownloadBtn docId={doc.id} title={doc.title} primary={primary} />
+              <DocActions docId={doc.id} title={doc.title} primary={primary} />
             </div>
           </div>
         ))}

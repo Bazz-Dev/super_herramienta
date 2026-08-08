@@ -38,6 +38,7 @@ export default async function DocumentosPage() {
     client: d.client,
     proposalStatus: d.proposalStatus ?? null,
     proposalAmount: d.proposalAmount ?? null,
+    quoteId: d.quoteId ?? null,
     source: 'client_document' as const,
     ticketId: d.ticket?.id,
     ticketCode: d.ticket?.ticketCode,

@@ -10,6 +10,48 @@ import { previewSrc } from '@/lib/reports/resolve-preview-url'
 import type { ReportData } from '@/lib/reports/types'
 import { buildDownloadFilename } from '@/lib/tickets/file-naming'
 
+// Shell visual compartido del modal de preview — antes documents-view.tsx
+// tenía su propio overlay full-screen paralelo a este (mismo fixed inset-0 +
+// header + botón cerrar) pero SIN los botones de acción (Descargar/Ver en
+// grande/Editar), lo que hacía que abrir una propuesta ahí se sintiera como
+// un callejón sin salida en vez del mismo patrón "Ver" que ya tiene esta
+// vista de Propuestas/Informes. Extraído para que ambos monten literalmente
+// el mismo marco — cada caller decide sus propios botones/contenido (mismo
+// criterio que PortalDocumentPreview/PortalDocumentPreviewModal, que ya
+// separaban trigger de modal por la misma razón).
+export function DocumentPreviewShell({
+  title, onClose, actions, children,
+}: {
+  title: string
+  onClose: () => void
+  actions?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/70" onClick={onClose}>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-5 py-3" onClick={(e) => e.stopPropagation()}>
+        <span className="max-w-[50vw] truncate text-sm font-semibold text-gray-800">{title}</span>
+        <div className="flex items-center gap-2">
+          {actions}
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-1 flex min-h-9 min-w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            aria-label="Cerrar vista previa"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+              <path d="M3 3l10 10M13 3L3 13"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // Vista previa rápida desde el listado de Propuestas/Informes (pedido
 // explícito del dueño: clic en el nombre = preview in-place, no navegar al
 // editor de una) — mismo mecanismo que documents-view.tsx ya usa (fetch
@@ -125,10 +167,11 @@ export function DocumentQuickPreview({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/70" onClick={() => setOpen(false)}>
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-5 py-3" onClick={(e) => e.stopPropagation()}>
-            <span className="max-w-[50vw] truncate text-sm font-semibold text-gray-800">{title}</span>
-            <div className="flex items-center gap-2">
+        <DocumentPreviewShell
+          title={title}
+          onClose={() => setOpen(false)}
+          actions={
+            <>
               <button type="button" onClick={download} disabled={downloading} className={buttonClass('secondary', 'sm')}>
                 {downloading ? <Spinner size={12} /> : 'Descargar'}
               </button>
@@ -173,30 +216,19 @@ export function DocumentQuickPreview({
                   {deleteError && <span className="text-xs font-medium text-red-600">{deleteError}</span>}
                 </div>
               )}
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="ml-1 flex min-h-9 min-w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-                aria-label="Cerrar vista previa"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-                  <path d="M3 3l10 10M13 3L3 13"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {loading && (
-              <div className="flex h-full items-center justify-center"><Spinner size={32} /></div>
-            )}
-            {error && !loading && (
-              <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{error}</div>
-            )}
-            {html && !loading && !error && (
-              <iframe srcDoc={html} className="h-full w-full border-0 bg-white" title={title} sandbox="allow-same-origin" />
-            )}
-          </div>
-        </div>
+            </>
+          }
+        >
+          {loading && (
+            <div className="flex h-full items-center justify-center"><Spinner size={32} /></div>
+          )}
+          {error && !loading && (
+            <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{error}</div>
+          )}
+          {html && !loading && !error && (
+            <iframe srcDoc={html} className="h-full w-full border-0 bg-white" title={title} sandbox="allow-same-origin" />
+          )}
+        </DocumentPreviewShell>
       )}
     </>
   )

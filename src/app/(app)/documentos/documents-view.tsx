@@ -2,9 +2,13 @@
 
 import { useState, useTransition, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Spinner } from '@/components/ui/spinner'
+import { buttonClass } from '@/components/ui/button'
 import { renderQuoteHTML } from '@/lib/quotes/template'
 import { renderReportHTML } from '@/lib/reports/template'
+import { DocumentPreviewShell } from '@/components/quotes/document-quick-preview'
+import { buildDownloadFilename } from '@/lib/tickets/file-naming'
 import { addToPipeline } from '@/lib/pipeline/actions'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_COLORS } from '@/lib/pipeline/labels'
 import type { ProposalStatus } from '@/generated/prisma/enums'
@@ -19,6 +23,7 @@ interface Doc {
   createdBy: { name: string } | null
   proposalStatus: ProposalStatus | null
   proposalAmount: number | null
+  quoteId?: string | null
   source: 'client_document' | 'ticket'
   ticketId?: string
   ticketCode?: string
@@ -497,9 +502,27 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
   )
   const [search, setSearch] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [preview, setPreview] = useState<{ html?: string; url?: string; title: string } | null>(null)
+  // Antes esta vista tenía su propio overlay full-screen sin ninguna acción
+  // (ni Descargar ni Editar) — bug real reportado ("las propuestas
+  // comerciales no deberían llevar a otra página... mantener acciones
+  // relevantes como editar, descargar o imprimir"). El overlay en sí (fixed
+  // inset-0, sin navegar) ya cumplía "no otra página", pero se sentía como
+  // un callejón sin salida por lo que le faltaba. Ahora comparte el mismo
+  // shell que DocumentQuickPreview (ticket-controls.tsx, etc.) y cada tipo
+  // de documento arma sus propias acciones.
+  type Preview = {
+    kind: 'ot' | 'file' | 'generated'
+    title: string
+    url?: string
+    html?: string
+    rawJson?: unknown
+    doc?: Doc
+  }
+  const [preview, setPreview] = useState<Preview | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState('')
+  const [downloading, setDownloading] = useState(false)
+  const [downloadError, setDownloadError] = useState('')
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') setPreview(null) }
@@ -508,14 +531,24 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
   }, [preview])
 
   const handlePreview = useCallback(async (doc: Doc) => {
-    const { id: docId, title: docTitle, type: docType, source } = doc
+    const { id: docId, title: docTitle, type: docType, source, fileKey } = doc
     const isFile = doc.fileKey !== 'inline'
 
     // OT: no es un ClientDocument, es Ticket.otFileUrl — la ruta de OT ya
     // redirige directo a la URL firmada, sin necesidad de pasar por
     // /api/client-documents (que no sabe nada de este documento).
     if (source === 'ticket') {
-      setPreview({ url: `/api/tickets/${doc.ticketId}/ot-photo`, title: docTitle })
+      setPreview({ kind: 'ot', url: `/api/tickets/${doc.ticketId}/ot-photo`, title: docTitle, doc })
+      return
+    }
+
+    // Archivo real subido (no generado desde el editor) — misma ruta propia
+    // (/api/files, same-origin) que ya usa el portal para este mismo caso;
+    // evita depender de viewUrl presignado directo a R2, cuyo CORS solo
+    // permite PUT (GAP_REGISTER G63) y bloquea cualquier fetch()/descarga
+    // por blob, aunque el <iframe>/<a> simple sí funcionen.
+    if (isFile) {
+      setPreview({ kind: 'file', url: `/api/files?key=${encodeURIComponent(fileKey)}&type=client-document`, title: docTitle, doc })
       return
     }
 
@@ -526,18 +559,11 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
       if (!res.ok) throw new Error(`Error ${res.status} al cargar documento`)
       const response = await res.json()
 
-      if (isFile) {
-        const url: string | null = response.viewUrl ?? null
-        if (!url) throw new Error('No se pudo generar el enlace de vista previa')
-        setPreview({ url, title: docTitle })
-        return
-      }
-
       const rawJson: string | null = response.dataJson ?? response.doc?.dataJson ?? null
       if (!rawJson) throw new Error('Este documento no tiene datos guardados')
       const json = JSON.parse(rawJson)
       const html = docType === 'informe' ? renderReportHTML(json) : renderQuoteHTML(json)
-      setPreview({ html, title: docTitle })
+      setPreview({ kind: 'generated', html, rawJson: json, title: docTitle, doc })
     } catch (e) {
       setPreviewError(e instanceof Error ? e.message : 'Error al abrir la vista previa')
       setTimeout(() => setPreviewError(''), 4000)
@@ -545,6 +571,45 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
       setPreviewLoading(false)
     }
   }, [])
+
+  // Descarga para el caso "generated" — reusa el rawJson ya cargado por
+  // handlePreview (misma data que ya está en pantalla), sin volver a pedirlo.
+  async function downloadGenerated() {
+    if (!preview || preview.kind !== 'generated' || !preview.doc) return
+    const { doc, rawJson } = preview
+    setDownloading(true)
+    setDownloadError('')
+    try {
+      const apiPath = doc.type === 'propuesta' ? '/api/quotes/generate' : '/api/reports/generate'
+      const res = await fetch(apiPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rawJson),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail ?? err.error ?? `Error ${res.status} generando PDF`)
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = buildDownloadFilename({
+        kind: doc.type === 'propuesta' ? 'presupuesto' : 'informe_tecnico',
+        number: doc.type === 'propuesta' ? doc.quoteId : undefined,
+        ticketCode: doc.ticketCode,
+      })
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (e) {
+      setDownloadError(e instanceof Error ? e.message : 'Error al descargar el PDF')
+      setTimeout(() => setDownloadError(''), 4000)
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   function removeDoc(docId: string) {
     setFolders(prev =>
@@ -712,35 +777,49 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
         </div>
       </div>
 
-      {/* ── Preview overlay ── */}
+      {/* ── Preview overlay — mismo shell que DocumentQuickPreview (tickets),
+          con las acciones (Descargar/Editar/Abrir original) que antes
+          faltaban acá por completo. ── */}
       {preview && (
-        <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/70"
-          onClick={() => setPreview(null)}
+        <DocumentPreviewShell
+          title={preview.title}
+          onClose={() => setPreview(null)}
+          actions={
+            <>
+              {preview.kind === 'generated' && (
+                <>
+                  <button type="button" onClick={downloadGenerated} disabled={downloading} className={buttonClass('secondary', 'sm')}>
+                    {downloading ? <Spinner size={12} /> : 'Descargar'}
+                  </button>
+                  {preview.doc && (
+                    <Link
+                      href={`/${preview.doc.type === 'propuesta' ? 'cotizador' : 'informe'}?docId=${preview.doc.id}`}
+                      className={buttonClass('primary', 'sm')}
+                    >
+                      Editar →
+                    </Link>
+                  )}
+                </>
+              )}
+              {(preview.kind === 'file' || preview.kind === 'ot') && preview.url && (
+                <a href={`${preview.url}${preview.kind === 'file' ? '&download=1' : ''}`} target="_blank" rel="noopener noreferrer" className={buttonClass('secondary', 'sm')}>
+                  {preview.kind === 'file' ? 'Descargar' : 'Abrir original ↗'}
+                </a>
+              )}
+            </>
+          }
         >
-          <div
-            className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-5 py-3"
-            onClick={e => e.stopPropagation()}
-          >
-            <span className="max-w-[60vw] truncate text-sm font-semibold text-gray-800">{preview.title}</span>
-            <button
-              onClick={() => setPreview(null)}
-              className="ml-4 flex min-h-9 min-w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-              aria-label="Cerrar vista previa"
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
-                <path d="M3 3l10 10M13 3L3 13"/>
-              </svg>
-            </button>
-          </div>
-          <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
-            {preview.url ? (
-              <iframe src={preview.url} className="h-full w-full border-0 bg-white" title={preview.title} />
-            ) : (
-              <iframe srcDoc={preview.html} className="h-full w-full border-0 bg-white" title={preview.title} sandbox="allow-same-origin" />
-            )}
-          </div>
-        </div>
+          {downloadError && (
+            <div className="fixed inset-x-0 bottom-6 z-[60] flex justify-center">
+              <div className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-lg">{downloadError}</div>
+            </div>
+          )}
+          {preview.url ? (
+            <iframe src={preview.url} className="h-full w-full border-0 bg-white" title={preview.title} />
+          ) : (
+            <iframe srcDoc={preview.html} className="h-full w-full border-0 bg-white" title={preview.title} sandbox="allow-same-origin" />
+          )}
+        </DocumentPreviewShell>
       )}
     </div>
   )
