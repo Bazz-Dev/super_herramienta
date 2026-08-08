@@ -44,8 +44,8 @@ const URGENCIES = [
 ]
 
 const MODALIDADES = [
-  { value: 'pre_quote',      label: 'Necesito cotización primero', desc: 'Quieres el precio antes de que vayamos a resolverlo' },
-  { value: 'post_execution', label: 'Es urgente, resuelvan y después vemos el costo', desc: 'Autorizas que vayamos primero, la valorización llega después' },
+  { value: 'pre_quote',      label: 'Cotización previa', desc: 'Se presenta una propuesta de valor antes de ejecutar el trabajo' },
+  { value: 'post_execution', label: 'Atención inmediata', desc: 'Autorización para resolver de inmediato; la valorización se entrega después' },
 ]
 
 const CATEGORIES = [
@@ -259,7 +259,7 @@ export function PortalNewTicketForm({ slug, clientId, clientName, createdById, b
       </div>
 
       <div>
-        {label('¿Cómo prefieres avanzar?', true)}
+        {label('Modalidad de atención', true)}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
           {MODALIDADES.map(m => (
             <label key={m.value} style={{
