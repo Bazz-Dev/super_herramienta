@@ -12,10 +12,11 @@ import { KpiCard } from '@/components/cashflow/kpi-card'
 import { DateRangeFilter } from '@/components/cashflow/date-range-filter'
 import { DOC_TYPE_LABELS, type DocTypeId } from '@/lib/resources/labels'
 import { LEAVE_TYPE_LABEL } from '@/lib/rrhh/labels'
+import { version as pkgVersion } from '../../../../package.json'
 
 export const metadata = { title: 'Inicio — INGEGAR' }
 
-const APP_VERSION = 'v1.11.0'
+const APP_VERSION = `v${pkgVersion}`
 
 // ── Información institucional INGEGAR ─────────────────────────────────────────
 const EMPRESA = {

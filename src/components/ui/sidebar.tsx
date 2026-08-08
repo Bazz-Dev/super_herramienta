@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Logo } from './logo'
 import { NotificationBell } from './notification-bell'
+import { version as appVersion } from '../../../package.json'
 
 const NAV_SECTIONS = [
   {
@@ -181,7 +182,7 @@ export function Sidebar({
           </div>
         </a>
         <div className="mt-3">{logout}</div>
-        <p className="mt-3 text-center text-[10px] font-mono text-gray-300">INGEGAR One · v1.11.0</p>
+        <p className="mt-3 text-center text-[10px] font-mono text-gray-300">INGEGAR One · v{appVersion}</p>
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import { signOut } from 'next-auth/react'
 import { PortalPushPrompt } from './portal-push-prompt'
 import { PortalNotificationBell } from './portal-notification-bell'
+import { version as appVersion } from '../../../package.json'
 
 interface Props {
   slug: string
@@ -213,7 +214,7 @@ export function PortalShell({
             </button>
           </div>
           <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.12)', textAlign: 'center', marginTop: 10 }}>
-            Powered by INGEGAR · <span style={{ fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0 }}>v1.8.0</span>
+            Powered by INGEGAR · <span style={{ fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0 }}>v{appVersion}</span>
           </p>
         </div>
       </aside>

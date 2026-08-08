@@ -1,7 +1,7 @@
 // INGEGAR One — Service Worker
 // Cache name synced from package.json's version by scripts/sync-sw-version.mjs
 // on every build — bumping the version now auto-clears old PWA caches on deploy.
-const CACHE = 'ingegar-one-1.11.0'
+const CACHE = 'ingegar-one-2.0.0'
 const OFFLINE_URL = '/offline'
 
 // Assets to pre-cache for offline shell

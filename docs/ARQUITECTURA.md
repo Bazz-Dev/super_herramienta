@@ -45,7 +45,7 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 
 ---
 
-## Módulos actuales (v1.11.0)
+## Módulos actuales (v2.0.0)
 
 ### Cronograma (`/cronograma`)
 **Para qué**: Calendario de trabajos en terreno.
