@@ -124,7 +124,7 @@ function RowActions({ docId, title, primary }: { docId: string; title: string; p
   async function handleDownload() {
     setLoading('descargar'); setErr('')
     try {
-      const url = await resolveInformeUrl(docId)
+      const url = await resolveInformeUrl(docId, { download: true, filename })
       const a = document.createElement('a')
       a.href = url; a.download = filename
       document.body.appendChild(a); a.click(); document.body.removeChild(a)

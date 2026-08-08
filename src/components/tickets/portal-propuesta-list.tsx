@@ -45,12 +45,22 @@ function DownloadBtn({ docId, title, primary }: { docId: string; title: string; 
       if (!metaRes.ok) throw new Error('No se pudo cargar la propuesta')
       const { dataJson, viewUrl } = await metaRes.json()
 
-      // Propuesta subida como archivo real (sin dataJson) — descarga directa desde R2.
+      // Propuesta subida como archivo real (sin dataJson) — viewUrl es una
+      // ruta propia (/api/files?...&type=client-document) que por defecto
+      // redirige a R2 para que <iframe>/<img> la carguen directo; un
+      // <a download> sobre esa redirección sigue terminando cruzada de
+      // origen y el navegador la ignora (mismo bug ya documentado en
+      // resolveInformeUrl). &download=1 hace que la misma ruta devuelva los
+      // bytes directo, mismo origen de punta a punta.
       if (!dataJson) {
         if (!viewUrl) throw new Error('Propuesta sin contenido')
+        const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+        const downloadUrl = typeof viewUrl === 'string' && viewUrl.startsWith('/api/files')
+          ? `${viewUrl}&download=1&filename=${encodeURIComponent(filename)}`
+          : viewUrl
         const a = document.createElement('a')
-        a.href = viewUrl
-        a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+        a.href = downloadUrl
+        a.download = filename
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)

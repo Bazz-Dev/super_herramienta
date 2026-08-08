@@ -12,7 +12,7 @@ const CONTENT_TYPES: Record<string, string> = {
   png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp',
 }
 
-type FileType = 'ticket' | 'technician' | 'company' | 'job' | 'client-editor'
+type FileType = 'ticket' | 'technician' | 'company' | 'job' | 'client-editor' | 'client-document'
 
 /** Shared by GET and HEAD — validates the caller owns access to the resource
  * that contains this key. Returns the error response to send, or null if access is granted. */
@@ -36,6 +36,21 @@ async function verifyAccess(
   if (type === 'ticket') {
     const ticketFilter = ticketFileFilter(role, tenantId, user.id, user.clientId)
     const doc = await prisma.ticketDocument.findFirst({ where: { fileUrl: key, ticket: ticketFilter }, select: { id: true } })
+    if (doc) return null
+    // Bug real reportado en vivo: la OT (Ticket.otFileUrl) vive en un campo
+    // directo del ticket, no en TicketDocument -- este chequeo nunca la
+    // encontraba, así que el visor de OT mostraba "Documento no disponible"
+    // siempre, aunque el archivo existiera. Mismo scoping por rol que arriba.
+    const ticket = await prisma.ticket.findFirst({ where: { otFileUrl: key, ...ticketFilter }, select: { id: true } })
+    return ticket ? null : NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+  if (type === 'client-document') {
+    // Informes/propuestas subidos como archivo real (sin dataJson) -- mismo
+    // criterio de ownership que /api/portal/informes y /api/portal/propuestas.
+    const doc = await prisma.clientDocument.findFirst({
+      where: { fileKey: key, ...(role === 'client' ? { clientId: user.clientId ?? '__none__' } : role === 'super' ? {} : { tenantId }) },
+      select: { id: true },
+    })
     return doc ? null : NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
   if (type === 'technician') {

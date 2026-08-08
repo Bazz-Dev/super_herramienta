@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { getPortalClientBySlug } from '@/lib/portal-client'
 import { getClientTicket } from '@/lib/tickets/tickets'
 import { canViewPortal, isStaffViewing } from '@/lib/portal-auth'
-import { getPresignedUrl, isR2Key } from '@/lib/r2'
+import { isR2Key } from '@/lib/r2'
 import { PortalShell } from '@/components/tickets/portal-shell'
 import { PortalCommentForm } from '@/components/tickets/portal-comment-form'
 import { PortalTicketActions } from '@/components/tickets/portal-ticket-actions'
@@ -194,11 +194,23 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
   // Pre-sign document URLs (1h expiry) + informes técnicos vinculados (FK real,
   // ver G2) + tickets fusionados en este (parentTicketId, sin @relation
   // declarada) — ninguna depende de otra, antes se esperaban en serie.
+  // Bug real reportado en vivo: esto generaba una URL prefirmada de R2
+  // directa -- cualquier fetch() del navegador contra ella (el HEAD-check de
+  // PortalDocumentPreviewModal, o el blob-download de PhotoGallery) queda
+  // bloqueado por CORS, porque el bucket R2 solo tiene habilitado el método
+  // PUT (ver GAP_REGISTER G63, configurado así para las subidas, nunca
+  // extendido a lecturas). El HEAD-check interpretaba ese bloqueo como
+  // "archivo no encontrado" y mostraba "Documento no disponible" con el
+  // archivo real existiendo; la descarga de fotos caía en silencio a
+  // window.open en vez de bajar el archivo. Una ruta propia (mismo origen,
+  // /api/files) evita el CORS por completo -- el redirect final a R2 lo
+  // sigue el navegador de forma transparente al cargar <img>/<iframe>/
+  // descargar, no un fetch() de JS.
   const [signedDocs, linkedInformes, mergedChildren, otViewUrl] = await Promise.all([
-    Promise.all(
-      ticket.documents.map(async (doc) => ({
+    Promise.resolve(
+      ticket.documents.map((doc) => ({
         ...doc,
-        viewUrl: isR2Key(doc.fileUrl) ? await getPresignedUrl(doc.fileUrl, 3600) : doc.fileUrl,
+        viewUrl: isR2Key(doc.fileUrl) ? `/api/files?key=${encodeURIComponent(doc.fileUrl)}&type=ticket` : doc.fileUrl,
       })),
     ),
     prisma.clientDocument.findMany({
@@ -211,7 +223,11 @@ export default async function PortalTicketDetailPage({ params }: { params: Promi
       select: { id: true, ticketCode: true, title: true },
       orderBy: { ticketCode: 'asc' },
     }),
-    ticket.otFileUrl ? (isR2Key(ticket.otFileUrl) ? getPresignedUrl(ticket.otFileUrl, 3600) : Promise.resolve(ticket.otFileUrl)) : Promise.resolve(null),
+    Promise.resolve(
+      ticket.otFileUrl
+        ? (isR2Key(ticket.otFileUrl) ? `/api/files?key=${encodeURIComponent(ticket.otFileUrl)}&type=ticket` : ticket.otFileUrl)
+        : null,
+    ),
   ])
 
   const theme = resolvePortalTheme(client.portalTheme)
