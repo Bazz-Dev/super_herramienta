@@ -93,22 +93,26 @@ export default async function ConciliacionPage({
   // trabajo de Flujo de Caja no aparecía en ninguna fila, ni siquiera como
   // excepción). Mismo criterio de tenant/cliente que el resto de la página.
   const jobbedTicketIds = new Set(jobs.map((j) => j.originTicketId).filter((id): id is string => !!id))
-  const resolvedTicketsRaw = await prisma.ticket.findMany({
-    where: {
-      ...tenantScope(actor), deletedAt: null, status: 'resuelto',
-      ...(cliente ? { clientId: cliente } : {}),
-      id: { notIn: [...jobbedTicketIds] },
-    },
-    select: { id: true, ticketCode: true, title: true, closedDate: true, client: { select: { id: true, name: true } }, branch: { select: { name: true } } },
-    orderBy: { closedDate: 'desc' },
-  })
 
   // Íconos de estado documental (pedido explícito del dueño) — 3 queries
   // planas filtradas por los ticketId reales de esta página (mismo patrón
   // que reportedTicketIdsRaw arriba), nunca un include anidado por Job — con
   // cientos de filas eso sería N+1. Bucket por ticketId en JS, no en SQL.
+  // Las 4 queries de este bloque dependen solo de `jobs` (ya resuelto
+  // arriba) y son independientes entre sí -- van todas en el mismo
+  // Promise.all, no una tras otra (resolvedTicketsRaw vivía sola, con un
+  // round-trip completo esperando antes de arrancar las otras 3 en vano).
   const ticketIdsForDocs = [...new Set(jobs.map((j) => j.originTicketId).filter((id): id is string => !!id))]
-  const [ticketDocsRaw, expensesRaw, informesRaw] = await Promise.all([
+  const [resolvedTicketsRaw, ticketDocsRaw, expensesRaw, informesRaw] = await Promise.all([
+    prisma.ticket.findMany({
+      where: {
+        ...tenantScope(actor), deletedAt: null, status: 'resuelto',
+        ...(cliente ? { clientId: cliente } : {}),
+        id: { notIn: [...jobbedTicketIds] },
+      },
+      select: { id: true, ticketCode: true, title: true, closedDate: true, client: { select: { id: true, name: true } }, branch: { select: { name: true } } },
+      orderBy: { closedDate: 'desc' },
+    }),
     prisma.ticketDocument.findMany({
       where: { ticketId: { in: ticketIdsForDocs } },
       select: { id: true, ticketId: true, name: true, fileUrl: true, mimeType: true, uploadedAt: true },
