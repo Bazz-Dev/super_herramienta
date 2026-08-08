@@ -3,6 +3,7 @@ import { auth } from '@/auth'
 import {
   listClientsForCashflow,
   listJobs,
+  listJobsForControl,
   listAllBranches,
 } from '@/lib/cashflow/queries'
 import { prisma } from '@/lib/prisma'
@@ -48,8 +49,9 @@ export default async function FlujoPage({
     // una ventana de tiempo) pero NUNCA el período: son los mismos
     // indicadores sin importar qué rango esté mirando el usuario, igual que
     // en la referencia ("Estos indicadores no dependen del período
-    // seleccionado").
-    listJobs(actor, { clientId: cliente }),
+    // seleccionado"). Select liviano (ver listJobsForControl) — sin
+    // include:{branch,client,costs}, que job-presets.ts nunca lee.
+    listJobsForControl(actor, cliente),
     // Edición rápida del acordeón necesita sucursal/técnico por trabajo —
     // se cargan una vez acá (no por tarjeta) y se filtran por clientId en
     // el cliente.

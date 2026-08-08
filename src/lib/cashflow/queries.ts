@@ -51,6 +51,34 @@ export async function listJobs(
   })
 }
 
+// "Control de hoy" en /flujo (facturas vencidas, vencen en 7 días, sin OC,
+// etc.) corre SIN filtro de período en cada carga de la página — antes
+// reusaba listJobs(), que siempre trae include:{branch,client,costs}. Los
+// predicados de job-presets.ts (ver su tipo Job) solo leen campos escalares
+// (+ installments), nunca esas 3 relaciones: para el tenant completo (rol
+// super, tenantScope() = {}) eso era un join innecesario contra la tabla de
+// trabajos entera en cada visita a /flujo, sin importar qué filtro se
+// cambiara — el costo real detrás de "los filtros son lentos".
+export async function listJobsForControl(actor: Actor, clientId?: string) {
+  return prisma.job.findMany({
+    where: { ...tenantScope(actor), ...(clientId ? { clientId } : {}) },
+    select: {
+      financialStage: true, commercialStage: true, operationalStage: true, nonBillable: true,
+      netAmount: true, purchaseOrder: true, purchaseOrderStatus: true,
+      invoiceNumber: true, invoiceDate: true, invoiceStatus: true,
+      paymentDate: true, paymentAmount: true, executionDate: true, creditDays: true, technicianId: true,
+      status: true, collectionStatus: true,
+      installments: {
+        select: {
+          netAmount: true, purchaseOrder: true, purchaseOrderStatus: true,
+          invoiceNumber: true, invoiceDate: true, invoiceStatus: true,
+          creditDays: true, paymentDate: true, paymentAmount: true,
+        },
+      },
+    },
+  })
+}
+
 export async function listBranchesForClient(actor: Actor, clientId: string) {
   return prisma.branch.findMany({
     where: { ...tenantScope(actor), clientId },

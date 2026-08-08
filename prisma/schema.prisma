@@ -719,6 +719,14 @@ model Job {
   @@index([code])
   @@index([processFlow, commercialStage])
   @@index([financialStage])
+  // Reportado en vivo: filtros de Flujo de Caja lentos, sobre todo los de
+  // calendario. listJobs()/getClientSummaries()/getMonthlySummary() filtran
+  // y ordenan por executionDate sin ningún índice que lo cubra — cada cambio
+  // de rango de fechas escaneaba jobs completo. tenantId primero porque
+  // sigue siendo el patrón ya usado arriba (aunque hoy solo exista el
+  // tenant `ingegar`, super igual se beneficia del rango de executionDate
+  // dentro del índice compuesto).
+  @@index([tenantId, executionDate])
   @@map("jobs")
 }
 
