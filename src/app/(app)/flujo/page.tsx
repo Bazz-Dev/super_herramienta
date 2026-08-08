@@ -115,10 +115,10 @@ export default async function FlujoPage({
   return (
     <div className="mx-auto max-w-7xl">
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Flujo de Caja</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-bold sm:text-2xl">Flujo de Caja</h1>
+          <p className="mt-0.5 text-sm text-gray-500">
             Cobranza y rentabilidad por trabajo.
           </p>
         </div>
@@ -137,17 +137,17 @@ export default async function FlujoPage({
       {/* Control de hoy — solo excepciones que requieren una decisión, no
           totales de facturación (esos viven en /flujo/reportes). No dependen
           del período seleccionado arriba, igual que la referencia. */}
-      <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+      <section className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm sm:p-4">
+        <div className="mb-2.5 flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-ink">Control de hoy</h2>
-            <p className="text-xs text-gray-500">Solo lo que requiere una decisión. Estos indicadores no dependen del período seleccionado.</p>
+            <p className="hidden text-xs text-gray-500 sm:block">Solo lo que requiere una decisión. Estos indicadores no dependen del período seleccionado.</p>
           </div>
           <span className="text-xs text-gray-400">
             Actualizado {now.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           <KpiCard
             label="Facturas vencidas" value={String(overdueJobs.length)} hint={`${clp(sum(overdueJobs))} por cobrar`}
             tone={overdueJobs.length > 0 ? 'danger' : 'default'} href={statusHref('overdue')}
@@ -165,7 +165,7 @@ export default async function FlujoPage({
             tone="info"
           />
         </div>
-        <p className="mt-3 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-gray-400">
           Otros controles: <span className="font-semibold text-gray-600">{unvaluedCount} sin valor</span>
           {' · '}
           <span className="font-semibold text-gray-600">{noInvoiceCount} ejecutados con OC y sin factura</span>
@@ -173,8 +173,8 @@ export default async function FlujoPage({
       </section>
 
       {/* Trabajos, agrupados por cliente → período */}
-      <div className="mt-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mt-4">
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-ink">Trabajos</h2>
           <Link href="/flujo/reportes" className="text-xs font-semibold text-brand hover:underline">
             Reportes →
@@ -183,18 +183,19 @@ export default async function FlujoPage({
 
         {/* Status-strip — tarjetas verticales (label chico arriba, número
             grande abajo), igual al status-chip real del prototipo, no pills
-            horizontales pequeñas. */}
+            horizontales pequeñas. min-h-11 (44px): mínimo de touch-target de
+            frontend.md, no bajar de ahí aunque se compacte. */}
         <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {MAIN_STATUS_CHIPS.map((c) => (
             <Link
               key={c.key}
               href={statusHref(c.key)}
-              className={`flex min-h-[66px] flex-col justify-center rounded-xl border px-3 py-2.5 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${
+              className={`flex min-h-11 flex-col justify-center rounded-xl border px-3 py-1.5 text-left transition-all duration-150 hover:-translate-y-px hover:shadow-sm ${
                 activeStatus === c.key ? 'border-ink shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300'
               }`}
             >
               <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{c.label}</span>
-              <strong className="mt-1 text-xl font-extrabold tabular-nums text-ink">{statusCounts[c.key]}</strong>
+              <strong className="mt-0.5 text-lg font-extrabold tabular-nums text-ink">{statusCounts[c.key]}</strong>
             </Link>
           ))}
         </div>

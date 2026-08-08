@@ -88,22 +88,27 @@ export function JobAccordion({ jobs, branches, technicians }: { jobs: Job[]; bra
   const groups = useMemo(() => groupByClientPeriod(filtered, period), [filtered, period])
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-64 flex-1">
-          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 13 13" fill="none">
-            <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.4" />
-            <path d="M9 9l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-          </svg>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar sucursal, trabajo, OC, factura, código…"
-            className="w-full rounded-md border border-gray-300 py-2 pl-8 pr-3 text-sm outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
-          />
-        </div>
+    <div className="flex flex-col gap-3">
+      {/* Búsqueda en su propia fila (siempre visible completa) + el resto de
+          controles en una sola fila con scroll horizontal en mobile — antes
+          cada grupo (filtro/agrupar/vista) se envolvía a su propia fila
+          apilada (flex-wrap), 4 filas de controles antes de ver el primer
+          trabajo. Desktop sigue igual (todo cabe en una fila, sin scroll). */}
+      <div className="relative">
+        <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 13 13" fill="none">
+          <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M9 9l2.5 2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Buscar sucursal, trabajo, OC, factura, código…"
+          className="w-full rounded-md border border-gray-300 py-2 pl-8 pr-3 text-sm outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
+        />
+      </div>
+      <div className="-mx-4 flex items-center gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
         {view === 'list' && (
-          <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+          <div className="flex w-fit shrink-0 gap-1 rounded-lg bg-gray-100 p-1">
             <button
               onClick={() => setExecFilter('all')}
               className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${execFilter === 'all' ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
@@ -125,7 +130,7 @@ export function JobAccordion({ jobs, branches, technicians }: { jobs: Job[]; bra
           </div>
         )}
         {view === 'list' && (
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">Agrupar</span>
             <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
               {PERIODS.map((p) => (
@@ -142,7 +147,7 @@ export function JobAccordion({ jobs, branches, technicians }: { jobs: Job[]; bra
             </div>
           </div>
         )}
-        <div className="flex w-fit gap-1 rounded-lg bg-gray-100 p-1">
+        <div className="flex w-fit shrink-0 gap-1 rounded-lg bg-gray-100 p-1">
           <button onClick={() => setView('list')} className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${view === 'list' ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>☰ Lista</button>
           <button onClick={() => setView('calendar')} className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${view === 'calendar' ? 'bg-white text-ink shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>▦ Calendario</button>
         </div>
