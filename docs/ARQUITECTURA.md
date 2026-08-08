@@ -64,6 +64,7 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Eliminar**: disponible en Activos y Cerrados (mismo `deleteTicket`, gate `super`/`supervisor`).
 **Correlativo de `ticketCode`** (`createTicketWithUniqueCode`, `src/lib/tickets/ticket-code.ts`): la colisión (mismo día+cliente+urgencia+sucursal) ya no se maneja con un check previo + sufijo `Date.now()` — reintenta la creación real sobre la constraint única (`P2002`) con un sufijo determinístico (`-2`, `-3`…), correcto bajo el modelo de concurrencia de Turso/libSQL (MVCC, conflictos al commit). Mismo patrón para `Job.code` (`generateJobCodeWithRetry`, `src/lib/cashflow/generate-code.ts`).
 **Documentos del trabajo** (`ticket-documents-panel.tsx`, en la ficha): vista de solo lectura que agrupa Fotografías/Videos/Otros (con origen cliente/técnico/administrador, derivado de `TicketDocument.uploadedBy.role`), OT, Propuestas, Informes, OC, Facturas y Boletas — extiende el mismo patrón de `/documentacion` (lee fuentes reales en paralelo, no fusiona tablas ni copia archivos). Ver Ontología del dominio § Modelo objetivo.
+**PT/OT/IT — 3 casilleros fijos** (`ticket-controls.tsx`, editor interactivo de la ficha, staff-only): reemplaza la sección "Documentos de trabajo" por 3 casilleros con el mismo lenguaje visual que Contrato/Carnet en la ficha de técnico (`doc-section.tsx`'s `FixedSlot` — lleno `border-ok-200`/vacío `border-dashed`). Mapea el flujo real: **PT** (propuesta) se genera antes o junto con el ticket vía Cotizador — vacío enlaza a `/cotizador?new=1`; **OT** la sube el técnico en terreno (mismo endpoint que ya usaba, solo se restyled); **IT** (informe) lo genera y envía la administración — vacío dispara `goToNewInforme()` (guarda campos pendientes antes de navegar). Esta ficha es staff-only por construcción (el técnico nunca llega a `/tickets/[id]`, ver `.claude/rules/data.md`), así que no hay lógica de ocultar PT/IT por rol acá — la vista del técnico (`/mi-panel/tickets/[id]`, `TecnicoTicketActions`) tiene su propio casillero, solo OT.
 
 ### Flujo de Caja (`/flujo`, `/flujo/reportes`, `/flujo/trabajos/[id]`)
 **Para qué**: Control financiero de trabajos ejecutados — facturación, cobranza, márgenes. Rediseñado 2026-07-28 contra `flujo de caja produccion/*.html` (prototipo de referencia del dueño).
@@ -90,6 +91,7 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 **Integración con Pipeline**: propuestas muestran badge de estado + botón "Agregar al pipeline" / "Ver en pipeline →".
 
 ### Pipeline comercial (`/pipeline`)
+**Oculto del menú desde 2026-08-08** (decisión del dueño: sin uso real, no aporta valor hoy) — ruta, página y datos siguen intactos, solo se quitó el link de `NAV_SECTIONS` en `sidebar.tsx`; reversible con un cambio de una línea si se retoma.
 **Para qué**: Seguimiento de propuestas enviadas — kanban por estado, KPIs, monto en juego.
 **Acceso**: solo `super`/`supervisor`.
 **Modelo**: campos en `ClientDocument` (type=`propuesta`): `proposalStatus` (enum `ProposalStatus`: `borrador|enviada|vista|aceptada|rechazada|perdida`), `proposalAmount`, `sentAt`, `viewedAt`, `responseAt`, `followUpAt`, `proposalNote`.
@@ -125,7 +127,9 @@ Superficie de autoservicio para `role=tecnico`. Sidebar propio (`MiPanelSidebar`
 ### Gastos (`/gastos`)
 **Para qué**: Control de gastos operacionales por técnico (combustible, viáticos, materiales).
 **Modelos**: `Expense`
-**Flujo**: Técnico registra → supervisor aprueba/rechaza → notificación push.
+**Flujo**: Técnico registra (desde el ticket o `/mi-panel/gastos`) → supervisor aprueba/rechaza → notificación push. `/gastos` es solo vista general/filtro/exportación, nunca punto de ingreso.
+**KPIs**: mismo `KpiCard` compartido que Dashboard/Flujo de Caja (card blanca + borde izquierdo de color) desde 2026-08-08 — antes tenía su propio estilo de fondo pastel plano, inconsistente con el resto de la app.
+**Nota de estado (2026-08-08)**: el módulo funciona end-to-end pero no tiene uso real todavía — cero registros de `Expense` tanto en local como en Turso prod al momento de esta nota.
 
 ### RR.HH. (`/rrhh`)
 **Para qué**: Gestión de personas — fichas de empleados, permisos/vacaciones, liquidaciones, FES.
