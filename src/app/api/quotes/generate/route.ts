@@ -29,19 +29,27 @@ export async function POST(request: Request) {
   }
 
   let quoteData: QuoteData
-  if (session.user.role === 'client') {
-    // Mismo criterio que /api/reports/generate: el portal nunca manda el
-    // contenido de la propuesta directamente, solo un id re-verificado
-    // server-side (mismo ownership check que /api/portal/propuestas). Los
-    // editores internos (staff) siguen mandando el QuoteData completo en
-    // vivo (rama de abajo), sin cambios.
-    const idRaw = body && typeof body === 'object' ? (body as Record<string, unknown>).documentId : undefined
-    if (typeof idRaw !== 'string' || !idRaw) {
-      return NextResponse.json({ error: 'Falta documentId.' }, { status: 400 })
-    }
+  const idRaw = body && typeof body === 'object' ? (body as Record<string, unknown>).documentId : undefined
+  // Decidido por LA FORMA del pedido (documentId vs. QuoteData completo), no
+  // por el rol de quien llama — mismo fix y mismo bug real que
+  // /api/reports/generate: un staff usando "ver como"/preview de portal
+  // (role=super/supervisor) también llama con { documentId }, igual que un
+  // cliente real, y caía en la rama de QuoteData completo, siempre 422.
+  if (typeof idRaw === 'string' && idRaw) {
+    // El portal (y el preview de staff) nunca mandan el contenido de la
+    // propuesta directamente, solo un id re-verificado server-side (mismo
+    // ownership check que /api/portal/propuestas).
+    const role = session.user.role
     const clientId = (session.user as { clientId?: string }).clientId
+    const allowed = role === 'super' || role === 'supervisor' || (role === 'client' && !!clientId)
+    if (!allowed) {
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 403 })
+    }
     const doc = await prisma.clientDocument.findFirst({
-      where: { id: idRaw, type: 'propuesta', clientId: clientId ?? '__none__' },
+      where: {
+        id: idRaw, type: 'propuesta',
+        ...(role === 'client' ? { clientId: clientId ?? '__none__' } : {}),
+      },
       select: { dataJson: true },
     })
     if (!doc?.dataJson) {

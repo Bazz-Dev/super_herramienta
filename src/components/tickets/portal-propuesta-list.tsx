@@ -45,15 +45,19 @@ function DownloadBtn({ docId, title, primary }: { docId: string; title: string; 
       if (!metaRes.ok) throw new Error('No se pudo cargar la propuesta')
       const { dataJson, viewUrl } = await metaRes.json()
 
-      // Propuesta subida como archivo real (sin dataJson) — viewUrl es una
-      // ruta propia (/api/files?...&type=client-document) que por defecto
-      // redirige a R2 para que <iframe>/<img> la carguen directo; un
-      // <a download> sobre esa redirección sigue terminando cruzada de
-      // origen y el navegador la ignora (mismo bug ya documentado en
-      // resolveInformeUrl). &download=1 hace que la misma ruta devuelva los
-      // bytes directo, mismo origen de punta a punta.
-      if (!dataJson) {
-        if (!viewUrl) throw new Error('Propuesta sin contenido')
+      // viewUrl gana siempre que exista: un archivo real ya subido a R2 es
+      // la fuente de verdad, aunque dataJson también traiga algo (mismo bug
+      // real ya corregido en resolveInformeUrl -- un documento puede tener
+      // un archivo real Y un dataJson que es solo un stub incompleto de otro
+      // flujo, nunca pensado para regenerar el PDF). Antes se decidía por
+      // `!dataJson`, así que ese stub ganaba y /api/quotes/generate lo
+      // rechazaba. viewUrl es una ruta propia (/api/files?...&type=client-
+      // document) que por defecto redirige a R2 para que <iframe>/<img> la
+      // carguen directo; un <a download> sobre esa redirección sigue
+      // terminando cruzada de origen y el navegador la ignora. &download=1
+      // hace que la misma ruta devuelva los bytes directo, mismo origen de
+      // punta a punta.
+      if (viewUrl) {
         const filename = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
         const downloadUrl = typeof viewUrl === 'string' && viewUrl.startsWith('/api/files')
           ? `${viewUrl}&download=1&filename=${encodeURIComponent(filename)}`
@@ -66,6 +70,7 @@ function DownloadBtn({ docId, title, primary }: { docId: string; title: string; 
         document.body.removeChild(a)
         return
       }
+      if (!dataJson) throw new Error('Propuesta sin contenido')
 
       // Se manda solo el id -- el servidor re-deriva y re-verifica el
       // contenido (ver /api/quotes/generate), nunca confía en un blob que

@@ -18,13 +18,21 @@ export async function resolveInformeUrl(docId: string, opts?: { download?: boole
   if (!metaRes.ok) throw new Error('No se pudo cargar el informe')
   const { dataJson, viewUrl } = await metaRes.json()
 
-  if (!dataJson) {
-    if (!viewUrl) throw new Error('Informe sin contenido')
+  // viewUrl gana siempre que exista: un archivo real ya subido a R2 es la
+  // fuente de verdad. Antes se decidía por `!dataJson`, pero un informe con
+  // archivo real puede TAMBIÉN traer un dataJson no vacío (ej. un stub
+  // `{"workOrder":"..."}` escrito por otro flujo, sin relación con el
+  // ReportData completo) -- bug real reportado en vivo: "Ver"/"Descargar"
+  // no funcionaban para ese informe porque esta función intentaba generar
+  // un PDF desde ese stub incompleto en vez de usar el archivo real que sí
+  // existía, y /api/reports/generate rechazaba el stub con 422.
+  if (viewUrl) {
     if (opts?.download && typeof viewUrl === 'string' && viewUrl.startsWith('/api/files')) {
       return `${viewUrl}&download=1&filename=${encodeURIComponent(opts.filename ?? 'informe.pdf')}`
     }
     return viewUrl
   }
+  if (!dataJson) throw new Error('Informe sin contenido')
 
   const pdfRes = await fetch('/api/reports/generate', {
     method: 'POST',
