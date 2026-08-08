@@ -31,7 +31,9 @@ const NAV_SECTIONS = [
       { href: '/cotizador', label: 'Propuestas', icon: DocIcon },
       { href: '/informe', label: 'Informes', icon: ReportIcon },
       { href: '/documentos', label: 'Carpetas clientes', icon: FolderIcon },
-      { href: '/pipeline', label: 'Pipeline', icon: PipelineIcon },
+      // Pipeline oculto del menú a pedido del dueño (2026-08-08): no se usa
+      // hoy ni aporta valor. La ruta /pipeline sigue existiendo (no se borró
+      // código ni datos) -- solo se sacó del nav.
       { href: '/flujo', label: 'Flujo de Caja', icon: CashIcon },
       { href: '/flujo/reportes', label: 'Reportes', icon: ChartIcon },
       { href: '/conciliacion', label: 'Conciliación', icon: LinkIcon },
