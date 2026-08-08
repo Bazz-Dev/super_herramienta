@@ -62,7 +62,17 @@ export function PortalDocumentPreviewModal({
   useEffect(() => {
     if (!open) return
     if (kind === 'other') return
+    // Un blob: ya es un archivo real en memoria (recién creado desde un
+    // fetch exitoso, ver PortalInformeBtn/resolveInformeUrl) -- nunca puede
+    // "no encontrarse". Bug real reportado en vivo: fetch(blobUrl, {method:
+    // 'HEAD'}) no soporta HEAD de forma confiable en Chrome (a diferencia de
+    // lo que decía el comentario original de esta función, "ambas soportan
+    // HEAD/GET") -- rechazaba o devolvía no-ok, así que CUALQUIER informe
+    // generado on-demand mostraba "Documento no disponible" pese a que el
+    // PDF ya estaba listo en el blob. El HEAD-precheck sigue aplicando solo
+    // a URLs de red reales, donde sí puede fallar.
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sincroniza con un sistema externo (red: HEAD antes de prometer un preview), mismo patrón ya usado en portal-ticket-list.tsx
+    if (url.startsWith('blob:')) { setMissing(false); return }
     setChecking(true)
     setMissing(false)
     fetch(url, { method: 'HEAD' })
