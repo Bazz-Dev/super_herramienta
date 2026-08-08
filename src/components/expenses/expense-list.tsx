@@ -72,6 +72,10 @@ export function ExpenseList({ expenses, canApprove, canDelete, canEditAny = fals
   const [rejectModal, setRejectModal] = useState<{ id: string } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [editModal, setEditModal] = useState<ExpenseRow | null>(null)
+  // window.confirm() está prohibido para acciones destructivas (frontend.md)
+  // -- confirmación inline en su lugar, mismo patrón ya usado en el resto de
+  // la app (doc-section.tsx, portal-new-ticket-form.tsx, etc.).
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   function approve(id: string) {
     setActionId(id)
@@ -105,8 +109,8 @@ export function ExpenseList({ expenses, canApprove, canDelete, canEditAny = fals
     })
   }
 
-  function handleDelete(id: string) {
-    if (!confirm('¿Eliminar este gasto?')) return
+  function doDelete(id: string) {
+    setConfirmDeleteId(null)
     setActionId(id)
     startTransition(async () => {
       await deleteExpense(id)
@@ -257,13 +261,23 @@ export function ExpenseList({ expenses, canApprove, canDelete, canEditAny = fals
                           </button>
                         )}
                         {canDelete && (
-                          <button
-                            onClick={() => handleDelete(exp.id)}
-                            disabled={loading}
-                            className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
-                          >
-                            Eliminar
-                          </button>
+                          confirmDeleteId === exp.id ? (
+                            <span className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1">
+                              <span className="text-xs font-medium text-red-700">¿Eliminar?</span>
+                              <button type="button" onClick={() => setConfirmDeleteId(null)} className="text-xs text-gray-500 hover:text-gray-700 cursor-pointer">No</button>
+                              <button type="button" onClick={() => doDelete(exp.id)} disabled={loading} className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50 cursor-pointer">
+                                {loading ? '…' : 'Sí'}
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmDeleteId(exp.id)}
+                              disabled={loading}
+                              className="rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50 cursor-pointer"
+                            >
+                              Eliminar
+                            </button>
+                          )
                         )}
                       </div>
                     </td>

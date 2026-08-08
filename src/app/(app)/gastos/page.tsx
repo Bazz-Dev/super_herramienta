@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { requireActor, tenantScope } from '@/lib/tenant'
 import { prisma } from '@/lib/prisma'
 import { ExpenseList } from '@/components/expenses/expense-list'
+import { KpiCard } from '@/components/cashflow/kpi-card'
 import { ClientFilter } from '@/components/cashflow/client-filter'
 import { TechnicianFilter } from '@/components/expenses/technician-filter'
 import { TicketSearchFilter } from '@/components/expenses/ticket-search-filter'
@@ -129,20 +130,15 @@ export default async function GastosPage({
         <Link href="/dashboard" className="text-sm text-gray-500 hover:text-ink">← Dashboard</Link>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — mismo componente compartido que Dashboard/Flujo de Caja
+          (KpiCard: card blanca + borde izquierdo de color), reemplaza el
+          estilo de fondo pastel plano que Gastos seguía usando solo — esas
+          dos pantallas ya migraron de eso hace tiempo, ver el comentario
+          del propio KpiCard. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-yellow-700">Pendiente aprobación</p>
-          <p className="mt-1 text-2xl font-bold text-yellow-900">{formatClp(pendienteTotal)}</p>
-        </div>
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-blue-700">Por pagar</p>
-          <p className="mt-1 text-2xl font-bold text-blue-900">{formatClp(porPagarTotal)}</p>
-        </div>
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-green-700">Pagado este mes</p>
-          <p className="mt-1 text-2xl font-bold text-green-900">{formatClp(pagadoMesTotal)}</p>
-        </div>
+        <KpiCard label="Pendiente aprobación" value={formatClp(pendienteTotal)} tone="warn" href={statusHref('pendiente')} />
+        <KpiCard label="Por pagar" value={formatClp(porPagarTotal)} tone="info" href={statusHref('aprobado')} />
+        <KpiCard label="Pagado este mes" value={formatClp(pagadoMesTotal)} tone="good" />
       </div>
 
       {/* Filtros + exportar */}
