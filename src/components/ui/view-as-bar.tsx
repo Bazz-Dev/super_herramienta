@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActivityIndicator } from './activity-indicator'
 
 interface ViewAsUser {
   id: string
@@ -36,6 +37,18 @@ export function ViewAsBar({ activeViewName, users }: Props) {
     } else {
       startTransition(() => router.refresh())
     }
+  }
+
+  // Antes esto no daba ningún indicio visual mientras cambiaba (solo
+  // deshabilitaba el botón "×") -- bug real reportado: "Ver como" de
+  // portales cliente se sentía pegado. El cambio en sí (POST/DELETE +
+  // refresh/redirect) puede demorar un momento perceptible; ahora se nota.
+  if (isPending) {
+    return (
+      <div className="mb-2 flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-1.5">
+        <ActivityIndicator message="Cambiando de vista…" />
+      </div>
+    )
   }
 
   if (activeViewName) {

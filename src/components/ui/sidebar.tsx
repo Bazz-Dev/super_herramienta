@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useTransition, type ReactNode } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Logo } from './logo'
 import { NotificationBell } from './notification-bell'
+import { ActivityIndicator } from './activity-indicator'
 import { version as appVersion } from '../../../package.json'
 
 const NAV_SECTIONS = [
@@ -93,7 +94,18 @@ export function Sidebar({
   viewAsBar?: ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
+  // "Portales cliente" antes navegaba con <a href> crudo (recarga completa
+  // de página, no transición de Next) -- entrar a un portal desde acá se
+  // sentía "pegado" (bug real reportado: "el Ver como de los portales
+  // cliente puede demorarse... parece que la app quedó pegada"), sin
+  // ninguna razón real para forzar reload (misma sesión, sin necesidad de
+  // reset de estado del cliente). Con Link + useTransition: navegación
+  // rápida de Next + feedback visible mientras el layout/página del portal
+  // (root layout distinto, su propio fetch de datos) carga.
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
   // Longest-prefix match across every nav href (incl. portal links) — a
   // plain prefix check lit up both "Flujo de Caja" (/flujo) and "Reportes"
   // (/flujo/reportes) at once whenever a more specific sibling route
@@ -152,18 +164,23 @@ export function Sidebar({
             {portalClients.map(({ name, portalSlug }) => {
               const href = `/portal/${portalSlug}/tickets`
               const active = isActive(`/portal/${portalSlug}`)
+              const pending = isPending && navigatingTo === portalSlug
               return (
-                <a
+                <Link
                   key={portalSlug}
                   href={href}
-                  onClick={() => setOpen(false)}
+                  onClick={(e) => {
+                    setOpen(false)
+                    e.preventDefault()
+                    setNavigatingTo(portalSlug)
+                    startTransition(() => router.push(href))
+                  }}
                   className={`interactive flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors duration-150 ${
                     active ? 'bg-brand text-ink shadow-sm' : 'text-gray-600 hover:bg-gray-100 hover:text-ink'
-                  }`}
+                  } ${pending ? 'opacity-70' : ''}`}
                 >
-                  <PortalIcon />
-                  {name}
-                </a>
+                  {pending ? <ActivityIndicator message={`Abriendo ${name}…`} /> : (<><PortalIcon />{name}</>)}
+                </Link>
               )
             })}
           </div>

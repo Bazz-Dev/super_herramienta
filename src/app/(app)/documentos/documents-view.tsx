@@ -9,6 +9,7 @@ import { renderQuoteHTML } from '@/lib/quotes/template'
 import { renderReportHTML } from '@/lib/reports/template'
 import { DocumentPreviewShell } from '@/components/quotes/document-quick-preview'
 import { buildDownloadFilename } from '@/lib/tickets/file-naming'
+import { ActivityIndicator } from '@/components/ui/activity-indicator'
 import { addToPipeline } from '@/lib/pipeline/actions'
 import { PROPOSAL_STATUS_LABELS, PROPOSAL_STATUS_COLORS } from '@/lib/pipeline/labels'
 import type { ProposalStatus } from '@/generated/prisma/enums'
@@ -763,7 +764,9 @@ export function DocumentsView({ clientFolders: initial }: { clientFolders: Clien
 
           {previewLoading && (
             <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-              <Spinner size={32} />
+              <div className="rounded-xl bg-white px-5 py-4 shadow-lg">
+                <ActivityIndicator message="Preparando vista previa…" />
+              </div>
             </div>
           )}
 

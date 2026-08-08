@@ -9,6 +9,7 @@ import { renderReportHTML } from '@/lib/reports/template'
 import { previewSrc } from '@/lib/reports/resolve-preview-url'
 import type { ReportData } from '@/lib/reports/types'
 import { buildDownloadFilename } from '@/lib/tickets/file-naming'
+import { ActivityOverlay } from '@/components/ui/activity-indicator'
 
 // Shell visual compartido del modal de preview — antes documents-view.tsx
 // tenía su propio overlay full-screen paralelo a este (mismo fixed inset-0 +
@@ -220,7 +221,7 @@ export function DocumentQuickPreview({
           }
         >
           {loading && (
-            <div className="flex h-full items-center justify-center"><Spinner size={32} /></div>
+            <ActivityOverlay message="Preparando vista previa…" />
           )}
           {error && !loading && (
             <div className="flex h-full items-center justify-center px-6 text-center text-sm text-red-600">{error}</div>
