@@ -87,6 +87,22 @@ export default async function ConciliacionPage({
   ])
   const reportedTicketIds = new Set(reportedTicketIdsRaw.map((d) => d.ticketId))
 
+  // Dirección inversa (pedido explícito del dueño: "tickets sin flujo
+  // asociado", la mitad de esta bandeja que faltaba — todo lo de arriba
+  // nace de Job, así que un ticket resuelto que nunca llegó a tener un
+  // trabajo de Flujo de Caja no aparecía en ninguna fila, ni siquiera como
+  // excepción). Mismo criterio de tenant/cliente que el resto de la página.
+  const jobbedTicketIds = new Set(jobs.map((j) => j.originTicketId).filter((id): id is string => !!id))
+  const resolvedTicketsRaw = await prisma.ticket.findMany({
+    where: {
+      ...tenantScope(actor), deletedAt: null, status: 'resuelto',
+      ...(cliente ? { clientId: cliente } : {}),
+      id: { notIn: [...jobbedTicketIds] },
+    },
+    select: { id: true, ticketCode: true, title: true, closedDate: true, client: { select: { id: true, name: true } }, branch: { select: { name: true } } },
+    orderBy: { closedDate: 'desc' },
+  })
+
   // Íconos de estado documental (pedido explícito del dueño) — 3 queries
   // planas filtradas por los ticketId reales de esta página (mismo patrón
   // que reportedTicketIdsRaw arriba), nunca un include anidado por Job — con
@@ -220,6 +236,7 @@ export default async function ConciliacionPage({
       {tab === 'activo' ? (
         <ActivoTab
           rows={rows} counts={counts} finCounts={finCounts} estado={estado} fin={fin} factura={factura} page={page} qs={qs}
+          resolvedTicketsWithoutJob={resolvedTicketsRaw}
           photosByTicket={photosByTicket} otherDocsByTicket={otherDocsByTicket} receiptsByTicket={receiptsByTicket} informesByTicket={informesByTicket}
         />
       ) : (
@@ -265,7 +282,7 @@ type ActivoRow = {
 type DocFile = { fileUrl: string; name: string }
 
 function ActivoTab({
-  rows, counts, finCounts, estado, fin, factura, page, qs,
+  rows, counts, finCounts, estado, fin, factura, page, qs, resolvedTicketsWithoutJob,
   photosByTicket, otherDocsByTicket, receiptsByTicket, informesByTicket,
 }: {
   rows: ActivoRow[]
@@ -276,13 +293,23 @@ function ActivoTab({
   factura: string | undefined
   page: number
   qs: (o: Record<string, string | undefined>) => string
+  resolvedTicketsWithoutJob: {
+    id: string; ticketCode: string; title: string; closedDate: Date | null
+    client: { id: string; name: string }; branch: { name: string } | null
+  }[]
   photosByTicket: Map<string, DocFile[]>
   otherDocsByTicket: Map<string, DocFile[]>
   receiptsByTicket: Map<string, { fileUrl: string; description: string | null }[]>
   informesByTicket: Map<string, { id: string; title: string }[]>
 }) {
+  // Bandeja de excepciones (pedido explícito del dueño): sin filtro de
+  // estado activo, una fila cuyo ÚNICO estado es VINCULADO (ya tiene ticket,
+  // OT e IT — nada pendiente) se oculta por defecto. Elegir explícitamente
+  // el pill "Vinculado" sigue mostrando esas filas igual que antes (mismo
+  // match exacto) — esto solo cambia qué se ve SIN ningún filtro tocado.
+  const cleanlyLinkedCount = rows.filter((r) => r.estados.length === 1 && r.estados[0] === 'VINCULADO').length
   const filtered = rows
-    .filter((r) => !estado || r.estados.includes(estado as EstadoConciliacion))
+    .filter((r) => estado ? r.estados.includes(estado as EstadoConciliacion) : r.estados.some((e) => e !== 'VINCULADO'))
     .filter((r) => !fin || r.fin === (fin as FinancialState))
     .filter((r) => !factura || r.facturaNumbers.some((n) => n.toLowerCase().includes(factura.toLowerCase())))
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -306,6 +333,11 @@ function ActivoTab({
           </Link>
         ))}
       </div>
+      {!estado && cleanlyLinkedCount > 0 && (
+        <p className="mt-1.5 text-xs text-gray-400">
+          Bandeja de excepciones: {cleanlyLinkedCount} trabajo{cleanlyLinkedCount === 1 ? '' : 's'} ya conciliado{cleanlyLinkedCount === 1 ? '' : 's'} (ticket, OT e IT sin pendientes) no se muestra{cleanlyLinkedCount === 1 ? '' : 'n'} acá — click en &quot;Vinculado&quot; para verlo{cleanlyLinkedCount === 1 ? '' : 's'}.
+        </p>
+      )}
 
       <div className="mt-2 flex flex-wrap gap-2">
         {FIN_STATES.map((f) => (
@@ -325,11 +357,56 @@ function ActivoTab({
         </Suspense>
       </div>
 
+      {/* "Tickets sin flujo asociado" — la otra mitad de la bandeja de
+          excepciones. Todo lo de arriba nace de Job, así que un ticket
+          resuelto que nunca llegó a convertirse en un trabajo de Flujo de
+          Caja (se olvidó cobrar) no aparecía en ninguna fila, ni como
+          excepción. Solo en la vista de excepciones por defecto — no tiene
+          sentido cruzarla con filtros que son de Job (estado/fin/factura). */}
+      {!estado && !fin && !factura && resolvedTicketsWithoutJob.length > 0 && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-amber-200 bg-amber-50">
+          <div className="border-b border-amber-200 bg-amber-100/60 px-4 py-2.5">
+            <p className="text-sm font-semibold text-amber-800">
+              Tickets resueltos sin trabajo en Flujo de Caja ({resolvedTicketsWithoutJob.length})
+            </p>
+            <p className="text-xs text-amber-700">Se cerraron pero nunca se creó el cobro correspondiente.</p>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {resolvedTicketsWithoutJob.map((t) => (
+              <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
+                <div className="min-w-0">
+                  <Link href={`/tickets/${t.id}`} className="font-mono text-xs font-semibold text-brand hover:underline">{t.ticketCode}</Link>
+                  <p className="truncate text-gray-700">{t.title}</p>
+                  <p className="text-xs text-gray-400">{t.client.name}{t.branch ? ` · ${t.branch.name}` : ''}{t.closedDate ? ` · cerrado ${t.closedDate.toLocaleDateString('es-CL')}` : ''}</p>
+                </div>
+                <Link
+                  href={`/flujo/trabajos/new?cliente=${t.client.id}&ticketId=${t.id}&ticketCode=${encodeURIComponent(t.ticketCode)}&quoteRef=${encodeURIComponent(t.ticketCode)}`}
+                  className="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+                >
+                  Crear trabajo →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
         {pageRows.length === 0 ? (
           <div className="px-4 py-10 text-center">
-            <p className="text-sm font-semibold text-ink">No hay registros con este filtro</p>
-            <p className="mt-1 text-xs text-gray-400">Pruebe otro cliente o estado.</p>
+            {!estado && !fin && !factura ? (
+              <>
+                <p className="text-sm font-semibold text-ok-700">✓ Todo conciliado — sin excepciones pendientes</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  {cleanlyLinkedCount > 0 ? `${cleanlyLinkedCount} trabajo${cleanlyLinkedCount === 1 ? '' : 's'} vinculado${cleanlyLinkedCount === 1 ? '' : 's'} sin nada pendiente.` : 'No hay trabajos para este cliente todavía.'}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-ink">No hay registros con este filtro</p>
+                <p className="mt-1 text-xs text-gray-400">Pruebe otro cliente, estado o búsqueda.</p>
+              </>
+            )}
           </div>
         ) : (
           <table className="w-full text-sm">
